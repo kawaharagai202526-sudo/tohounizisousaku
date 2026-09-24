@@ -1,0 +1,1769 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ミッドウェー海戦 1942</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --ink:#0b0d11; --ink-2:#141922; --ink-3:#202835;
+  --paper:#ebe5d6; --paper-dim:rgba(235,229,214,.72); --paper-faint:rgba(235,229,214,.42);
+  --rule:rgba(235,229,214,.22);
+  --axis:#86a7d9; --soviet:#d8463c; --romania:#d6a03a; --italy:#62a870; --brass:#c2a66a;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --f-ui:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --f-num:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --bar-h:clamp(0px,7vh,64px);
+  --gut:max(16px,3.2vw);
+}
+html{height:100%;box-sizing:border-box;background:var(--ink)}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--f-ui);-webkit-font-smoothing:antialiased}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:var(--ink);-webkit-user-select:none;user-select:none}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.bar{position:absolute;left:0;right:0;height:var(--bar-h);background:#000;z-index:5;pointer-events:none;transition:transform 1s cubic-bezier(.6,0,.2,1)}
+.bar.top{top:0}.bar.bottom{bottom:0}
+#app:not(.cinema) .bar.top{transform:translateY(-100%)}
+#app:not(.cinema) .bar.bottom{transform:translateY(100%)}
+@media (max-aspect-ratio:5/4){.bar{display:none}:root{--bar-h:0px}}
+
+.hud{position:absolute;z-index:6;pointer-events:none;transition:opacity .6s}
+#app.hide-ui .hud,#app.hide-ui .controls{opacity:0!important}
+.mark{top:calc(var(--bar-h) + 14px);left:var(--gut)}
+.mark-kicker{font-size:10.5px;letter-spacing:.3em;color:var(--brass);font-weight:700}
+.mark-title{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.16em;margin-top:2px;text-shadow:0 1px 3px #000}
+
+.dateblock{top:calc(var(--bar-h) + 12px);right:var(--gut);text-align:right;opacity:0}
+.dateblock.on{opacity:1}
+.d-year{font-family:var(--f-num);font-weight:600;font-size:17px;letter-spacing:.34em;color:var(--brass);margin-right:-.34em}
+.d-md{font-family:var(--f-num);font-weight:700;font-size:52px;line-height:.95;letter-spacing:.01em;text-shadow:0 2px 12px rgba(0,0,0,.7);font-variant-numeric:tabular-nums}
+.d-md i{font-style:normal;font-family:var(--f-display);font-size:19px;font-weight:700;margin:0 .12em 0 .06em;color:var(--paper-dim)}
+.d-ch{font-size:12px;letter-spacing:.14em;color:var(--paper-dim);border-top:1px solid var(--rule);margin-top:6px;padding-top:5px}
+.event{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;letter-spacing:.12em;padding:4px 10px;background:var(--soviet);color:#fff;opacity:0;transform:translateY(-4px);transition:opacity .4s,transform .4s}
+.event.on{opacity:1;transform:none}
+.event.axis{background:#3d5f93}
+
+.caption{left:var(--gut);bottom:calc(var(--bar-h) + 70px);max-width:min(44em,calc(100% - 2*var(--gut)));padding:12px 22px 13px 16px;border-left:2px solid var(--brass);background:linear-gradient(90deg,rgba(8,10,14,.74),rgba(8,10,14,.5) 70%,rgba(8,10,14,0));opacity:0;transform:translateY(8px);transition:opacity .7s,transform .7s}
+.caption.on{opacity:1;transform:none}
+.caption p{margin:0;font-family:var(--f-display);font-weight:500;font-size:clamp(15px,1.55vw,21px);line-height:1.75;letter-spacing:.04em;text-wrap:pretty;text-shadow:0 1px 2px #000}
+
+.card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 1s;background:radial-gradient(ellipse at center,rgba(5,6,9,.62),rgba(5,6,9,0) 62%)}
+.card.on{opacity:1}
+.cc-num{font-size:13px;letter-spacing:.6em;color:var(--brass);font-weight:700;margin-right:-.6em}
+.cc-title{font-family:var(--f-display);font-weight:800;font-size:clamp(34px,5.4vw,70px);letter-spacing:.2em;margin:.18em -.2em .1em 0;text-shadow:0 4px 30px rgba(0,0,0,.8);text-wrap:balance}
+.cc-rule{width:0;height:1px;background:var(--paper);transition:width 1.6s cubic-bezier(.3,0,.1,1) .3s}
+.card.on .cc-rule{width:min(360px,60vw)}
+.cc-dates{font-family:var(--f-num);font-size:19px;font-weight:600;letter-spacing:.34em;margin-top:12px;color:var(--paper-dim)}
+.tc-latin{font-family:var(--f-num);font-weight:600;font-size:clamp(14px,1.6vw,20px);letter-spacing:1.1em;margin-right:-1.1em;color:var(--brass)}
+.tc-jp{font-family:var(--f-display);font-weight:800;font-size:clamp(36px,6.4vw,84px);letter-spacing:.16em;margin:.2em -.16em .25em 0;text-shadow:0 4px 40px rgba(0,0,0,.85)}
+
+.stats{display:flex;gap:clamp(22px,5vw,72px);flex-wrap:wrap;justify-content:center;margin-top:28px}
+.stat{min-width:9em}
+.stat-num{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,3.6vw,46px);letter-spacing:.06em}
+.stat-label{font-size:12.5px;letter-spacing:.12em;color:var(--paper-dim);margin-top:4px}
+
+.side{right:var(--gut);bottom:calc(var(--bar-h) + 70px);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.loc-wrap{position:relative;width:164px;height:164px;border:1px solid var(--rule);background:rgba(10,12,16,.55)}
+#locator{width:164px;height:164px;display:block}
+.compass{position:absolute;top:6px;left:6px;width:26px;height:26px}
+.scale{display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-num);font-size:12px;letter-spacing:.1em;color:var(--paper-dim)}
+.scale i{display:block;height:5px;border:1px solid var(--paper);border-top:none;margin-top:2px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;font-size:11.5px;color:var(--paper-dim)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend b{width:10px;height:10px;background:var(--c);display:block}
+@media (max-width:760px){.side{display:none}.mark-title{font-size:13px}.d-md{font-size:38px}}
+
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px var(--gut) 12px;background:linear-gradient(0deg,rgba(5,6,9,.9),rgba(5,6,9,0));transition:opacity .5s,transform .5s}
+.controls.idle{opacity:0;transform:translateY(10px)}
+.cbtn{appearance:none;border:1px solid var(--rule);background:rgba(20,25,34,.7);color:var(--paper);height:34px;min-width:34px;padding:0 9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:500 12.5px var(--f-ui);letter-spacing:.06em;cursor:pointer;border-radius:2px}
+.cbtn:hover{border-color:var(--paper-faint);background:rgba(40,48,62,.8)}
+.cbtn:focus-visible,.scrub input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.cbtn svg{width:15px;height:15px;fill:currentColor}
+.cbtn[aria-pressed="false"]{color:var(--paper-faint)}
+.tm{font-family:var(--f-num);font-size:14px;letter-spacing:.08em;color:var(--paper-dim);font-variant-numeric:tabular-nums;min-width:92px;text-align:center}
+.scrub{position:relative;flex:1 1 240px;height:34px;display:flex;align-items:center}
+.scrub input{width:100%;margin:0;appearance:none;-webkit-appearance:none;background:transparent;height:34px;cursor:pointer;position:relative;z-index:2}
+.scrub input::-webkit-slider-runnable-track{height:4px;background:transparent}
+.scrub input::-moz-range-track{height:4px;background:transparent}
+.scrub input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--brass);margin-top:-4.5px;border:2px solid var(--ink)}
+.scrub input::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--brass);border:2px solid var(--ink)}
+.track{position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;background:rgba(235,229,214,.16);pointer-events:none}
+.track-fill{position:absolute;left:0;top:0;bottom:0;background:var(--paper-dim)}
+.tick{position:absolute;top:-4px;width:1px;height:12px;background:var(--paper-faint)}
+.tick span{position:absolute;bottom:14px;left:0;transform:translateX(-10%);font-size:10.5px;white-space:nowrap;color:var(--paper-faint);letter-spacing:.06em}
+@media (max-width:900px){.tick span{display:none}}
+select.cbtn{padding-right:6px}
+
+.start{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px var(--gut);background:radial-gradient(ellipse at 50% 60%,rgba(8,10,14,.35),rgba(8,10,14,.88));transition:opacity 1.2s}
+.start.gone{opacity:0;pointer-events:none}
+.start-inner{max-width:640px;text-align:center}
+.s-kicker{font-size:11px;letter-spacing:.42em;color:var(--brass);font-weight:700}
+.s-title{font-family:var(--f-display);font-weight:800;font-size:clamp(32px,6vw,62px);letter-spacing:.14em;margin:.28em 0 .1em;line-height:1.25;text-wrap:balance}
+.s-latin{font-family:var(--f-num);font-weight:600;letter-spacing:.6em;color:var(--paper-dim);font-size:15px}
+.s-desc{font-family:var(--f-display);font-size:16px;line-height:1.9;color:var(--paper-dim);margin:22px auto 26px;max-width:32em;text-wrap:pretty}
+.load{width:min(320px,80%);margin:0 auto 22px}
+.load-bar{height:2px;background:var(--rule);position:relative;overflow:hidden}
+.load-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--brass);transition:width .2s}
+.load-text{font-size:11.5px;color:var(--paper-faint);margin-top:8px;letter-spacing:.12em}
+.s-btn{appearance:none;cursor:pointer;border:1px solid var(--paper);background:var(--paper);color:var(--ink);font:700 15px var(--f-ui);letter-spacing:.2em;padding:13px 34px;border-radius:1px}
+.s-btn:disabled{opacity:.35;cursor:wait}
+.s-btn:not(:disabled):hover{background:transparent;color:var(--paper)}
+.s-btn:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+.s-hint{font-size:11.5px;color:var(--paper-faint);margin-top:18px;letter-spacing:.06em;line-height:1.8}
+.toast{position:absolute;top:calc(var(--bar-h) + 16px);left:50%;transform:translate(-50%,-8px);z-index:9;background:rgba(10,12,16,.85);border:1px solid var(--rule);padding:7px 14px;font-size:12.5px;letter-spacing:.06em;opacity:0;transition:opacity .4s,transform .4s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.err{position:absolute;inset:auto var(--gut) 90px;z-index:11;color:#fff;background:#6a1f1a;padding:10px 14px;font-size:13px;display:none}
+
+.lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;color:var(--paper);text-shadow:0 1px 2px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.55)}
+.lb-city{font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.26em;text-align:center}
+.lb-city small{display:block;font-family:var(--f-num);font-size:11px;letter-spacing:.5em;color:var(--paper-dim);font-weight:600}
+.lb-place{font-size:12.5px;font-weight:500;letter-spacing:.06em}
+.lb-place::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--paper);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.55)}
+.lb-river{font-family:var(--f-display);font-size:13.5px;letter-spacing:.42em;color:#a9c9e8;font-weight:700}
+.lb-unit{font-size:12px;line-height:1.3;padding:3px 9px 4px 7px;background:rgba(9,11,15,.74);border-left:3px solid var(--c);text-shadow:none}
+.lb-unit b{display:block;font-weight:700;letter-spacing:.04em}
+.lb-unit span{font-size:10.5px;color:var(--paper-dim)}
+.lb-arrow{font-family:var(--f-display);font-weight:800;font-size:15.5px;letter-spacing:.08em;color:var(--c);text-shadow:0 0 3px #000,0 0 3px #000,0 2px 8px #000}
+.lb-pin{display:flex;flex-direction:column;align-items:center}
+.pin-box{font-size:12px;padding:4px 9px 5px;background:rgba(236,230,216,.93);color:#12151b;font-weight:700;letter-spacing:.04em;text-shadow:none;text-align:center}
+.pin-box small{display:block;font-family:var(--f-num);font-weight:600;font-size:11px;letter-spacing:.14em;color:#6b5528}
+.pin-line{width:1px;height:30px;background:linear-gradient(rgba(236,230,216,.95),rgba(236,230,216,.15))}
+.lb-event .pin-box{background:var(--soviet);color:#fff}
+.lb-event .pin-box small{color:#ffe1d8}
+.lb-event.axis .pin-box{background:#3d5f93}
+.lb-big{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.5em;color:#ffb3a8;text-shadow:0 0 4px #000,0 0 18px rgba(0,0,0,.9)}
+@media (prefers-reduced-motion:reduce){.caption,.card,.bar,.controls{transition:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app" class="cinema">
+  <canvas id="stage" tabindex="-1"></canvas>
+  <div id="labels"></div>
+  <div class="bar top"></div><div class="bar bottom"></div>
+
+  <header class="hud mark"><div class="mark-kicker">3D 再現ドキュメント</div><div class="mark-title">ミッドウェー海戦</div></header>
+
+  <div class="hud dateblock" id="dateblock">
+    <div class="d-year" id="dYear">1942</div>
+    <div class="d-md"><span id="dMonth">5</span><i>月</i><span id="dDay">27</span><i>日</i></div>
+    <div class="d-ch" id="dChapter"></div>
+    <div class="event" id="eventChip"></div>
+  </div>
+
+  <div class="hud caption" id="caption"><p id="captionText"></p></div>
+
+  <div class="hud side">
+    <div class="loc-wrap"><canvas id="locator" width="328" height="328" aria-label="位置図"></canvas>
+      <svg class="compass" id="compass" viewBox="-13 -13 26 26" aria-hidden="true"><g id="compassRot"><path d="M0,-11 L4,2 L0,0 L-4,2Z" fill="#ebe5d6"/><path d="M0,11 L4,2 L0,0 L-4,2Z" fill="rgba(235,229,214,.35)"/><text x="0" y="-5.5" font-size="0" fill="#000">N</text></g></svg>
+    </div>
+    <div class="scale" id="scale"><span id="scaleText">10 km</span><i id="scaleBar" style="width:60px"></i></div>
+    <div class="legend"><span><b style="--c:#d94a3c"></b>日本軍</span><span><b style="--c:#4d7fdc"></b>アメリカ軍</span></div>
+  </div>
+
+  <div class="card" id="titleCard">
+    <div class="tc-latin">MIDWAY</div>
+    <div class="tc-jp">ミッドウェー海戦</div>
+    <div class="cc-rule"></div>
+    <div class="cc-dates">1942.6.4 — 6.7</div>
+  </div>
+  <div class="card" id="chapterCard">
+    <div class="cc-num" id="ccNum"></div>
+    <div class="cc-title" id="ccTitle"></div>
+    <div class="cc-rule"></div>
+    <div class="cc-dates" id="ccDates"></div>
+  </div>
+  <div class="card" id="statsCard">
+    <div class="cc-num">終章</div>
+    <div class="cc-title" style="font-size:clamp(26px,3.6vw,44px)">転換点</div>
+    <div class="cc-rule"></div>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">空母4隻</div><div class="stat-label">日本側が失った空母（赤城・加賀・蒼龍・飛龍）</div></div>
+      <div class="stat"><div class="stat-num">約3,000人</div><div class="stat-label">日本側の戦死者（米側 約300人）</div></div>
+      <div class="stat"><div class="stat-num">空母1隻</div><div class="stat-label">アメリカ側が失った空母（ヨークタウン）</div></div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="cbtn" id="btnPlay" aria-label="再生"><svg viewBox="0 0 16 16" id="icoPlay"><path d="M4 2l10 6-10 6z"/></svg></button>
+    <button class="cbtn" id="btnPrev" aria-label="前の章"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
+    <button class="cbtn" id="btnNext" aria-label="次の章"><svg viewBox="0 0 16 16"><path d="M11 2h2v12h-2zM2 2v12l8-6z"/></svg></button>
+    <div class="tm"><span id="tCur">0:00</span> / <span id="tEnd">0:00</span></div>
+    <div class="scrub"><div class="track"><div class="track-fill" id="trackFill"></div><div id="ticks"></div></div><input type="range" id="scrub" min="0" max="100" step="0.01" value="0" aria-label="再生位置"></div>
+    <select class="cbtn" id="speed" aria-label="再生速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+    <select class="cbtn" id="quality" aria-label="画質"><option value="high">高画質</option><option value="std">標準</option><option value="low">軽量</option></select>
+    <button class="cbtn" id="btnLabels" aria-pressed="true" aria-label="ラベル表示">ラベル</button>
+    <button class="cbtn" id="btnSound" aria-pressed="true" aria-label="サウンド">音</button>
+    <button class="cbtn" id="btnFull" aria-label="全画面"><svg viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg></button>
+  </div>
+
+  <div class="start" id="start">
+    <div class="start-inner">
+      <div class="s-kicker">3D 再現ドキュメント</div>
+      <h1 class="s-title">ミッドウェー海戦</h1>
+      <div class="s-latin">MIDWAY 1942</div>
+      <p class="s-desc">1942年6月4日、中部太平洋ミッドウェー島の北西。島への空襲、索敵と兵装転換、雷撃隊の突入、運命の5分間、飛龍の反撃と最期まで。カメラが艦隊と攻撃隊を自動で追う約4分20秒の3D俯瞰映像。</p>
+      <div class="load"><div class="load-bar"><i id="loadFill"></i></div><div class="load-text" id="loadText">地形を生成しています…</div></div>
+      <button class="s-btn" id="btnStart" disabled>▶ 視聴を開始</button>
+      <div class="s-hint">Space 再生／一時停止　← → 5秒移動　1〜8 章へ移動<br>L ラベル　H 字幕等を隠す　F 全画面</div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="err" id="err"></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* =====================================================================
+   座標系: 1 unit = 1 km。x = 東, z = 南（北は -z）。原点は各シナリオで定義。
+   高さ: メートル値 × VY
+   ===================================================================== */
+const DEG = Math.PI / 180;
+
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const win = (t, a, b, fi = 1, fo = 1) => smooth(a, a + fi, t) * (1 - smooth(b, b + fo, t)); // 時間窓
+
+function rng(a) {
+  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+/* ---------- Simplex 2D ---------- */
+const PERM = new Uint8Array(512);
+{ const p = new Uint8Array(256), r = rng(1942); for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = p[i]; p[i] = p[j]; p[j] = t; }
+  for (let i = 0; i < 512; i++) PERM[i] = p[i & 255]; }
+const GX = [1, -1, 1, -1, 1, -1, 0, 0], GZ = [1, 1, -1, -1, 0, 0, 1, -1];
+const F2 = 0.5 * (Math.sqrt(3) - 1), G2 = (3 - Math.sqrt(3)) / 6;
+function noise2(xin, yin) {
+  const s = (xin + yin) * F2, i = Math.floor(xin + s), j = Math.floor(yin + s);
+  const t = (i + j) * G2, x0 = xin - (i - t), y0 = yin - (j - t);
+  const i1 = x0 > y0 ? 1 : 0, j1 = 1 - i1;
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+  const ii = i & 255, jj = j & 255; let n = 0, g, q;
+  q = 0.5 - x0 * x0 - y0 * y0; if (q > 0) { g = PERM[ii + PERM[jj]] & 7; q *= q; n += q * q * (GX[g] * x0 + GZ[g] * y0); }
+  q = 0.5 - x1 * x1 - y1 * y1; if (q > 0) { g = PERM[ii + i1 + PERM[jj + j1]] & 7; q *= q; n += q * q * (GX[g] * x1 + GZ[g] * y1); }
+  q = 0.5 - x2 * x2 - y2 * y2; if (q > 0) { g = PERM[ii + 1 + PERM[jj + 1]] & 7; q *= q; n += q * q * (GX[g] * x2 + GZ[g] * y2); }
+  return 70 * n;
+}
+function fbm2(x, y, oct) {
+  let a = 1, f = 1, s = 0, n = 0;
+  for (let o = 0; o < oct; o++) { s += a * noise2(x * f, y * f); n += a; a *= 0.5; f *= 2.03; }
+  return s / n;
+}
+
+/* ---------- ポリライン ---------- */
+function polyLen(p, closed) { let L = 0; const n = p.length; for (let i = 0; i < n - (closed ? 0 : 1); i++) { const a = p[i], b = p[(i + 1) % n]; L += Math.hypot(b[0] - a[0], b[1] - a[1]); } return L; }
+function resample(p, n, closed = false) {
+  const L = polyLen(p, closed), out = [], m = p.length, segs = closed ? m : m - 1;
+  const step = L / (closed ? n : n - 1); let si = 0, acc = 0;
+  for (let k = 0; k < n; k++) {
+    const target = k * step;
+    while (si < segs - 1) { const a = p[si], b = p[(si + 1) % m]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (acc + l >= target) break; acc += l; si++; }
+    const a = p[si], b = p[(si + 1) % m]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1e-6;
+    const u = clamp((target - acc) / l, 0, 1); out.push([lerp(a[0], b[0], u), lerp(a[1], b[1], u)]);
+  }
+  return out;
+}
+function smoothPoly(p, sub = 4, closed = false) { // Catmull-Rom 補間
+  const n = p.length, out = [], P = i => closed ? p[(i + n) % n] : p[clamp(i, 0, n - 1)];
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    for (let s = 0; s < sub; s++) {
+      const t = s / sub, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map(d => 0.5 * (2 * p1[d] + (-p0[d] + p2[d]) * t + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * t2 + (-p0[d] + 3 * p1[d] - 3 * p2[d] + p3[d]) * t3)));
+    }
+  }
+  if (!closed) out.push(p[n - 1].slice());
+  return out;
+}
+class PolyDist { // 線分群への最近距離（bbox で早期棄却）
+  constructor(pts) {
+    this.pts = pts; const n = pts.length - 1; this.n = n;
+    this.ax = new Float64Array(n); this.az = new Float64Array(n); this.dx = new Float64Array(n); this.dz = new Float64Array(n);
+    this.l2 = new Float64Array(n); this.cum = new Float64Array(n + 1);
+    this.mnx = new Float64Array(n); this.mxx = new Float64Array(n); this.mnz = new Float64Array(n); this.mxz = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[i + 1];
+      this.ax[i] = a[0]; this.az[i] = a[1]; this.dx[i] = b[0] - a[0]; this.dz[i] = b[1] - a[1];
+      this.l2[i] = this.dx[i] ** 2 + this.dz[i] ** 2 || 1e-9; this.cum[i + 1] = this.cum[i] + Math.sqrt(this.l2[i]);
+      this.mnx[i] = Math.min(a[0], b[0]); this.mxx[i] = Math.max(a[0], b[0]); this.mnz[i] = Math.min(a[1], b[1]); this.mxz[i] = Math.max(a[1], b[1]);
+    }
+    this.L = this.cum[n];
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    this.bb = [x0, x1, z0, z1]; this.d = Infinity; this.s = 0;
+  }
+  query(x, z, R) { // 見つかれば true。this.d = 距離, this.s = 始点からの割合
+    const b = this.bb; if (x < b[0] - R || x > b[1] + R || z < b[2] - R || z > b[3] + R) return false;
+    let best = R * R, bi = -1, bt = 0;
+    for (let i = 0; i < this.n; i++) {
+      if (x < this.mnx[i] - R || x > this.mxx[i] + R || z < this.mnz[i] - R || z > this.mxz[i] + R) continue;
+      const px = x - this.ax[i], pz = z - this.az[i];
+      let t = (px * this.dx[i] + pz * this.dz[i]) / this.l2[i]; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const ex = px - this.dx[i] * t, ez = pz - this.dz[i] * t, d2 = ex * ex + ez * ez;
+      if (d2 < best) { best = d2; bi = i; bt = t; }
+    }
+    if (bi < 0) return false;
+    this.d = Math.sqrt(best); this.s = (this.cum[bi] + bt * Math.sqrt(this.l2[bi])) / this.L; return true;
+  }
+}
+function pointInPoly(x, z, p) { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const a = p[i], b = p[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+
+/* ---------- キーフレーム ---------- */
+// Hermite（時間方向に C1 連続）。keys: [{t, v:[..]}]
+class HTrack {
+  constructor(keys) {
+    this.k = keys; const n = keys.length, d = keys[0].v.length; this.m = [];
+    for (let i = 0; i < n; i++) {
+      const m = new Array(d).fill(0);
+      if (i > 0 && i < n - 1 && !keys[i].hold) {
+        const a = keys[i - 1], b = keys[i], c = keys[i + 1];
+        for (let j = 0; j < d; j++) {
+          const s0 = (b.v[j] - a.v[j]) / (b.t - a.t), s1 = (c.v[j] - b.v[j]) / (c.t - b.t);
+          m[j] = (s0 * (c.t - b.t) + s1 * (b.t - a.t)) / (c.t - a.t);
+          if (s0 * s1 <= 0) m[j] *= 0.35; // 往復時のオーバーシュート抑制
+        }
+      }
+      this.m.push(m);
+    }
+    this.out = new Array(d).fill(0);
+  }
+  at(t) {
+    const k = this.k, n = k.length, o = this.out;
+    if (t <= k[0].t) { for (let j = 0; j < o.length; j++) o[j] = k[0].v[j]; return o; }
+    if (t >= k[n - 1].t) { for (let j = 0; j < o.length; j++) o[j] = k[n - 1].v[j]; return o; }
+    let i = 0; while (i < n - 2 && t > k[i + 1].t) i++;
+    const a = k[i], b = k[i + 1], h = b.t - a.t, u = (t - a.t) / h, u2 = u * u, u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    for (let j = 0; j < o.length; j++) o[j] = h00 * a.v[j] + h10 * h * this.m[i][j] + h01 * b.v[j] + h11 * h * this.m[i + 1][j];
+    return o;
+  }
+}
+// 区間ごとに smoothstep（オーバーシュートなし）。keys: [[t, {param:value|[r,g,b]}], ...]
+function sKeys(keys, t) {
+  const n = keys.length; if (t <= keys[0][0]) return keys[0][1]; if (t >= keys[n - 1][0]) return keys[n - 1][1];
+  let i = 0; while (i < n - 2 && t > keys[i + 1][0]) i++;
+  const [ta, A] = keys[i], [tb, B] = keys[i + 1], u = smooth(ta, tb, t), o = {};
+  for (const p in A) { const a = A[p], b = B[p] ?? a; o[p] = Array.isArray(a) ? a.map((x, j) => lerp(x, b[j], u)) : lerp(a, b, u); }
+  return o;
+}
+const hex2lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+
+/* =====================================================================
+   ミッドウェー：環礁と周辺海域（1 unit = 1 km、原点 = サンド島、北 = -z）
+   ===================================================================== */
+const VY = 0.02, BVY = 0.004;
+const FACTION = { jp: '#d94a3c', us: '#4d7fdc' };
+const LCOL = { jp: '#ff9c8f', us: '#9dbcff' };
+const AXIS = { x: [-8, 8, -700, 300], z: [-8, 8, -760, 300] };
+const REGION = { x0: -8, z0: -8, w: 16, h: 16 };
+const CITYR = { x0: -4, z0: -2, w: 8, h: 6 }, GRID = 0.2, CSTEP = 0.04;
+const OCEAN = { cx: -200, cz: -300, size: 3000, deep: [0.01, 0.045, 0.085] };
+
+const SAND = [-1.6, 1.2, 1.9, 1.15, -15], EASTERN = [1.6, 1.25, 1.25, 0.7, -25];
+const ell = (x, z, [cx, cz, rx, rz, rd]) => { const c = Math.cos(rd * DEG), s = Math.sin(rd * DEG), dx = x - cx, dz = z - cz; return Math.hypot((dx * c - dz * s) / rx, (dx * s + dz * c) / rz); };
+function H(x, z) {
+  const r = Math.hypot(x - 0.2, (z + 0.6) * 1.05);
+  if (r > 9) return -40 - (r - 9) * 30;
+  const reef = Math.exp(-(((r - 5.6) / 0.35) ** 2)), lagoon = 1 - smooth(4.8, 5.6, r);
+  let h = lerp(-30, -2.5, smooth(9, 6.2, r)) + reef * 3.2 + lagoon * -2 + 0.8 * fbm2(x * 1.5, z * 1.5, 2);
+  for (const I of [SAND, EASTERN]) { const q = ell(x, z, I) + 0.12 * fbm2(x * 3, z * 3, 2); if (q < 1.3) h = Math.max(h, lerp(3.5, -2, smooth(0.8, 1.25, q))); }
+  return h;
+}
+const Hy = (x, z) => H(x, z) * VY;
+let Hw = (x, z) => Math.max(H(x, z) * VY, 0);
+const CC = { sand: hex2lin('#d9ceaa'), scrub: hex2lin('#8a9660'), reef: hex2lin('#4cb0a8'), lagoon: hex2lin('#2d8f9a'), sea: hex2lin('#0d2a3c') };
+function terrainColor(x, z, h, ny, out) {
+  let c = CC.sand.slice(); const mixc = (k, t) => { for (let i = 0; i < 3; i++) c[i] = lerp(c[i], k[i], t); };
+  if (h > 0.5) mixc(CC.scrub, smooth(1.5, 3, h) * (0.4 + 0.4 * noise2(x * 4, z * 4)));
+  if (h <= 0.4) { mixc(CC.reef, 1); mixc(CC.lagoon, smooth(-0.5, -3, h)); mixc(CC.sea, smooth(-3, -30, h)); }
+  out[0] = c[0]; out[1] = c[1]; out[2] = c[2]; out[3] = 1; out[4] = 0; out[5] = 0; out[6] = 1;
+  return out;
+}
+const runwayMat = new THREE.MeshStandardMaterial({ color: 0x9a978c, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+runwayMat.onBeforeCompile = s => fogUniforms(s);
+function buildScenery() {
+  const r = rng(420604), list = [];
+  const box = (x, z, w, d, hm, rot, ruinT = 999, burnT = 999, col) => list.push([x, z, w, d, hm, rot, ruinT, 0.4 + r() * 0.4, burnT, col]);
+  for (const [a, b] of [[[0.9, 1.0], [2.3, 1.55]], [[1.2, 1.8], [2.0, 0.8]], [[1.0, 1.5], [2.2, 1.15]]]) addStrip([a, b], 0.03, 0.002, runwayMat); // イースタン島の滑走路
+  for (let i = 0; i < 16; i++) box(-2.6 + r() * 2.0, 0.8 + r() * 0.8, 0.04, 0.03, 6, 0.2, 44 + r() * 6, 44 + r() * 4);
+  for (let i = 0; i < 10; i++) box(-2.2 + (i % 5) * 0.09, 1.55 + Math.floor(i / 5) * 0.09, 0.06, 0.06, 8, 0, 999, 44 + r() * 3, '#bdb8aa'); // 燃料タンク
+  for (let i = 0; i < 8; i++) box(1.1 + r() * 1.0, 1.55 + r() * 0.3, 0.05, 0.04, 6, 0.4, 45 + r() * 5, 45 + r() * 4);
+  const trees = []; for (let i = 0; i < 260; i++) { const x = -2.8 + r() * 2.6, z = 0.6 + r() * 1.3; if (H(x, z) > 2) trees.push([x, z, 0.6 + r() * 0.4, [0.12, 0.2, 0.08]]); }
+  buildStructures(list, trees);
+}
+const LOC_LINES = [];
+const locRect = t => t < 20 ? { x0: -620, z0: -700, s: 760 } : { x0: -340, z0: -460, s: 400 };
+
+const PLACES = [
+  { k: 'city', text: 'ミッドウェー島', sub: 'MIDWAY', p: [0, 0.5], min: 20, max: 1600 },
+  { k: 'place', text: 'サンド島', p: [-1.6, 1.2], min: 2, max: 30 },
+  { k: 'place', text: 'イースタン島（飛行場）', p: [1.6, 1.25], min: 2, max: 30 },
+  { k: 'river', text: 'ポイント・ラック', p: [60, -520], min: 40, max: 900, t1: 30 },
+];
+const LANDMARKS = [];
+
+/* =====================================================================
+   レンダラー・シーン・共通 uniform・霧
+   ===================================================================== */
+const U = {
+  uTime: { value: 0 }, uStory: { value: 0 },
+  uSnow: { value: 0 }, uAutumn: { value: 0 }, uScorch: { value: 0 }, uDestroy: { value: 0 }, uFire: { value: 0 },
+  uIce: { value: 0 }, uGrid: { value: 0 }, uTerr: { value: 0 }, uSovStrip: { value: 0 },
+  uSunDir: { value: new THREE.Vector3(0.4, 0.6, 0.3).normalize() }, uSunColor: { value: new THREE.Color(1, 0.9, 0.75) },
+  uAmbient: { value: new THREE.Color(0.35, 0.38, 0.45) }, uSkyRefl: { value: new THREE.Color(0.5, 0.55, 0.6) },
+  uHFog: { value: new THREE.Vector4(0.02, 1.2, 0.0, 0) }, // 密度, 減衰, 基準高, -
+};
+// 高さ霧 + 距離霧（ノイズでまだらに流れる）を全マテリアルに適用
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+varying float vFogDepth; varying vec3 vFogW;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+vFogDepth = - mvPosition.z; vFogW = (inverse(viewMatrix) * mvPosition).xyz;
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+uniform vec3 fogColor; varying float vFogDepth; varying vec3 vFogW;
+uniform float fogDensity; uniform vec4 uHFog; uniform float uTime;
+float _fh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float _fn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(_fh(i),_fh(i+vec2(1,0)),f.x), mix(_fh(i+vec2(0,1)),_fh(i+vec2(1,1)),f.x), f.y); }
+float fogAmount(vec3 w, float depth){
+  float f = 1.0 - exp(-fogDensity*fogDensity*depth*depth);
+  float k = max(uHFog.y, 1e-3); float hc = cameraPosition.y - uHFog.z, hp = w.y - uHFog.z; float dy = hp - hc;
+  float integ = abs(dy) > 1e-3 ? (exp(-k*hc) - exp(-k*hp)) / (k*dy) : exp(-k*hp);
+  float n = _fn(w.xz*0.045 + uTime*vec2(0.020,0.008)) * 0.65 + _fn(w.xz*0.19 - uTime*vec2(0.012,0.03)) * 0.35;
+  float hf = 1.0 - exp(-uHFog.x * (0.35 + 1.3*n) * length(w - cameraPosition) * clamp(integ, 0.0, 40.0));
+  return 1.0 - (1.0 - f) * (1.0 - hf);
+}
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogAmount(vFogW, vFogDepth));
+#endif`;
+function fogUniforms(s) { s.uniforms.uHFog = U.uHFog; s.uniforms.uTime = U.uTime; }
+
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const QUALITY = { high: { pr: 1.75, shadow: 2048, msaa: 4, bloom: true }, std: { pr: 1.25, shadow: 1024, msaa: 2, bloom: true }, low: { pr: 0.85, shadow: 0, msaa: 0, bloom: false } };
+let QKEY = 'std'; try { QKEY = localStorage.getItem('stalingrad-q') || (matchMedia('(max-width: 760px)').matches ? 'low' : 'std'); } catch (e) {}
+if (!QUALITY[QKEY]) QKEY = 'std';
+let PR = Math.min(window.devicePixelRatio || 1, QUALITY[QKEY].pr);
+renderer.setPixelRatio(PR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xb8b0a0, 0.002);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 4000);
+camera.position.set(0, 300, 200);
+
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xbfd0e0, 0x5a5040, 1);
+scene.add(hemi);
+
+// 空（地平線色 = 霧の色でつなぐ）
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uZen: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uSunDir: U.uSunDir, uSunColor: U.uSunColor, uTime: U.uTime },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.); gl_Position = p.xyww; }`,
+  fragmentShader: `varying vec3 vDir; uniform vec3 uZen, uHor, uSunDir, uSunColor; uniform float uTime;
+  float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+  float n1(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h1(i),h1(i+vec2(1,0)),f.x),mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),f.x),f.y);}
+  void main(){ vec3 d = normalize(vDir); float h = d.y;
+    vec3 c = mix(uHor, uZen, pow(clamp(h,0.,1.), 0.5));
+    vec2 q = d.xz / max(h, 0.06) * 1.6; float cl = n1(q + uTime*0.01)*0.6 + n1(q*2.3 - uTime*0.014)*0.4;
+    c = mix(c, uHor*1.08, smoothstep(0.45, 0.85, cl) * smoothstep(0.02, 0.25, h) * 0.35);
+    float s = max(dot(d, normalize(uSunDir)), 0.);
+    c += uSunColor * (pow(s, 1600.)*18. + pow(s, 40.)*0.25 + pow(s, 5.)*0.12);
+    c = mix(uHor, c, smoothstep(-0.02, 0.05, h));
+    gl_FragColor = vec4(c, 1.); }`,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMat);
+sky.renderOrder = -10; sky.frustumCulled = false;
+scene.add(sky);
+
+/* ---------- ポストプロセス ---------- */
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: QUALITY[QKEY].msaa }));
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.55, 0.9);
+composer.addPass(bloom);
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uSat: { value: 0.9 }, uContrast: { value: 1.05 }, uGain: { value: new THREE.Vector3(1, 1, 1) }, uVig: { value: 0.35 }, uGrain: { value: 0.04 }, uT: { value: 0 }, uFade: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uSat, uContrast, uVig, uGrain, uT, uFade; uniform vec3 uGain; varying vec2 vUv;
+  float hh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uT*7.13) * 43758.5453); }
+  void main(){ vec2 d = vUv - 0.5; float ca = 0.0022 * dot(d,d);
+    vec3 c = vec3(texture2D(tDiffuse, vUv + d*ca*4.).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d*ca*4.).b);
+    float l = dot(c, vec3(0.2126,0.7152,0.0722));
+    c = mix(vec3(l), c, uSat) * uGain;
+    c = max((c - 0.18) * uContrast + 0.18, 0.0);
+    float v = smoothstep(0.95, 0.25, length(d * vec2(1.0, 0.82)));
+    c *= mix(1.0 - uVig, 1.0, v);
+    c += (hh(vUv*1024.) - 0.5) * uGrain * (0.15 + sqrt(l));
+    c *= 1.0 - uFade;
+    gl_FragColor = vec4(c, 1.); }`,
+});
+composer.addPass(grade);
+composer.addPass(new OutputPass());
+
+function resize() {
+  const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
+  renderer.setPixelRatio(PR); renderer.setSize(w, h, false);
+  composer.setPixelRatio(PR); composer.setSize(w, h);
+  bloom.resolution.set(w * PR / 2, h * PR / 2);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+function applyQuality(key) {
+  QKEY = key; const q = QUALITY[key]; try { localStorage.setItem('stalingrad-q', key); } catch (e) {}
+  PR = Math.min(window.devicePixelRatio || 1, q.pr);
+  sun.castShadow = q.shadow > 0;
+  if (q.shadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples !== q.msaa) { rt.samples = q.msaa; rt.dispose(); }
+  bloom.enabled = q.bloom; resize();
+}
+
+/* =====================================================================
+   地形（広域タイル + 市街の高解像度タイル）、勢力図テクスチャ、水面
+   ===================================================================== */
+const regionCanvas = document.createElement('canvas'); regionCanvas.width = 64; regionCanvas.height = 64;
+const cityCanvas = document.createElement('canvas'); cityCanvas.width = 64; cityCanvas.height = 64;
+const regionTex = new THREE.CanvasTexture(regionCanvas), cityTex = new THREE.CanvasTexture(cityCanvas);
+for (const t of [regionTex, cityTex]) { t.flipY = false; t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; }
+
+function axisGrid(c0, c1, step, o0, o1) { // コアは等間隔、外側は次第に粗く
+  const a = []; for (let v = c0; v <= c1 + 1e-6; v += step) a.push(+v.toFixed(4));
+  let v = c0, s = step; const pre = []; while (v > o0) { s = Math.min(8, step + 0.05 * (c0 - v)); v -= s; pre.push(v); }
+  v = c1; s = step; const post = []; while (v < o1) { s = Math.min(8, step + 0.05 * (v - c1)); v += s; post.push(v); }
+  return [...pre.reverse(), ...a, ...post];
+}
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+async function buildTile(xs, zs, heightFn, skipCell, progress, p0, p1) {
+  const nx = xs.length, nz = zs.length, N = nx * nz;
+  const pos = new Float32Array(N * 3), hm = new Float32Array(N);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) { const k = j * nx + i, h = heightFn(xs[i], zs[j], i, j); hm[k] = h; pos[k * 3] = xs[i]; pos[k * 3 + 1] = h * VY; pos[k * 3 + 2] = zs[j]; }
+    if (j % 40 === 0) { progress(lerp(p0, p1, 0.8 * j / nz)); await tick(); }
+  }
+  const idx = [];
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    if (skipCell && skipCell(xs[i], xs[i + 1], zs[j], zs[j + 1])) continue;
+    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1; idx.push(a, c, b, b, c, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(N > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  const nrm = geo.attributes.normal.array, col = new Float32Array(N * 3), ext = new Float32Array(N * 4), o = [0, 0, 0, 0, 0, 0, 0];
+  for (let k = 0; k < N; k++) {
+    terrainColor(pos[k * 3], pos[k * 3 + 2], hm[k], nrm[k * 3 + 1], o);
+    col[k * 3] = o[0]; col[k * 3 + 1] = o[1]; col[k * 3 + 2] = o[2];
+    ext[k * 4] = o[3]; ext[k * 4 + 1] = o[4]; ext[k * 4 + 2] = o[5]; ext[k * 4 + 3] = o[6];
+    if (k % 30000 === 0) { progress(lerp(p0, p1, 0.8 + 0.2 * k / N)); await tick(); }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aExtra', new THREE.BufferAttribute(ext, 4));
+  geo.computeBoundingSphere(); geo.userData = { xs, zs, hm };
+  return geo;
+}
+
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
+terrainMat.onBeforeCompile = s => {
+  fogUniforms(s);
+  Object.assign(s.uniforms, { uSnow: U.uSnow, uAutumn: U.uAutumn, uScorch: U.uScorch, uGrid: U.uGrid, uTerr: U.uTerr, uSovStrip: U.uSovStrip,
+    uRegionTex: { value: regionTex }, uCityTex: { value: cityTex },
+    uRegionRect: { value: new THREE.Vector4(REGION.x0, REGION.z0, REGION.w, REGION.h) }, uCityRect: { value: new THREE.Vector4(CITYR.x0, CITYR.z0, CITYR.w, CITYR.h) } });
+  s.vertexShader = 'attribute vec4 aExtra; varying vec4 vExtra; varying vec3 vWP;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvExtra = aExtra; vWP = (modelMatrix * vec4(transformed,1.0)).xyz;');
+  s.fragmentShader = `varying vec4 vExtra; varying vec3 vWP; uniform float uSnow, uAutumn, uScorch, uGrid, uTerr, uSovStrip;
+uniform sampler2D uRegionTex, uCityTex; uniform vec4 uRegionRect, uCityRect;
+float th(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float tn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(th(i),th(i+vec2(1,0)),f.x), mix(th(i+vec2(0,1)),th(i+vec2(1,1)),f.x), f.y); }
+` + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{
+  vec3 c = diffuseColor.rgb; vec2 p = vWP.xz;
+  float n1 = tn(p*0.9), n2 = tn(p*4.3), n3 = tn(p*0.21);
+  c *= 0.84 + 0.2*n1 + 0.08*n2;
+  // 麦畑・牧草地のパッチワークと生け垣
+  vec2 fq = mat2(0.94, -0.34, 0.34, 0.94) * p * vec2(2.4, 3.6); vec2 cell = floor(fq); float fh = th(cell + 0.5);
+  vec3 fcol = fh < 0.3 ? vec3(0.20, 0.25, 0.07) : fh < 0.55 ? vec3(0.36, 0.32, 0.12) : fh < 0.8 ? vec3(0.15, 0.21, 0.06) : vec3(0.30, 0.27, 0.12);
+  vec2 fr = fract(fq); float hedge = 1.0 - smoothstep(0.0, 0.05, min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y)));
+  float fd = 1.0 - smoothstep(6.0, 30.0, length(vWP - cameraPosition));
+  float open = 1.0 - clamp(vExtra.w, 0.0, 1.0);
+  c = mix(c, fcol * (0.9 + 0.25 * n2), 0.72 * open * fd);
+  c *= 1.0 - 0.25 * hedge * open * fd;
+  vec3 aut = mix(vec3(dot(c, vec3(.3,.5,.2))), c, 0.5) * vec3(1.0, 0.9, 0.78);
+  c = mix(c, aut, uAutumn);
+  float sc = clamp(uScorch * vExtra.z * (0.6 + 0.6*n1), 0., 1.);
+  c = mix(c, vec3(0.13,0.10,0.06) * (0.8 + 0.4*n2), sc * 0.85);
+  float sn = smoothstep(0.0, 0.25, uSnow*1.25*vExtra.x - (1.0 - (n1*0.6 + n3*0.4))*0.55);
+  vec3 snowC = vec3(0.80,0.84,0.90) * (0.94 + 0.06*n2);
+  snowC = mix(snowC, snowC*vec3(0.5,0.49,0.48), clamp(uScorch*vExtra.z*0.9, 0., 1.)*(0.5+0.5*n2));
+  c = mix(c, snowC, sn);
+  // 勢力図
+  vec2 ruv = (p - uRegionRect.xy) / uRegionRect.zw; vec4 tr = texture2D(uRegionTex, ruv);
+  tr *= step(0.0, ruv.x)*step(ruv.x, 1.0)*step(0.0, ruv.y)*step(ruv.y, 1.0);
+  vec2 cuv = (p - uCityRect.xy) / uCityRect.zw;
+  float inC = step(0.0, cuv.x)*step(cuv.x, 1.0)*step(0.0, cuv.y)*step(cuv.y, 1.0);
+  vec4 tc = texture2D(uCityTex, clamp(cuv, 0.0, 1.0));
+  float axis = mix(tr.r, tc.r, inC), pocket = mix(tr.g, tc.g, inC), allied = tr.b*(1.0-inC), sov = tc.b*inC*uSovStrip;
+  float hatch = smoothstep(0.35, 0.5, abs(fract((p.x + p.y)*0.35) - 0.5));
+  vec3 tA = mix(c*0.62 + vec3(0.05,0.10,0.22), c*0.5 + vec3(0.20,0.12,0.02), allied);
+  c = mix(c, tA, clamp(axis, 0., 1.)*uTerr*0.8);
+  c = mix(c, c*0.7 + vec3(0.16,0.03,0.02), pocket*hatch*uTerr*0.45);
+  c = mix(c, c*0.82 + vec3(0.10,0.012,0.0), sov*0.5);
+  // 地図グリッド（10 km）
+  vec2 gq = p/10.0; vec2 gw = fwidth(gq); vec2 gg = abs(fract(gq - 0.5) - 0.5) / max(gw, vec2(1e-4));
+  float gl = 1.0 - min(min(gg.x, gg.y), 1.0);
+  c = mix(c, vec3(0.9,0.88,0.8), gl*uGrid*0.22);
+  diffuseColor.rgb = c;
+}`);
+};
+
+let terrainMeshes = [];
+async function buildTerrain(progress) {
+  const xs = axisGrid(AXIS.x[0], AXIS.x[1], GRID, AXIS.x[2], AXIS.x[3]), zs = axisGrid(AXIS.z[0], AXIS.z[1], GRID, AXIS.z[2], AXIS.z[3]);
+  const inCity = (x0, x1, z0, z1) => x0 >= CITYR.x0 - 1e-4 && x1 <= CITYR.x0 + CITYR.w + 1e-4 && z0 >= CITYR.z0 - 1e-4 && z1 <= CITYR.z0 + CITYR.h + 1e-4;
+  const g1 = await buildTile(xs, zs, H, inCity, progress, 0, 0.62);
+  // 市街タイル（境界は広域タイルの辺に合わせて補間し、隙間を防ぐ）
+  const st = CSTEP, cxs = [], czs = [];
+  for (let i = 0; i <= Math.round(CITYR.w / st); i++) cxs.push(CITYR.x0 + i * st);
+  for (let j = 0; j <= Math.round(CITYR.h / st); j++) czs.push(CITYR.z0 + j * st);
+  const nxC = cxs.length - 1, nzC = czs.length - 1;
+  const G = GRID, edgeH = (x, z) => {
+    if (Math.abs(x - CITYR.x0) < 1e-6 || Math.abs(x - cxs[nxC]) < 1e-6) { const a = CITYR.z0 + Math.floor((z - CITYR.z0) / G + 1e-6) * G, u = (z - a) / G; return u < 1e-6 ? H(x, a) : lerp(H(x, a), H(x, a + G), u); }
+    const a = CITYR.x0 + Math.floor((x - CITYR.x0) / G + 1e-6) * G, u = (x - a) / G; return u < 1e-6 ? H(a, z) : lerp(H(a, z), H(a + G, z), u);
+  };
+  const g2 = await buildTile(cxs, czs, (x, z, i, j) => (i === 0 || j === 0 || i === nxC || j === nzC) ? edgeH(x, z) : H(x, z), null, progress, 0.62, 0.92);
+  for (const g of [g1, g2]) { const m = new THREE.Mesh(g, terrainMat); m.receiveShadow = true; scene.add(m); terrainMeshes.push(m); }
+  // 実行時の高さ参照は生成済みの格子から補間（H を毎フレーム評価しない）
+  const L = g1.userData, Cc = g2.userData, nxL = L.xs.length, ncx = Cc.xs.length;
+  const find = (arr, v) => { let lo = 0, hi = arr.length - 2; if (v <= arr[0]) return 0; if (v >= arr[hi + 1]) return hi; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= v) lo = m; else hi = m - 1; } return lo; };
+  Hw = (x, z) => {
+    let h;
+    if (x > CITYR.x0 && x < CITYR.x0 + CITYR.w && z > CITYR.z0 && z < CITYR.z0 + CITYR.h) {
+      const fx = (x - CITYR.x0) / CSTEP, fz = (z - CITYR.z0) / CSTEP, i = Math.min(Math.floor(fx), ncx - 2), j = Math.min(Math.floor(fz), Cc.zs.length - 2), u = fx - i, v = fz - j, k = j * ncx + i, hm = Cc.hm;
+      h = lerp(lerp(hm[k], hm[k + 1], u), lerp(hm[k + ncx], hm[k + ncx + 1], u), v);
+    } else {
+      const i = find(L.xs, x), j = find(L.zs, z), u = clamp((x - L.xs[i]) / (L.xs[i + 1] - L.xs[i]), 0, 1), v = clamp((z - L.zs[j]) / (L.zs[j + 1] - L.zs[j]), 0, 1), k = j * nxL + i, hm = L.hm;
+      h = lerp(lerp(hm[k], hm[k + 1], u), lerp(hm[k + nxL], hm[k + nxL + 1], u), v);
+    }
+    return Math.max(h * VY, 0);
+  };
+}
+
+/* ---------- 水面 ---------- */
+const waterMat = new THREE.ShaderMaterial({
+  fog: true, transparent: false,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: new THREE.Color(...OCEAN.deep) } }]),
+  vertexShader: `varying vec3 vW;
+#include <fog_pars_vertex>
+void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+}`,
+  fragmentShader: `varying vec3 vW; uniform vec3 uDeep, uSkyRefl, uSunColor, uSunDir, uAmbient; uniform float uIce;
+
+#include <fog_pars_fragment>
+  float wh(vec2 p){ return fract(sin(dot(p, vec2(41.3,289.1))) * 43758.5453); }
+  float wn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(wh(i),wh(i+vec2(1,0)),f.x), mix(wh(i+vec2(0,1)),wh(i+vec2(1,1)),f.x), f.y); }
+  float wv(vec2 p){ return wn(p*3.0 + vec2(uTime*0.35, uTime*0.2))*0.6 + wn(p*7.0 - vec2(uTime*0.25, -uTime*0.4))*0.4; }
+  void main(){
+    vec2 p = vW.xz; float e = 0.02;
+    float h0 = wv(p), hx = wv(p + vec2(e,0.)), hz = wv(p + vec2(0.,e));
+    vec3 N = normalize(vec3((h0-hx)*0.9, 1.0, (h0-hz)*0.9));
+    vec3 V = normalize(cameraPosition - vW);
+    float fr = 0.04 + 0.9*pow(1.0 - max(dot(N, V), 0.0), 5.0);
+    vec3 col = mix(uDeep*(0.6 + uAmbient), uSkyRefl, fr);
+    vec3 L = normalize(uSunDir);
+    col += uSunColor * pow(max(dot(reflect(-V, N), L), 0.0), 220.0) * 3.0;
+    // 氷
+    float fl = wn(p*1.3) * 0.7 + wn(p*6.0) * 0.3;
+    float ice = smoothstep(1.02 - uIce*1.05, 1.1 - uIce*1.05, fl + 0.08);
+    float crack = smoothstep(0.02, 0.0, abs(wn(p*9.0) - 0.5)) * 0.35;
+    vec3 iceC = vec3(0.70,0.76,0.83) * (uAmbient*0.9 + uSunColor*max(L.y,0.)*0.55) * (1.0 - crack);
+    col = mix(col, iceC, ice);
+    gl_FragColor = vec4(col, 1.0);
+#include <fog_fragment>
+  }`,
+});
+waterMat.onBeforeCompile = s => { fogUniforms(s); Object.assign(s.uniforms, { uSkyRefl: U.uSkyRefl, uSunColor: U.uSunColor, uSunDir: U.uSunDir, uAmbient: U.uAmbient, uIce: U.uIce }); };
+waterMat.uniforms.uIce = U.uIce; waterMat.uniforms.uSkyRefl = U.uSkyRefl; waterMat.uniforms.uSunColor = U.uSunColor; waterMat.uniforms.uSunDir = U.uSunDir; waterMat.uniforms.uAmbient = U.uAmbient; waterMat.uniforms.uTime = U.uTime; waterMat.uniforms.uHFog = U.uHFog;
+
+function ribbonGeo(pts, halfW, yFn) {
+  const n = pts.length, pos = new Float32Array(n * 6), idx = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+    const nx = -dz / l, nz = dx / l, [x, z] = pts[i];
+    const w = halfW * (i === 0 || i === n - 1 ? 0.4 : 1);
+    pos.set([x + nx * w, yFn(x + nx * w, z + nz * w, x, z), z + nz * w, x - nx * w, yFn(x - nx * w, z - nz * w, x, z), z - nz * w], i * 6);
+    if (i < n - 1) { const k = i * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); return g;
+}
+const roadMat = new THREE.MeshStandardMaterial({ color: 0xb8a57c, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+roadMat.onBeforeCompile = s => fogUniforms(s);
+function buildOcean() {
+  const plane = new THREE.Mesh(new THREE.PlaneGeometry(OCEAN.size, OCEAN.size), waterMat);
+  plane.rotation.x = -Math.PI / 2; plane.position.set(OCEAN.cx, 0, OCEAN.cz); scene.add(plane);
+}
+function addStrip(pts, halfW, yOff, mat) { const g = ribbonGeo(resample(pts, Math.max(2, Math.ceil(polyLen(pts) / 0.05))), halfW, (x, z) => Hw(x, z) + yOff); g.computeVertexNormals(); const m = new THREE.Mesh(g, mat); m.renderOrder = 1; m.receiveShadow = true; scene.add(m); return m; }
+
+/* =====================================================================
+   市街：建物（破壊・炎上・積雪をシェーダで表現）、工場、煙突
+   ===================================================================== */
+function ruinPatch(s, depth) {
+  s.uniforms.uDestroy = U.uDestroy; s.uniforms.uStory = U.uStory;
+  s.vertexShader = 'attribute vec4 aB; uniform float uDestroy; uniform float uStory; varying vec4 vB; varying float vLY; varying float vUp; varying float vRu;\n' +
+    s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    vB = aB; vLY = position.y; vUp = normal.y;
+    float ru = step(aB.x, uStory); vRu = ru;
+    if (ru > 0.5) {
+      float jag = fract(sin(dot(position.xz*7.0 + aB.yz*13.0, vec2(12.9898,78.233))) * 43758.5453);
+      transformed.y *= mix(0.22, 0.62, jag) * (0.6 + 0.4*aB.w);
+    }`);
+  if (depth) return;
+  Object.assign(s.uniforms, { uFire: U.uFire, uSnow: U.uSnow, uStory: U.uStory });
+  s.fragmentShader = 'varying vec4 vB; varying float vLY; varying float vUp; varying float vRu; uniform float uFire, uSnow, uStory;\n' +
+    s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    diffuseColor.rgb *= 0.78 + 0.45*vB.y;
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(0.42,0.4,0.38), vRu);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78,0.81,0.86), uSnow*step(0.6, vUp)*0.92);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+    float flick = 0.55 + 0.45*sin(uTime*9.0 + vB.z*40.0)*sin(uTime*5.3 + vB.z*17.0);
+    float burn = step(vB.z, uStory) * (1.0 - smoothstep(vB.z + 60.0, vB.z + 90.0, uStory)) * (1.0 - vLY) * (0.5 + 0.5*vRu);
+    totalEmissiveRadiance += vec3(1.0, 0.33, 0.07) * burn * flick * 3.2;`);
+}
+function ruinMaterial(color) {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0 });
+  m.onBeforeCompile = s => { fogUniforms(s); ruinPatch(s, false); };
+  const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  d.onBeforeCompile = s => ruinPatch(s, true);
+  return [m, d];
+}
+
+
+/* ---------- 建物・樹木（データは各シナリオ） ---------- */
+let treeMesh;
+function buildStructures(list, trees, color = 0xa89a86) { // list: [x, z, w, d, hMeters, rot, ruinT, tone, burnT]
+  const r = rng(77);
+  const geo = new THREE.BoxGeometry(1, 1, 1, 2, 1, 2); geo.translate(0, 0.5, 0);
+  const anyCol = list.some(b => b[9]);
+  const n = Math.max(1, list.length), aB = new Float32Array(n * 4);
+  const [mat, depthMat] = ruinMaterial(color);
+  const mesh = new THREE.InstancedMesh(geo, mat, n); mesh.count = list.length;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+  list.forEach((b, i) => { m4.compose(v.set(b[0], Hw(b[0], b[1]) - 0.004, b[1]), q.setFromEuler(e.set(0, b[5], 0)), sc.set(b[2], b[4] * BVY + 0.004, b[3])); mesh.setMatrixAt(i, m4); aB.set([b[6], b[7], b[8], r()], i * 4); if (anyCol) mesh.setColorAt(i, col.set(b[9] || 0xffffff)); });
+  geo.setAttribute('aB', new THREE.InstancedBufferAttribute(aB, 4));
+  mesh.customDepthMaterial = depthMat; mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  if (trees.length) {
+    const tg = new THREE.IcosahedronGeometry(1, 1); tg.scale(1, 1.2, 1); tg.translate(0, 1.1, 0);
+    const tm = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }); tm.onBeforeCompile = s => fogUniforms(s);
+    treeMesh = new THREE.InstancedMesh(tg, tm, trees.length);
+    trees.forEach(([x, z, s2, c], i) => { const k = 0.016 * s2; m4.compose(v.set(x, Hw(x, z) - 0.005, z), q.setFromEuler(e.set(0, r() * 6, 0)), sc.set(k, k * 1.3, k)); treeMesh.setMatrixAt(i, m4); treeMesh.setColorAt(i, col.setRGB(...(c || [0.05 + r() * 0.03, 0.09 + r() * 0.04, 0.03]))); });
+    treeMesh.castShadow = true; treeMesh.receiveShadow = true; scene.add(treeMesh);
+  }
+  return list;
+}
+
+/* =====================================================================
+   エフェクト：煙・炎・閃光・雲（GPU ビルボード。時刻の関数なのでシーク可能）、雪、航空機
+   ===================================================================== */
+const FX = { uSmokeI: { value: 1 }, uFlashI: { value: 1 }, uCloudHigh: { value: 1 }, uCloudLow: { value: 0.3 }, uSnowFall: { value: 0 },
+  uFrontX: { value: new Float32Array(48) }, uFrontY: { value: new Float32Array(48) }, uFrontA: { value: new Float32Array(48) }, uFrontZ: { value: new THREE.Vector2(-14, 26) } };
+
+function makeBillboards(rows, body, frag, additive) {
+  const n = rows.length, base = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
+  g.index = base.index; g.setAttribute('position', base.attributes.position); g.instanceCount = n;
+  for (let a = 0; a < 4; a++) { const arr = new Float32Array(n * 4); rows.forEach((r, i) => arr.set(r[a], i * 4)); g.setAttribute('a' + 'ABCD'[a], new THREE.InstancedBufferAttribute(arr, 4)); }
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    defines: additive ? { ADDITIVE: 1 } : {},
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]),
+    vertexShader: `attribute vec4 aA, aB, aC, aD; uniform float uStory, uSmokeI, uFlashI, uCloudHigh, uCloudLow, uFire;
+      uniform vec3 uSunColor, uAmbient; uniform float uFrontX[48], uFrontY[48], uFrontA[48]; uniform vec2 uFrontZ;
+      varying vec2 vUv; varying vec4 vCol; varying float vSeed;
+      float hs(float x){ return fract(sin(x*91.345)*47453.5453); }
+#include <fog_pars_vertex>
+      void main(){ vec3 center = aA.xyz; float size = aA.w; vec4 col = vec4(1.0); float rot = 0.0;
+        ${body}
+        vec4 mvPosition = viewMatrix * vec4(center, 1.0);
+        float c = cos(rot), s = sin(rot); mvPosition.xy += mat2(c, -s, s, c) * position.xy * size;
+        gl_Position = projectionMatrix * mvPosition; vUv = position.xy + 0.5; vCol = col; vSeed = aC.x;
+#include <fog_vertex>
+      }`,
+    fragmentShader: `varying vec2 vUv; varying vec4 vCol; varying float vSeed;
+      float bh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+      float bn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(bh(i),bh(i+vec2(1,0)),f.x), mix(bh(i+vec2(0,1)),bh(i+vec2(1,1)),f.x), f.y); }
+#include <fog_pars_fragment>
+      void main(){ vec2 d = vUv - 0.5; float r = length(d) * 2.0; if (r > 1.0 || vCol.a < 0.002) discard;
+        ${frag}
+#ifdef USE_FOG
+  #ifdef ADDITIVE
+        gl_FragColor.rgb *= 1.0 - fogAmount(vFogW, vFogDepth);
+  #else
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogAmount(vFogW, vFogDepth));
+  #endif
+#endif
+      }`,
+  });
+  Object.assign(mat.uniforms, FX, { uStory: U.uStory, uTime: U.uTime, uHFog: U.uHFog, uSunColor: U.uSunColor, uAmbient: U.uAmbient, uFire: U.uFire });
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; scene.add(m); return m;
+}
+
+const SMOKE_BODY = `
+  float act = smoothstep(aB.x, aB.x + 3.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 6.0, uStory));
+  float age = fract((uStory * 0.9 + aB.w) / aB.z);
+  float k = aA.w;
+  center += vec3(0.9, 0.0, 0.3) * age * aC.z * k + vec3(sin(aC.x * 40.0 + age * 3.0), 0.0, cos(aC.x * 17.0 + age * 2.0)) * 0.12 * k * age;
+  center.y += aC.y * age * k * 0.5;
+  size = k * (0.25 + 1.6 * age);
+  rot = aC.x * 6.28 + age * 0.6;
+  float a = smoothstep(0.0, 0.12, age) * (1.0 - smoothstep(0.45, 1.0, age));
+  vec3 base = mix(mix(vec3(0.05, 0.045, 0.04), vec3(0.32, 0.31, 0.3), age), vec3(0.62, 0.62, 0.6), aD.x);
+  col = vec4(base * (uAmbient * 1.1 + uSunColor * (0.35 + 0.35 * aD.x)), a * act * uSmokeI * aC.w * (0.55 + 0.2 * aD.x));`;
+const PUFF_FRAG = `float n = bn(vUv * 3.2 + vSeed * 17.0) * 0.6 + bn(vUv * 7.0 - vSeed * 5.0) * 0.4;
+  float a = smoothstep(1.0, 0.2, r) * (0.45 + 0.75 * n);
+  gl_FragColor = vec4(vCol.rgb * (0.85 + 0.3 * n), vCol.a * a);`;
+const FIRE_BODY = `
+  float act = smoothstep(aB.x, aB.x + 2.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 6.0, uStory));
+  float age = fract((uStory * 1.3 + aB.w) / aB.z);
+  center.y += age * 0.12 * aA.w * 4.0; center.x += sin(aC.x * 50.0 + uStory * 3.0) * 0.02 * aA.w * 4.0;
+  size = aA.w * (1.0 - age * 0.6);
+  float fl = 0.6 + 0.4 * sin(uStory * 13.0 + aC.x * 30.0);
+  col = vec4(mix(vec3(4.0, 1.6, 0.35), vec3(2.0, 0.4, 0.08), age) * fl, act * uFire * aC.w * (1.0 - age));`;
+const GLOW_FRAG = `float a = pow(1.0 - r, 2.2); gl_FragColor = vec4(vCol.rgb, vCol.a * a);`;
+const FLASH_BODY = `
+  float act = smoothstep(aB.x, aB.x + 1.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 2.0, uStory));
+  float cyc = floor((uStory + aB.w) / aB.z), age = fract((uStory + aB.w) / aB.z);
+  float r1 = hs(aC.x + cyc * 1.37), r2 = hs(aC.x * 3.1 + cyc * 2.11), r3 = hs(aC.x * 7.7 + cyc * 0.73);
+  float vis = 1.0;
+  if (aC.w < 0.5) { // 線分に沿って
+    vec2 A = aA.xz, B = aC.yz; vec2 dir = normalize(B - A + 1e-4); vec2 nrm = vec2(-dir.y, dir.x);
+    vec2 p = mix(A, B, r1) + nrm * (r2 - 0.5) * aD.x;
+    center = vec3(p.x, mix(aA.y, aD.y, r1) + 0.15 * aD.z, p.y);
+  } else { // 市街の前線上
+    float zz = mix(uFrontZ.x, uFrontZ.y, r1); float fi = clamp((zz - uFrontZ.x) / (uFrontZ.y - uFrontZ.x) * 47.0, 0.0, 46.99);
+    int i = int(fi); float fu = fract(fi);
+    float fx = mix(uFrontX[i], uFrontX[i + 1], fu), fy = mix(uFrontY[i], uFrontY[i + 1], fu);
+    vis = mix(uFrontA[i], uFrontA[i + 1], fu);
+    center = vec3(fx - r2 * 0.35 + 0.05, fy + 0.06, zz);
+  }
+  float fl = exp(-age * 16.0) + 0.25 * exp(-age * 3.0);
+  size = aA.w * (0.5 + 1.5 * age) * (0.6 + r3 * 0.8);
+  col = vec4(mix(vec3(4.5, 3.4, 2.2), vec3(3.2, 1.0, 0.25), smoothstep(0.0, 0.2, age)) * fl, act * uFlashI * vis);`;
+const CLOUD_BODY = `
+  center.x += uStory * 0.012 * (0.6 + aB.z) * size;
+  float lay = aB.y < 0.5 ? uCloudHigh : uCloudLow;
+  float dc = length(center - cameraPosition);
+  float a = aB.x * lay * smoothstep(size * 0.12, size * 0.75, dc);
+  rot = aB.z * 6.28;
+  col = vec4(mix(uAmbient * 1.25, uAmbient + uSunColor * 0.9, 0.55 + 0.45 * aB.w), a);`;
+const CLOUD_FRAG = `float n = bn(vUv * 2.5 + vSeed * 13.0) * 0.55 + bn(vUv * 5.5 - vSeed * 3.0) * 0.3 + bn(vUv * 11.0) * 0.15;
+  float a = smoothstep(1.0, 0.1, r + (n - 0.5) * 0.7) ;
+  gl_FragColor = vec4(vCol.rgb * (0.8 + 0.35 * (1.0 - vUv.y * 0.5) * n), vCol.a * a);`;
+
+let smokeFX, fireFX, flashFX, cloudFX;
+const firePos = e => { if (e.form) { const f = FORMS.find(q => q.id === e.form); const p = f.track.at(e.t0); return [p[0] + (e.dx || 0), p[1] + (e.dz || 0)]; } return e.p; };
+function buildFX() {
+  const r = rng(1941);
+  const smoke = [], fire = [], flash = [];
+  // 火災・黒煙: { p:[x,z] | form:id, t0, t1, s(規模), light(白煙) }
+  for (const e of FIRES) {
+    const [x0, z0] = firePos(e), s = e.s;
+    for (let k = 0; k < (e.n || 5); k++) {
+      const sp = e.sp ?? 0.1 * s, x = x0 + (r() - 0.5) * sp, z = z0 + (r() - 0.5) * sp, y = Hw(x, z) + 0.02, st = e.t0 + r() * 3;
+      for (let q = 0; q < 6; q++) smoke.push([[x, y, z, 0.09 * s], [st, e.t1, 7 + r() * 3, q / 6 * 8 + r()], [r(), 3.0, 0.9, 1.0], [e.light ? 1 : 0, 0, 0, 0]]);
+      for (let q = 0; q < 4; q++) fire.push([[x + (r() - 0.5) * 0.02 * s, y, z + (r() - 0.5) * 0.02 * s, 0.02 * s], [st, e.t1, 0.8 + r() * 0.6, r() * 2], [r(), 0, 0, 0.8 + r() * 0.5], [0, 0, 0, 0]]);
+    }
+  }
+  // 閃光（爆発・対空砲火）: [ax, az, bx, bz, 開始, 終了, 強さ, サイズ, 高さ, 周期, 煙]
+  for (const [ax, az, bx, bz, t0, t1, k, size, lift, life, sm] of FIRELINES) {
+    const ay = Hw(ax, az), by = Hw(bx, bz), L = Math.max(Math.hypot(bx - ax, bz - az), 0.05);
+    for (let i = 0; i < Math.max(3, Math.round(L * 30 * k)); i++) flash.push([[ax, ay, az, size], [t0, t1, life * (0.7 + r() * 0.6), r() * 20], [r() * 100, bx, bz, 0], [lift ? L * 0.5 : Math.max(0.03, L * 0.08), by, lift / 0.15, 0]]);
+    if (sm) for (let e = 0; e < Math.max(2, Math.round(L * 5 * k)); e++) { const u = r(), x = lerp(ax, bx, u), z = lerp(az, bz, u), y = lerp(ay, by, u) + lift * (0.6 + r() * 0.6);
+      for (let q = 0; q < 3; q++) smoke.push([[x, y, z, size * 1.6], [t0 + r() * 2, t1, 5 + r() * 3, q / 3 * 6 + r() * 2], [r(), lift ? 0.2 : 0.8, 0.6, 0.7], [lift ? 0.15 : 1, 0, 0, 0]]); }
+  }
+  smokeFX = makeBillboards(smoke.length ? smoke : [[[0, -99, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]], SMOKE_BODY, PUFF_FRAG, false); smokeFX.renderOrder = 5;
+  fireFX = makeBillboards(fire.length ? fire : [[[0, -99, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]], FIRE_BODY, GLOW_FRAG, true); fireFX.renderOrder = 6;
+  flashFX = makeBillboards(flash.length ? flash : [[[0, -99, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]], FLASH_BODY, GLOW_FRAG, true); flashFX.renderOrder = 7;
+  const clouds = [];
+  for (const [layer, c] of [[0, CLOUD_CFG.high], [1, CLOUD_CFG.low]]) for (let i = 0; i < c.n; i++)
+    clouds.push([[c.cx + (r() - 0.5) * c.sx, c.y0 + r() * (c.y1 - c.y0), c.cz + (r() - 0.5) * c.sz, c.s0 + r() * (c.s1 - c.s0)], [0.4 + r() * 0.4, layer, r(), r()], [r(), 0, 0, 0], [0, 0, 0, 0]]);
+  cloudFX = makeBillboards(clouds, CLOUD_BODY, CLOUD_FRAG, false); cloudFX.renderOrder = 8;
+}
+
+/* ---------- 降雪（カメラ周辺の箱をループ） ---------- */
+let snowPts;
+function buildSnow() {
+  const n = 7000, r = rng(7), p = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) p[i] = r();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+    uniforms: { uStory: U.uStory, uSnowFall: FX.uSnowFall, uBox: { value: 4 }, uCam: { value: new THREE.Vector3() }, uPR: { value: 1 } },
+    vertexShader: `uniform float uStory, uBox, uPR; uniform vec3 uCam; varying float vA;
+      void main(){ vec3 p = position; vec3 vel = vec3(0.25 + 0.1*sin(p.x*20.), -4.0 - p.y*1.2, 0.12);
+        vec3 w = mod(p * uBox * 2.0 + vel * uStory * uBox * 0.25 - uCam, uBox * 2.0) - uBox + uCam;
+        vec4 mv = viewMatrix * vec4(w, 1.0); gl_Position = projectionMatrix * mv;
+        gl_PointSize = clamp(uPR * 2.2 * uBox / -mv.z * 3.0, 1.0, 6.0 * uPR); vA = smoothstep(uBox, uBox*0.3, length(w - uCam)); }`,
+    fragmentShader: `uniform float uSnowFall; varying float vA; void main(){ float r = length(gl_PointCoord - 0.5); if (r > 0.5) discard; gl_FragColor = vec4(vec3(0.72, 0.78, 0.86), (1.0 - r*2.0) * uSnowFall * vA * 0.55); }`,
+  });
+  snowPts = new THREE.Points(g, m); snowPts.frustumCulled = false; snowPts.renderOrder = 9; scene.add(snowPts);
+}
+
+/* ---------- 航空機 ---------- */
+let planes, planeCount = 0;
+function buildPlanes() {
+  const parts = [new THREE.BoxGeometry(0.12, 0.1, 1.0), new THREE.BoxGeometry(1.5, 0.025, 0.24).translate(0, 0.02, 0.05), new THREE.BoxGeometry(0.46, 0.02, 0.13).translate(0, 0.03, -0.45), new THREE.BoxGeometry(0.02, 0.2, 0.14).translate(0, 0.11, -0.45)];
+  const pos = [], idx = []; let off = 0;
+  for (const p of parts) { const g = p.toNonIndexed(); pos.push(...g.attributes.position.array); for (let i = 0; i < g.attributes.position.count; i++) idx.push(off + i); off += g.attributes.position.count; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  planes = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.2 }), 400);
+  planes.setColorAt(0, new THREE.Color(0x777777));
+  planes.castShadow = true; planes.frustumCulled = false; planes.count = 0; scene.add(planes);
+}
+
+/* =====================================================================
+   軍事表現：進軍矢印・前線リボン・部隊・勢力図
+   ===================================================================== */
+const FCOL = Object.fromEntries(Object.entries(FACTION).map(([k, v]) => [k, new THREE.Color(v)]));
+
+/* ---------- 進軍矢印（立体リボン＋矢じり＋接地影） ---------- */
+const arrowMatBase = {
+  vertexShader: `attribute vec2 aUV; attribute float aPart; varying vec2 vUV; varying float vPart; varying vec3 vN;
+#include <fog_pars_vertex>
+  void main(){ vUV = aUV; vPart = aPart; vN = normal; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+  }`,
+};
+function arrowMaterial(color) {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, fog: true, depthWrite: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uColor: { value: color.clone() }, uAlpha: { value: 1 }, uLv: { value: 1 }, uW: { value: 1 } }]),
+    vertexShader: arrowMatBase.vertexShader,
+    fragmentShader: `uniform vec3 uColor, uSunDir, uSunColor, uAmbient; uniform float uAlpha, uLv, uW; varying vec2 vUV; varying float vPart; varying vec3 vN;
+#include <fog_pars_fragment>
+    void main(){
+      float lam = max(dot(normalize(vN), normalize(uSunDir)), 0.0);
+      vec3 base = uColor;
+      float across = abs(vUV.y - 0.5) * 2.0;
+      if (vPart < 0.5) {
+        base *= mix(1.18, 0.78, across * across);
+        float s = fract(vUV.x / (uW * 2.2) - across * 0.35 - uTime * 0.55);
+        base += uColor * smoothstep(0.0, 0.06, s) * smoothstep(0.32, 0.16, s) * 0.45;
+        base = mix(base, vec3(1.0), smoothstep(0.84, 0.93, across) * 0.6);
+      } else base *= 0.5;
+      vec3 col = base * (uAmbient * 0.9 + uSunColor * lam * 0.75) + uColor * 0.45;
+      float a = uAlpha * smoothstep(0.0, 0.1, vUV.x / uLv);
+      gl_FragColor = vec4(col, a);
+#include <fog_fragment>
+    }`,
+  });
+  Object.assign(m.uniforms, { uSunDir: U.uSunDir, uSunColor: U.uSunColor, uAmbient: U.uAmbient, uTime: U.uTime, uHFog: U.uHFog });
+  return m;
+}
+const shadowMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uAlpha: { value: 1 } }]),
+  vertexShader: arrowMatBase.vertexShader,
+  fragmentShader: `varying vec2 vUV; varying float vPart; varying vec3 vN; uniform float uAlpha;
+#include <fog_pars_fragment>
+  void main(){ float across = abs(vUV.y - 0.5) * 2.0; gl_FragColor = vec4(0.0, 0.0, 0.0, 0.34 * uAlpha * (1.0 - smoothstep(0.55, 1.0, across)));
+#include <fog_fragment>
+  }`,
+});
+Object.assign(shadowMat.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+
+class Arrow {
+  constructor(d) {
+    Object.assign(this, { width: 5, fade: 2.5 }, d);
+    this.color = FCOL[d.f];
+    const pts = resample(smoothPoly(d.pts, 8), 260);
+    this.L = polyLen(pts); this.tab = [];
+    this.hover = clamp(this.width * 0.2, 0.06, 1.3); this.th = this.hover * 0.45;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      const nx = -dz / l, nz = dx / l, [x, z] = pts[i], hw = this.width;
+      const y = Math.max(Hw(x, z), Hw(x + nx * hw, z + nz * hw), Hw(x - nx * hw, z - nz * hw));
+      this.tab.push({ x, z, nx, nz, s: this.L * i / (pts.length - 1), y });
+    }
+    const n = this.tab.length; const ys = this.tab.map(t => t.y);
+    for (let i = 0; i < n; i++) { let m = 0; for (let k = -6; k <= 6; k++) m = Math.max(m, ys[clamp(i + k, 0, n - 1)]); this.tab[i].y = m + this.hover; }
+    this.mat = arrowMaterial(this.color); this.smat = shadowMat.clone(); Object.assign(this.smat.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+    this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat); this.mesh.renderOrder = 4; this.mesh.frustumCulled = false;
+    this.shadow = new THREE.Mesh(new THREE.BufferGeometry(), this.smat); this.shadow.renderOrder = 3; this.shadow.frustumCulled = false;
+    scene.add(this.mesh, this.shadow); this.lastP = -1; this.tip = [0, 0, 0];
+  }
+  sample(s) {
+    const t = this.tab, f = clamp(s / this.L, 0, 1) * (t.length - 1), i = Math.min(Math.floor(f), t.length - 2), u = f - i, a = t[i], b = t[i + 1];
+    const nx = lerp(a.nx, b.nx, u), nz = lerp(a.nz, b.nz, u), nl = Math.hypot(nx, nz) || 1;
+    return { x: lerp(a.x, b.x, u), z: lerp(a.z, b.z, u), y: lerp(a.y, b.y, u), nx: nx / nl, nz: nz / nl };
+  }
+  build(p) {
+    const Lv = this.L * p, headL = Math.min(this.width * 2.3, Lv * 0.45), sb = Lv - headL, W = this.width;
+    const P = [], N = [], UV = [], PT = [], I = [], SP = [], SUV = [], SI = [];
+    const sd = U.uSunDir.value, so = [-sd.x / Math.max(sd.y, 0.25), -sd.z / Math.max(sd.y, 0.25)];
+    const stations = [];
+    const nb = Math.max(2, Math.ceil(sb / this.L * 120));
+    for (let k = 0; k <= nb; k++) { const s = sb * k / nb; stations.push([s, W * 0.5 * (0.55 + 0.45 * smooth(0, this.L * 0.18, s))]); }
+    const nh = 10; for (let k = 0; k <= nh; k++) { const s = sb + headL * k / nh; stations.push([s, W * 1.05 * (1 - k / nh) + 0.0001]); }
+    const vtx = (x, y, z, nx, ny, nz, u, v, part) => { P.push(x, y, z); N.push(nx, ny, nz); UV.push(u, v); PT.push(part); return P.length / 3 - 1; };
+    let prev = null;
+    stations.forEach(([s, hw], idx) => {
+      const c = this.sample(s), y = c.y, yb = y - this.th;
+      const lx = c.x + c.nx * hw, lz = c.z + c.nz * hw, rx = c.x - c.nx * hw, rz = c.z - c.nz * hw;
+      const cur = {
+        tl: vtx(lx, y, lz, 0, 1, 0, s, 0, 0), tr: vtx(rx, y, rz, 0, 1, 0, s, 1, 0),
+        sl: vtx(lx, y, lz, c.nx, 0, c.nz, s, 0, 1), bl: vtx(lx, yb, lz, c.nx, 0, c.nz, s, 0, 1),
+        sr: vtx(rx, y, rz, -c.nx, 0, -c.nz, s, 1, 1), br: vtx(rx, yb, rz, -c.nx, 0, -c.nz, s, 1, 1), hw, c,
+      };
+      if (prev && !(idx === nb + 1)) {
+        I.push(prev.tl, cur.tl, prev.tr, prev.tr, cur.tl, cur.tr);
+        I.push(prev.sl, prev.bl, cur.sl, cur.sl, prev.bl, cur.bl);
+        I.push(prev.sr, cur.sr, prev.br, prev.br, cur.sr, cur.br);
+      }
+      if (idx === nb + 1 && prev) { // 矢じりの肩：本体との段差を埋める
+        I.push(prev.tl, cur.tl, prev.tr, prev.tr, cur.tl, cur.tr);
+        const bx = -(c.nz), bz = c.nx; // 後ろ向き
+        const q = [vtx(lx, y, lz, bz, 0, -bx, s, 0, 1), vtx(lx, yb, lz, bz, 0, -bx, s, 0, 1), vtx(c.x + c.nx * prev.hw, y, c.z + c.nz * prev.hw, bz, 0, -bx, s, 0, 1), vtx(c.x + c.nx * prev.hw, yb, c.z + c.nz * prev.hw, bz, 0, -bx, s, 0, 1)];
+        I.push(q[0], q[1], q[2], q[2], q[1], q[3]);
+        const q2 = [vtx(rx, y, rz, bz, 0, -bx, s, 1, 1), vtx(rx, yb, rz, bz, 0, -bx, s, 1, 1), vtx(c.x - c.nx * prev.hw, y, c.z - c.nz * prev.hw, bz, 0, -bx, s, 1, 1), vtx(c.x - c.nx * prev.hw, yb, c.z - c.nz * prev.hw, bz, 0, -bx, s, 1, 1)];
+        I.push(q2[0], q2[2], q2[1], q2[1], q2[2], q2[3]);
+      }
+      // 影
+      const off = (y - Hw(c.x, c.z)) * 0.9, sx = so[0] * off, sz = so[1] * off, hs = hw * 1.08;
+      const gy = (x, z) => Hw(x, z) + 0.04 + this.hover * 0.05;
+      const a = SP.length / 3;
+      SP.push(c.x + c.nx * hs + sx, gy(c.x + c.nx * hs + sx, c.z + c.nz * hs + sz), c.z + c.nz * hs + sz, c.x - c.nx * hs + sx, gy(c.x - c.nx * hs + sx, c.z - c.nz * hs + sz), c.z - c.nz * hs + sz);
+      SUV.push(s, 0, s, 1);
+      if (idx > 0) SI.push(a - 2, a, a - 1, a - 1, a, a + 1);
+      prev = cur; this.tip = [c.x, y, c.z];
+    });
+    const g = this.mesh.geometry; g.dispose();
+    const ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); ng.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    ng.setAttribute('aUV', new THREE.Float32BufferAttribute(UV, 2)); ng.setAttribute('aPart', new THREE.Float32BufferAttribute(PT, 1)); ng.setIndex(I);
+    this.mesh.geometry = ng;
+    this.shadow.geometry.dispose();
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(SP, 3)); sg.setAttribute('aUV', new THREE.Float32BufferAttribute(SUV, 2));
+    sg.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(SP.length).fill(0), 3)); sg.setAttribute('aPart', new THREE.Float32BufferAttribute(new Array(SP.length / 3).fill(0), 1)); sg.setIndex(SI);
+    this.shadow.geometry = sg;
+    this.mat.uniforms.uLv.value = Math.max(Lv, 1e-3); this.mat.uniforms.uW.value = W;
+  }
+  update(t) {
+    const p = easeInOut(clamp((t - this.t0) / (this.t1 - this.t0), 0, 1));
+    const end = this.out ?? (this.t1 + 14);
+    const a = smooth(this.t0 - 0.2, this.t0 + 0.4, t) * (1 - smooth(end, end + this.fade, t));
+    const vis = a > 0.003 && p > 0.004;
+    this.mesh.visible = this.shadow.visible = vis; this.alpha = vis ? a : 0; this.p = p;
+    if (!vis) return;
+    if (Math.abs(p - this.lastP) > 0.0015) { this.build(p); this.lastP = p; }
+    this.mat.uniforms.uAlpha.value = a; this.smat.uniforms.uAlpha.value = a;
+  }
+  labelPos() { const c = this.sample(this.L * this.p * 0.55); return [c.x, c.y + this.hover * 0.8, c.z]; }
+}
+
+/* ---------- 前線リボン（二色：左 = 枢軸側, 右 = ソ連側） ---------- */
+function makeRibbonMaterial() {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uA: { value: FCOL.gb.clone() }, uB: { value: FCOL.fr.clone() }, uAlpha: { value: 1 }, uW: { value: 1 }, uReveal: { value: 1 }, uMode: { value: 0 }, uSeam: { value: 0 }, uGlow: { value: 1 } }]),
+    vertexShader: `attribute vec3 aOff; attribute float aU; attribute float aVis; uniform float uW; varying float vV; varying float vU; varying float vVis;
+#include <fog_pars_vertex>
+    void main(){ vec3 p = position + vec3(aOff.x, 0.0, aOff.y) * uW * 0.5; vV = aOff.z; vU = aU; vVis = aVis;
+      vec4 mvPosition = viewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+    }`,
+    fragmentShader: `uniform vec3 uA, uB; uniform float uAlpha, uReveal, uMode, uSeam, uGlow; varying float vV; varying float vU; varying float vVis;
+#include <fog_pars_fragment>
+    void main(){ float o = fract(uSeam + 0.5); float dd = abs(vU - o); dd = min(dd, 1.0 - dd);
+      float vis = uMode < 0.5 ? step(vU, uReveal) : step(dd, uReveal * 0.5 + 0.001); if (vis < 0.5) discard;
+      float v = vV * 0.5 + 0.5; vec3 c = v < 0.5 ? uA : uB;
+      float core = 1.0 - smoothstep(0.0, 0.22, abs(v - 0.5));
+      float pulse = 0.75 + 0.25 * sin(uTime * 2.5 - vU * 60.0);
+      vec3 col = c * (1.1 + 1.3 * uGlow * pulse) + c * core * 0.8 * uGlow + vec3(1.0, 0.9, 0.8) * core * 0.25;
+      float a = uAlpha * vVis * (1.0 - smoothstep(0.7, 1.0, abs(vV))) * (0.55 + 0.45 * core);
+      gl_FragColor = vec4(col, a);
+#include <fog_fragment>
+    }`,
+  });
+  Object.assign(m.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+  return m;
+}
+class Ribbon {
+  constructor(n, closed, hover, mode = 0) {
+    this.n = n; this.closed = closed; this.hover = hover;
+    const cnt = n * 2, g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(cnt * 3); this.off = new Float32Array(cnt * 3); this.u = new Float32Array(cnt); this.vis = new Float32Array(cnt).fill(1);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aOff', new THREE.BufferAttribute(this.off, 3));
+    g.setAttribute('aU', new THREE.BufferAttribute(this.u, 1)); g.setAttribute('aVis', new THREE.BufferAttribute(this.vis, 1));
+    const I = []; const segs = closed ? n : n - 1;
+    for (let i = 0; i < segs; i++) { const a = i * 2, b = ((i + 1) % n) * 2; I.push(a, b, a + 1, a + 1, b, b + 1); }
+    g.setIndex(I); this.mat = makeRibbonMaterial(); this.mat.uniforms.uMode.value = mode;
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 3; scene.add(this.mesh);
+  }
+  set(pts, visFn) { // pts: n 点
+    const n = this.n;
+    for (let i = 0; i < n; i++) {
+      const a = pts[this.closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[this.closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
+      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, [x, z] = pts[i];
+      const y = Math.max(Hw(x, z), Hw(x + nx * 0.4, z + nz * 0.4), Hw(x - nx * 0.4, z - nz * 0.4)) + this.hover;
+      for (let s = 0; s < 2; s++) { const k = i * 2 + s, sg = s ? -1 : 1; this.pos.set([x, y, z], k * 3); this.off.set([nx * sg, nz * sg, sg], k * 3); this.u[k] = this.closed ? i / n : i / (n - 1); this.vis[k] = visFn ? visFn(x, z, i) : 1; }
+    }
+    for (const k of ['position', 'aOff', 'aU', 'aVis']) this.mesh.geometry.attributes[k].needsUpdate = true;
+  }
+}
+
+/* ---------- 部隊（小さな戦車・歩兵ブロックの編隊） ---------- */
+let unitMeshes = {};
+function mergeBoxes(parts) { const pos = []; for (const p of parts) pos.push(...p.toNonIndexed().attributes.position.array); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; }
+const GEO_OF = k => ['ship', 'bb', 'cv', 'dd'].includes(k) ? k : k === 'air' ? 'air' : 'box';
+function unitGeometry(type) {
+  const B = (w, h, d, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
+  if (type === 'box') return mergeBoxes([B(1, 0.32, 0.42, 0, 0.16, 0)]);
+  if (type === 'cv') return mergeBoxes([B(0.13, 0.07, 0.86, 0, 0.035, 0), B(0.2, 0.02, 1.0, 0, 0.08, 0.0), B(0.035, 0.08, 0.1, 0.085, 0.13, 0.08)]); // 空母：飛行甲板と艦橋
+  if (type === 'bb') return mergeBoxes([B(0.16, 0.07, 1.0, 0, 0.035, 0), B(0.1, 0.07, 0.34, 0, 0.1, 0.02), B(0.05, 0.14, 0.06, 0, 0.17, 0.08), B(0.07, 0.04, 0.12, 0, 0.09, 0.34), B(0.07, 0.04, 0.12, 0, 0.09, -0.3)]); // 戦艦
+  if (type === 'dd' || type === 'ship') return mergeBoxes([B(0.1, 0.06, 1.0, 0, 0.03, 0), B(0.06, 0.07, 0.3, 0, 0.09, 0.05), B(0.035, 0.05, 0.05, 0, 0.14, -0.12)]);
+  // 航空機
+  return mergeBoxes([B(0.12, 0.1, 1.0), B(1.4, 0.03, 0.24, 0, 0.02, 0.05), B(0.46, 0.02, 0.13, 0, 0.03, -0.45), B(0.02, 0.2, 0.14, 0, 0.11, -0.45)]);
+}
+function buildUnits(forms) {
+  const counts = {}; for (const f of forms) { const g = GEO_OF(f.kind); counts[g] = (counts[g] || 0) + f.n; }
+  for (const g in counts) {
+    const mat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.1 });
+    mat.onBeforeCompile = s => { fogUniforms(s); s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor * ' + (g === 'box' || g === 'air' ? '0.55' : '0.12') + ';'); };
+    const m = new THREE.InstancedMesh(unitGeometry(g), mat, counts[g]); m.castShadow = true; m.frustumCulled = false; m.userData.k = 0; unitMeshes[g] = m; scene.add(m);
+  }
+  const r = rng(1122);
+  for (const f of forms) {
+    const mesh = unitMeshes[GEO_OF(f.kind)]; f.mesh = mesh; f.slots = [];
+    const cols = Math.ceil(Math.sqrt(f.n * (f.line ? 4 : 1)));
+    for (let i = 0; i < f.n; i++) {
+      const cx = f.n === 1 ? 0 : (i % cols) / Math.max(cols - 1, 1) - 0.5, cz = f.n === 1 ? 0 : Math.floor(i / cols) / Math.max(Math.ceil(f.n / cols) - 1, 1) - 0.5;
+      const k = mesh.userData.k++;
+      f.slots.push({ i, k, ox: cx + (f.n > 1 ? (r() - 0.5) * 0.12 : 0), oz: (cz + (f.n > 1 ? (r() - 0.5) * 0.15 : 0)) * (f.line ? 0.3 : 1), sc: f.n > 1 ? 0.8 + r() * 0.4 : 1, rr: r(), rot: f.n > 1 ? (r() - 0.5) * 0.2 : 0, keep: r() });
+      mesh.setColorAt(k, f.color ? new THREE.Color(f.color) : FCOL[f.f]);
+    }
+    f.track = new HTrack(f.keys.map(kk => ({ t: kk[0], v: [kk[1], kk[2], kk[3] ?? 0], hold: kk[4] })));
+  }
+}
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
+const GREY = new THREE.Color(0.3, 0.3, 0.3);
+function updateUnits(forms, t, camDist) {
+  const us = clamp(camDist * 0.016, 0.028, 6);
+  for (const f of forms) {
+    const [x, z] = f.track.at(t); const x2 = f.track.at(t + 0.35);
+    let hd = f.face ?? 0; const mx = x2[0] - x, mz = x2[1] - z; if (Math.hypot(mx, mz) > 0.004 * Math.max(1, f.spread * 0.1)) hd = Math.atan2(mx, -mz) / DEG; else if (f.heading != null && f.face == null) hd = f.heading;
+    f.pos = [x, z]; f.heading = hd;
+    const a = win(t, f.t0, f.t1, 1.5, 2.5), sc = f.scatter ? smooth(f.scatter[0], f.scatter[1], t) : 0;
+    const str = f.str ? sKeys(f.str, t).v : 1, sur = f.surr ? smooth(f.surr, f.surr + 4, t) : 0;
+    const sink = f.sink ? smooth(f.sink[0], f.sink[1], t) * (f.sinkMax ?? 1) : 0, dmg = f.dmg ? smooth(f.dmg, f.dmg + 2, t) : 0;
+    f.alpha = a * (1 - sc * 0.9) * (1 - sur) * (1 - smooth(0.8, 1, sink));
+    const th = Math.PI - hd * DEG, ch = Math.cos(th), sh = Math.sin(th);
+    const W = f.spread * (f.line ? 1 : 0.7), D = f.spread * (f.line ? 1 : 0.7);
+    const g = GEO_OF(f.kind), isShip = g !== 'box' && g !== 'air';
+    const base = g === 'air' ? us * 0.9 : isShip ? Math.max((f.len || 0.2) * 1.3, us * 3.4) : us;
+    for (const s of f.slots) {
+      let ox = s.ox * W, oz = s.oz * D, rotX = 0;
+      if (f.kind === 'cav') { ox += Math.sin(s.rr * 40 + t * 0.7) * f.spread * 0.04; oz += Math.cos(s.keep * 40 + t * 0.6) * f.spread * 0.04; }
+      if (g === 'air') { ox += Math.sin(s.rr * 30 + t * 1.3) * us * 0.4; oz += Math.cos(s.keep * 30 + t * 1.1) * us * 0.4; }
+      const sqk = f.sq ? win(t, f.sq[0], f.sq[1], 3, 3) : 0;
+      if (sqk > 0) {
+        const gi = Math.floor(s.i / 4), ci = s.i % 4, ng = Math.ceil(f.n / 4), gc = Math.ceil(Math.sqrt(ng * 2.5));
+        const gx = ((gi % gc) / Math.max(gc - 1, 1) - 0.5) * W * 1.1 + (Math.floor(gi / gc) % 2) * W * 0.18, gz = (Math.floor(gi / gc) / Math.max(Math.ceil(ng / gc) - 1, 1) - 0.5) * D * 0.9;
+        const half = us * 0.75, sx = [0, half, 0, -half][ci], sz = [-half, 0, half, 0][ci];
+        ox = lerp(ox, gx + sx, sqk); oz = lerp(oz, gz + sz, sqk); rotX = sqk * [0, Math.PI / 2, 0, Math.PI / 2][ci];
+      }
+      if (sc > 0) { ox += (s.rr - 0.5) * f.spread * 1.6 * sc; oz += (s.keep - 0.5) * f.spread * 1.6 * sc + sc * f.spread * 0.6; }
+      const wx = x + ox * ch + oz * sh, wz = z - ox * sh + oz * ch;
+      const vis = a > 0.01 && s.keep < str * (1 - sc * 0.7) && (1 - sur) > 0.02 && sink < 0.999;
+      const size = vis ? base * s.sc * (f.small ?? 1) * Math.min(1, a * 1.5) * (1 - sur * 0.8) * (f.kind === 'cav' ? 0.55 : f.kind === 'art' ? 0.6 : 1) : 0;
+      let y = g === 'air' ? (f.alt ?? 3) + Math.sin(t * 0.8 + s.rr * 9) * us * 0.1 : Hw(wx, wz) + size * 0.02;
+      if (isShip) y = -size * 0.02 - sink * size * 0.12;
+      _m4.compose(_v.set(wx, y, wz), _q.setFromEuler(_e.set(sink * 0.25 * (s.rr > 0.5 ? 1 : -1), th + s.rot + sc * s.rr * 3 + rotX, (f.roll ?? 0) * sink + dmg * 0.04, 'YXZ')), _s.set(size, size, size));
+      f.mesh.setMatrixAt(s.k, _m4);
+      if (sur > 0 || dmg > 0) { _c.copy(f.color ? new THREE.Color(f.color) : FCOL[f.f]).lerp(GREY, Math.max(sur, dmg * 0.6)); f.mesh.setColorAt(s.k, _c); }
+      else if (f._grey) f.mesh.setColorAt(s.k, f.color ? new THREE.Color(f.color) : FCOL[f.f]);
+    }
+    f._grey = sur > 0 || dmg > 0;
+  }
+  for (const g in unitMeshes) { unitMeshes[g].instanceMatrix.needsUpdate = true; if (unitMeshes[g].instanceColor) unitMeshes[g].instanceColor.needsUpdate = true; }
+}
+
+/* ---------- 勢力図（キャンバス） ---------- */
+function trackPoly(tr, t) { // 前線キーを補間して [多角形, 前線]
+  const ks = tr.keys; let i = 0; while (i < ks.length - 2 && t > ks[i + 1][0]) i++;
+  const A = ks[i], B = ks[Math.min(i + 1, ks.length - 1)], u = A === B ? 0 : easeInOut(clamp((t - A[0]) / (B[0] - A[0]), 0, 1));
+  const n = tr.n || 120; A.rs ??= resample(A[1], n, !!tr.closed); B.rs ??= resample(B[1], n, !!tr.closed);
+  const front = A.rs.map((p, j) => [lerp(p[0], B.rs[j][0], u), lerp(p[1], B.rs[j][1], u)]);
+  return front;
+}
+function trackAlpha(tr, t) { return win(t, tr.t0, tr.t1, tr.fi ?? 3, tr.fo ?? 4); }
+function drawPolys(ctx, R, W, Hh, polys) {
+  ctx.setTransform(W / R.w, 0, 0, Hh / R.h, -R.x0 * W / R.w, -R.z0 * Hh / R.h);
+  for (const [pts, style, alpha] of polys) {
+    if (alpha < 0.01) continue; ctx.globalAlpha = alpha; ctx.fillStyle = style; ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* =====================================================================
+   ストーリーデータ：ミッドウェー海戦（t = 映像内の秒、時刻は現地時間）
+   ===================================================================== */
+const T_END = 262;
+const UI_T = { title: [1, 8.5], stats: [238, 258], date: [0.5, 236], timeFrom: 22, lm: [0, 999] };
+const CHAPTERS = [
+  { t: 0, num: '序章', title: 'MI作戦', dates: '1942.5.27 — 6.3' },
+  { t: 22, num: '第一章', title: 'ミッドウェー空襲', dates: '6月4日　04:30 — 07:00' },
+  { t: 56, num: '第二章', title: '索敵と兵装転換', dates: '07:00 — 09:20' },
+  { t: 88, num: '第三章', title: '雷撃隊', dates: '09:20 — 10:20' },
+  { t: 116, num: '第四章', title: '運命の5分間', dates: '10:22 — 10:30' },
+  { t: 132, num: '第五章', title: '飛龍の反撃', dates: '10:50 — 14:40' },
+  { t: 196, num: '第六章', title: '飛龍の最期', dates: '15:30 — 6月5日' },
+  { t: 236, num: '終章', title: '転換点', dates: '1942.6.4 — 6.7' },
+];
+const CAPTIONS = [
+  [9, 16, '1942年5月末、山本五十六の連合艦隊はミッドウェー島攻略と米空母部隊の撃滅をめざし、瀬戸内海などから出撃した。'],
+  [16, 22, 'しかし米海軍は暗号解読で作戦を察知。ニミッツは3隻の空母を島の北東「ポイント・ラック」に待ち伏せさせた。'],
+  [25, 32, '6月4日04:30、南雲忠一中将の機動部隊は空母4隻から友永丈市大尉のミッドウェー攻撃隊108機を発艦させた。'],
+  [32, 40, '06:30頃から島を爆撃し、燃料タンクや施設を破壊した。しかし友永は「第二次攻撃の要あり」と打電する。'],
+  [40, 50, '島からは雷撃機、B-26、急降下爆撃機、B-17が次々に機動部隊を攻撃したが、命中弾はなく多くが撃墜された。'],
+  [50, 56, '南雲は艦上の攻撃機の魚雷を陸用爆弾に換装するよう命じた。'],
+  [58, 66, '発進が遅れていた重巡利根の4号機が07:28、敵らしき艦隊を発見と報告。08:20頃には空母らしきものを伴うと伝えた。'],
+  [66, 74, '南雲は換装を再び対艦用に戻させ、帰ってきたミッドウェー攻撃隊の収容を優先した。空母の格納庫には爆弾と魚雷が並んだ。'],
+  [74, 82, 'その頃、スプルーアンスの第16任務部隊（エンタープライズ、ホーネット）とヨークタウンは攻撃隊を次々に発進させていた。'],
+  [90, 98, '09:20頃、ホーネットの第8雷撃隊15機が単独で突入。零戦と対空砲火に阻まれ全機が撃墜された。'],
+  [98, 106, '続いてエンタープライズ、ヨークタウンの雷撃隊も低空から攻撃。大半を失ったが、零戦を低空に引きつけた。'],
+  [106, 114, '一方、機動部隊を見つけられずにいたマクラスキー少佐のエンタープライズ急降下爆撃隊は、北へ急ぐ駆逐艦嵐を追跡していた。'],
+  [118, 124, '10:22、上空の急降下爆撃機が一斉に降下。加賀、ついで赤城に爆弾が命中した。'],
+  [124, 131, 'ほぼ同時にヨークタウンのレスリー少佐の隊が蒼龍を攻撃。わずか数分で3隻の空母が炎上した。'],
+  [134, 142, '残った飛龍の山口多聞少将は直ちに反撃を決断。10:50頃、小林道雄大尉の艦爆隊が発艦した。'],
+  [142, 152, '炎上する3隻では、甲板上の燃料や弾薬が誘爆し、手の施しようがなかった。'],
+  [160, 170, '12:00頃、小林隊がヨークタウンに爆弾3発を命中させた。ヨークタウンは一時停止するが、応急修理で航行を再開した。'],
+  [174, 182, '13:30頃、友永大尉の雷撃隊が飛龍を発艦。友永機は片道分の燃料しか積めない状態のまま出撃したと伝えられる。'],
+  [184, 194, '14:40頃、魚雷2本がヨークタウンに命中。大きく傾いたヨークタウンは総員退艦となった。'],
+  [198, 206, '15:30、エンタープライズから急降下爆撃隊（ヨークタウン隊を含む）が発艦。飛龍へ向かう。'],
+  [206, 214, '17:00頃、飛龍に4発が命中して炎上。日本側の空母4隻はすべて戦闘力を失った。'],
+  [216, 224, 'その夜、蒼龍と加賀が沈没。翌5日朝、赤城と飛龍は味方の魚雷で処分され、山口少将は飛龍と運命を共にした。'],
+  [224, 234, '山本は作戦の中止を命じた。ヨークタウンは曳航中の6日に伊号第168潜水艦の雷撃を受け、7日に沈んだ。'],
+  [240, 249, '日本は空母4隻と重巡三隈、約3,000人の将兵と多くの熟練搭乗員を失った。アメリカ側の損失は空母ヨークタウンと駆逐艦ハムマン、約300人。'],
+  [249, 258, 'ミッドウェー海戦は太平洋戦争の転換点となり、以後、主導権はアメリカへ移っていった。'],
+];
+const DATE_KEYS = [[0, '1942-05-27T08:00'], [14, '1942-06-03T12:00'], [22, '1942-06-04T04:20'], [26, '1942-06-04T04:30'], [44, '1942-06-04T06:30'], [58, '1942-06-04T07:30'], [70, '1942-06-04T08:20'], [88, '1942-06-04T09:15'],
+  [106, '1942-06-04T10:00'], [119, '1942-06-04T10:22'], [128, '1942-06-04T10:30'], [134, '1942-06-04T10:50'], [166, '1942-06-04T12:00'], [176, '1942-06-04T13:30'], [190, '1942-06-04T14:40'], [198, '1942-06-04T15:30'],
+  [212, '1942-06-04T17:00'], [220, '1942-06-04T19:20'], [232, '1942-06-05T05:10'], [262, '1942-06-05T08:00']];
+const EVENTS = [[26, 34, 'ミッドウェー攻撃隊 発艦', 1], [42, 52, '島からの反撃'], [58, 66, '利根4号機 敵艦隊発見', 1], [90, 98, '第8雷撃隊 突入'], [119, 131, '加賀・赤城・蒼龍 被弾'], [160, 170, 'ヨークタウン 被弾', 1], [184, 194, 'ヨークタウン 被雷', 1], [206, 214, '飛龍 被弾']];
+function battleLevel(t) { return win(t, 42, 50) * 2 + win(t, 60, 66) * 1.5 + win(t, 92, 118) * 1.5 + win(t, 119, 128) * 5 + win(t, 164, 170) * 3 + win(t, 188, 194) * 3 + win(t, 208, 214) * 3; }
+
+const ATMOS_RAW = [
+  [0, { sunEl: 25, sunAz: 120, sunI: 2.2, sunC: '#fff0da', amb: '#6a7588', hemiI: 1.0, fogC: '#a9b8c6', fogD: 0.0009, hfog: 0.002, hfall: 0.4, zen: '#4d74a4', exp: 1.0,
+    snow: 0, aut: 0, ice: 0, fire: 0, destroy: 0, scorch: 0, snowfall: 0, sat: 0.9, con: 1.06, gain: [1, 1, 1], vig: 0.42, cloudH: 1, cloudL: 0.5, terr: 0, grid: 0, smoke: 1, flash: 1, sov: 0 }],
+  [12, { cloudH: 0.2 }],
+  [22, { sunEl: -3, sunAz: 65, sunI: 1.0, sunC: '#ffab70', amb: '#46506a', fogC: '#7a7f94', zen: '#1f2d4a', exp: 1.1, cloudH: 0 }],
+  [44, { sunEl: 14, sunAz: 72, sunI: 2.4, sunC: '#ffdcb0', amb: '#66728a', fogC: '#b3c0cc', zen: '#4a73a6', exp: 1.0 }],
+  [120, { sunEl: 55, sunAz: 110, sunI: 3.0, sunC: '#fff4e4', fogC: '#bcc9d4', zen: '#4f7fb6' }],
+  [170, { sunEl: 75, sunAz: 220, sunI: 3.0 }],
+  [212, { sunEl: 22, sunAz: 290, sunI: 2.6, sunC: '#ffd1a0', fogC: '#c3b9ae' }],
+  [222, { sunEl: -4, sunAz: 300, sunI: 0.8, sunC: '#ff8a50', amb: '#3e465e', fogC: '#524f5e', zen: '#141c33', exp: 1.15 }],
+  [232, { sunEl: 3, sunAz: 66, sunI: 1.6, sunC: '#ffb27a', amb: '#56607a', fogC: '#a39a9a', zen: '#34507a', exp: 1.05 }],
+  [262, { sunEl: 14, sunAz: 72, sunI: 2.4, sunC: '#ffdcb0', fogC: '#b3c0cc', zen: '#4a73a6' }],
+];
+const ATMOS = (() => { let prev = {}; return ATMOS_RAW.map(([t, o]) => { const cur = { ...prev }; for (const k in o) cur[k] = typeof o[k] === 'string' ? hex2lin(o[k]) : o[k]; prev = cur; return [t, cur]; }); })();
+const CLOUD_CFG = { high: { n: 70, cx: -150, cz: -320, sx: 500, sz: 500, y0: 30, y1: 60, s0: 30, s1: 60 }, low: { n: 220, cx: -130, cz: -320, sx: 420, sz: 300, y0: 7, y1: 11, s0: 3, s1: 8 } };
+
+// 艦隊の針路
+const KB = [[0, -520, -520], [20, -320, -345], [26, -300, -330], [58, -270, -300], [90, -256, -287], [119, -248, -282]];
+const off = (P, dx, dz, extra = []) => [...P.map(([t, x, z]) => [t, x + dx, z + dz]), ...extra];
+const ship = (id, f, name, sub, kind, len, keys, o = {}) => ({ id, f, name, sub, n: 1, spread: 0.3, len, kind, t0: 0, t1: 262, keys, ...o });
+const HIRYU = [[122, -238, -290], [150, -222, -305], [180, -202, -318], [212, -180, -330], [214, -179.5, -330.3, 0, 1]];
+const TF16 = [[0, 90, -600], [20, -8, -395], [60, -20, -382], [120, -28, -372], [200, -48, -362], [262, -70, -352]];
+const TF17 = [[0, 120, -640], [20, 12, -420], [60, 6, -402], [166, 2, -396], [168, 1.8, -395.8, 0, 1]];
+// 攻撃隊（カメラが追尾する）
+const air = (id, f, name, sub, n, alt, keys, t0, t1, o = {}) => ({ id, f, name, sub, n, spread: 3, kind: 'air', alt, t0, t1, keys, ...o });
+const FORMS = [
+  ship('akagi', 'jp', '赤城', '空母（旗艦）', 'cv', 0.26, off(KB, 0, 0), { dmg: 121, sink: [230, 236], sinkMax: 1 }),
+  ship('kaga', 'jp', '加賀', '空母', 'cv', 0.25, off(KB, -4, 3.5), { dmg: 119, sink: [219, 225], sinkMax: 1 }),
+  ship('soryu', 'jp', '蒼龍', '空母', 'cv', 0.23, off(KB, 4.5, 3), { dmg: 122.5, sink: [217, 223], sinkMax: 1 }),
+  ship('hiryu', 'jp', '飛龍', '空母', 'cv', 0.23, off(KB, 8, -5, HIRYU), { dmg: 210, sink: [232, 238], sinkMax: 1 }),
+  { id: 'escort', f: 'jp', name: '護衛艦艇', sub: '戦艦2・重巡2・軽巡1・駆逐艦', n: 12, spread: 20, len: 0.16, kind: 'dd', t0: 0, t1: 262, keys: off(KB, 2, 0, [[150, -236, -292], [214, -190, -325], [262, -230, -330]]) },
+  ship('enterprise', 'us', 'エンタープライズ', '空母（第16任務部隊）', 'cv', 0.25, off(TF16, 0, 0)),
+  ship('hornet', 'us', 'ホーネット', '空母（第16任務部隊）', 'cv', 0.25, off(TF16, 7, -5)),
+  ship('yorktown', 'us', 'ヨークタウン', '空母（第17任務部隊）', 'cv', 0.25, TF17, { dmg: 166, sink: [188, 200], sinkMax: 0.22, roll: 1.2 }),
+  { id: 'usdd', f: 'us', name: '護衛艦艇', sub: '巡洋艦・駆逐艦', n: 12, spread: 18, len: 0.15, kind: 'dd', t0: 0, t1: 262, keys: off(TF16, 8, 8) },
+  air('mstrike', 'jp', 'ミッドウェー攻撃隊', '108機（友永大尉）', 18, 3.6, [[26, -300, -330], [36, -150, -165], [44, 0, 0], [50, -20, -40], [60, -260, -295]], 26, 62),
+  air('midair', 'us', '島からの攻撃隊', 'TBF・B-26・SBD・B-17など', 12, 2.6, [[44, 0, 0], [52, -150, -170], [60, -268, -298], [64, -262, -292]], 44, 66, { str: [[0, { v: 1 }], [60, { v: 1 }], [66, { v: 0.3 }]] }),
+  air('tone4', 'jp', '利根4号機', '索敵機', 1, 3.4, [[46, -270, -300], [56, -130, -360], [62, -30, -380]], 46, 70),
+  air('vt8', 'us', '第8雷撃隊', 'ホーネット 15機', 10, 1.2, [[72, -13, -386], [88, -220, -300], [92, -252, -287], [96, -250, -284]], 72, 98, { str: [[0, { v: 1 }], [92, { v: 1 }], [97, { v: 0 }]] }),
+  air('vt6', 'us', '雷撃隊', 'エンタープライズ・ヨークタウン', 10, 1.2, [[80, -10, -390], [100, -230, -300], [106, -250, -285], [112, -248, -283]], 80, 114, { str: [[0, { v: 1 }], [104, { v: 1 }], [112, { v: 0.2 }]] }),
+  air('mcclusky', 'us', '急降下爆撃隊', 'マクラスキー少佐（エンタープライズ）', 12, 4.8, [[74, -18, -384], [96, -210, -240], [106, -240, -255], [114, -250, -270], [118, -252, -279], [121, -250, -284], [126, -210, -320], [134, -120, -360]], 74, 134),
+  air('vb3', 'us', '急降下爆撃隊', 'レスリー少佐（ヨークタウン）', 9, 4.8, [[84, 6, -402], [110, -200, -300], [119, -240, -282], [122.5, -243.5, -279], [128, -200, -320], [138, -60, -390]], 84, 138),
+  air('kobayashi', 'jp', '小林隊', '飛龍 艦爆18・零戦6', 10, 3.6, [[134, -237, -291], [152, -100, -350], [164, -4, -394], [168, 1, -396], [176, -60, -370]], 134, 176, { str: [[0, { v: 1 }], [160, { v: 1 }], [168, { v: 0.35 }]] }),
+  air('tomonaga', 'jp', '友永隊', '飛龍 艦攻10・零戦6', 8, 1.6, [[176, -205, -317], [186, -60, -370], [190, 0, -394], [194, -40, -380]], 176, 196, { str: [[0, { v: 1 }], [186, { v: 1 }], [192, { v: 0.4 }]] }),
+  air('gallaher', 'us', '急降下爆撃隊', 'エンタープライズ 24機', 12, 4.8, [[198, -46, -363], [208, -150, -335], [212, -180, -330], [216, -120, -350]], 198, 218),
+];
+const FLIGHTS = [
+  { t0: 26, t1: 30, pts: [[-300, -330], [-150, -165], [0, 0]], alt: 3.6, interval: 0.4, dur: 18, vic: 3, spread: 12, color: '#8a9275' },
+  { t0: 46, t1: 52, pts: [[-10, -20], [-150, -170], [-262, -292]], alt: 3.4, interval: 0.6, dur: 16, vic: 3, spread: 12, color: '#8a9275' },
+  { t0: 44, t1: 58, pts: [[0, 0], [-150, -170], [-266, -296]], alt: 2.4, interval: 1.5, dur: 16, vic: 1, spread: 16, loss: 2, lossAt: 0.9, color: '#6f86a6' },
+  { t0: 58, t1: 132, pts: [[-262, -272], [-235, -278], [-238, -300], [-262, -298], [-262, -272]], alt: 2.2, interval: 1.2, dur: 10, vic: 1, spread: 10, color: '#8a9275' },
+  { t0: 90, t1: 114, pts: [[-220, -300], [-250, -285]], alt: 1.0, interval: 0.8, dur: 5, vic: 1, spread: 10, loss: 1, lossAt: 0.4, color: '#6f86a6' },
+];
+// 火災と黒煙
+const FIRES = [
+  { p: [-2.0, 1.6], t0: 44, t1: 200, s: 3, n: 6 }, { p: [1.6, 1.6], t0: 45, t1: 90, s: 1.8 },
+  { form: 'kaga', t0: 119, t1: 225, s: 12, n: 7, sp: 0.3 }, { form: 'akagi', t0: 121, t1: 236, s: 12, n: 7, sp: 0.3 }, { form: 'soryu', t0: 122.5, t1: 223, s: 12, n: 7, sp: 0.3 },
+  { form: 'yorktown', t0: 166, t1: 180, s: 9, sp: 0.25 }, { form: 'yorktown', t0: 190, t1: 262, s: 6, sp: 0.25 }, { form: 'hiryu', t0: 212, t1: 238, s: 12, n: 7, sp: 0.3 },
+];
+const firePt = (id, t, dx = 0, dz = 0) => { const k = FORMS.find(f => f.id === id).keys; let p = k[0]; for (const q of k) if (q[0] <= t) p = q; return [p[1] + dx, p[2] + dz]; };
+// 閃光: [ax, az, bx, bz, 開始, 終了, 強さ, サイズ, 高さ, 周期, 煙]
+const FIRELINES = [
+  [-2.5, 1.0, 2.2, 1.6, 44, 50, 3, 0.25, 0, 1.2, 1],                                                   // ミッドウェー爆撃
+  [-3, -1, 3, 3, 43, 50, 2, 0.12, 1.4, 1.1, 1],                                                        // 島の対空砲火
+  [...firePt('akagi', 60, -10, -8), ...firePt('akagi', 60, 10, 10), 58, 66, 0.6, 0.15, 1.2, 1.3, 1],  // 機動部隊の対空砲火
+  [...firePt('akagi', 94, -10, -8), ...firePt('akagi', 94, 10, 10), 92, 118, 0.6, 0.15, 1.0, 1.3, 1],
+  [...firePt('kaga', 119, -4, 3.5), ...firePt('kaga', 119, -3.8, 3.7), 119, 122, 4, 0.6, 0.05, 1.4, 0],
+  [...firePt('akagi', 121, 0, 0), ...firePt('akagi', 121, 0.2, 0.1), 121, 124, 4, 0.6, 0.05, 1.4, 0],
+  [...firePt('soryu', 122, 4.5, 3), ...firePt('soryu', 122, 4.7, 3.1), 122.5, 125.5, 4, 0.6, 0.05, 1.4, 0],
+  [-4, -400, 8, -392, 164, 169, 1.5, 0.12, 1.2, 1.1, 1], [2, -396, 2.2, -395.8, 166, 168, 3, 0.5, 0.05, 1.3, 0],
+  [-4, -400, 8, -392, 188, 192, 1.5, 0.12, 0.8, 1.1, 1], [1.8, -395.8, 2, -395.6, 190, 192, 3, 0.5, 0.02, 1.3, 0],
+  [-182, -332, -177, -328, 208, 213, 1.2, 0.12, 1.2, 1.1, 1], [-179.5, -330.3, -179.3, -330.1, 210, 213, 3, 0.6, 0.05, 1.3, 0],
+];
+const ARROWS = [
+  { f: 'jp', label: '南雲機動部隊', pts: [[-620, -640], [-520, -520], [-400, -420], [-310, -338]], t0: 3, t1: 20, width: 16, out: 26 },
+  { f: 'jp', label: '攻略部隊（輸送船団）', pts: [[-600, 200], [-400, 120], [-200, 60], [-60, 20]], t0: 5, t1: 20, width: 12, out: 26 },
+  { f: 'us', label: '第16・第17任務部隊', pts: [[400, 200], [260, -200], [150, -420], [40, -430]], t0: 6, t1: 20, width: 14, out: 26 },
+  { f: 'jp', label: 'ミッドウェー攻撃隊', pts: [[-296, -326], [-150, -165], [-4, -4]], t0: 27, t1: 44, width: 2.5, out: 52 },
+  { f: 'us', label: '空母部隊の攻撃隊', pts: [[-16, -384], [-120, -340], [-240, -292]], t0: 76, t1: 92, width: 2.5, out: 100 },
+  { f: 'jp', label: '飛龍の反撃', pts: [[-236, -292], [-120, -348], [-6, -394]], t0: 135, t1: 164, width: 2.2, out: 170 },
+  { f: 'us', label: '飛龍へ', pts: [[-50, -362], [-120, -345], [-176, -331]], t0: 199, t1: 211, width: 2.2, out: 214 },
+];
+const TERR = [], CITY_FRONT = [];
+const EVENT_PINS = [
+  { text: '燃料タンク炎上', sub: '06:30頃', p: [-2.0, 1.6], t0: 46, t1: 54, axis: 1 },
+  { text: '利根4号機 発見', sub: '07:28', p: [-30, -380], t0: 60, t1: 68, axis: 1 },
+  { text: '第8雷撃隊 全滅', sub: '生還者1人（ゲイ少尉）', p: [-250, -284], t0: 95, t1: 104 },
+  { text: '加賀 被弾', sub: '10:22', p: firePt('kaga', 119, -4, 3.5), t0: 119, t1: 128 },
+  { text: '赤城 被弾', sub: '10:26', p: firePt('akagi', 121), t0: 121, t1: 130 },
+  { text: '蒼龍 被弾', sub: '10:25', p: firePt('soryu', 122, 4.5, 3), t0: 123, t1: 131 },
+  { text: 'ヨークタウン 被弾', sub: '12:00頃', p: [2, -396], t0: 166, t1: 174, axis: 1 },
+  { text: 'ヨークタウン 被雷', sub: '14:40頃', p: [2, -396], t0: 190, t1: 198, axis: 1 },
+  { text: '飛龍 被弾', sub: '17:00頃', p: [-179.5, -330.3], t0: 210, t1: 218 },
+];
+const BIG_LABELS = [];
+
+// カメラ: [t, x, z, 距離, 俯角, 方位, 画角, 追尾する部隊]
+const CAM_KEYS = [
+  [0, -150, -250, 900, 62, -10, 40], [10, -150, -260, 760, 54, -20, 40], [20, -300, -335, 60, 26, -40, 40],
+  [26, -300, -330, 14, 16, -120, 40, 'akagi'], [32, -220, -250, 60, 28, 140, 40, 'mstrike'], [40, -40, -40, 30, 24, 160, 40, 'mstrike'], [46, 0, 0.8, 9, 32, 150, 40],
+  [52, -60, -70, 60, 30, 140, 40, 'midair'], [60, -262, -292, 30, 26, 120, 40], [66, -60, -380, 40, 26, -120, 40, 'tone4'], [74, -18, -384, 18, 22, -110, 40, 'enterprise'],
+  [82, -266, -292, 34, 32, 60, 40], [90, -240, -292, 18, 18, 110, 40, 'vt8'], [96, -250, -286, 10, 14, 70, 40], [104, -248, -284, 14, 18, 20, 40, 'vt6'],
+  [110, -240, -256, 40, 34, 160, 40, 'mcclusky'], [116, -250, -278, 14, 34, 150, 40, 'mcclusky'], [120, -250, -281, 9, 40, 120, 40], [125, -245, -280, 11, 30, 80, 40], [131, -247, -280, 16, 24, 40, 40],
+  [136, -237, -291, 12, 22, -60, 40, 'kobayashi'], [146, -150, -330, 60, 30, -90, 40, 'kobayashi'], [156, -250, -283, 12, 22, 150, 40], [164, 1, -396, 12, 24, -100, 40], [172, 2, -396, 8, 22, -140, 40],
+  [180, -150, -340, 50, 28, -80, 40, 'tomonaga'], [188, 1, -396, 12, 18, -80, 40], [196, 1.8, -395.8, 7, 20, -30, 40],
+  [202, -80, -355, 40, 30, 110, 40, 'gallaher'], [210, -180, -331, 12, 26, 120, 40], [216, -180, -330, 9, 22, 60, 40],
+  [222, -246, -283, 22, 24, 100, 40], [230, -210, -300, 60, 34, 60, 40], [238, -150, -320, 180, 46, 20, 40], [262, -150, -320, 300, 55, 10, 40],
+];
+
+/* =====================================================================
+   ディレクター：時刻 t から全要素を決定（シーク・一時停止に対応）
+   ===================================================================== */
+let arrows = [], ribbons = {}, cityRibbon, buildingsList;
+const DAY = 86400000, parseD = s => Date.parse(s + ':00Z');
+const DATE_T = DATE_KEYS.map(([t, d]) => [t, parseD(d)]);
+
+function cityFrontDist(z, t) {
+  const K = CITY_FRONT; let i = 0; while (i < K.length - 2 && t > K[i + 1][0]) i++;
+  const A = K[i], B = K[Math.min(i + 1, K.length - 1)], u = A === B ? 0 : easeInOut(clamp((t - A[0]) / (B[0] - A[0]), 0, 1));
+  const f = (pts) => { if (z <= pts[0][0]) return pts[0][1]; for (let j = 0; j < pts.length - 1; j++) if (z <= pts[j + 1][0]) return lerp(pts[j][1], pts[j + 1][1], (z - pts[j][0]) / (pts[j + 1][0] - pts[j][0])); return pts[pts.length - 1][1]; };
+  return lerp(f(A[1]), f(B[1]), u);
+}
+const CF_N = 140, CF_Z0 = -14, CF_Z1 = 26;
+let terrCache = { t: -999, polys: [], fronts: {} };
+
+function updateTerritory(t, force) {
+  if (!force && Math.abs(t - terrCache.t) < 0.08) return;
+  terrCache.t = t; const polys = [], fronts = {};
+  for (const tr of TERR) {
+    const a = trackAlpha(tr, t); if (a < 0.005) { fronts[tr.id] = null; continue; }
+    const f = trackPoly(tr, t); fronts[tr.id] = f;
+    if (tr.style) polys.push([tr.rear ? f.concat(tr.rear) : f, tr.style, a, tr.id]);
+  }
+  terrCache.polys = polys; terrCache.fronts = fronts;
+  let ctx = regionCanvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, regionCanvas.width, regionCanvas.height);
+  ctx.filter = 'blur(1.2px)'; drawPolys(ctx, REGION, regionCanvas.width, regionCanvas.height, polys); ctx.filter = 'none';
+  regionTex.needsUpdate = true;
+  // 市街：河岸帯を前線で上書き
+  ctx = cityCanvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cityCanvas.width, cityCanvas.height);
+  drawPolys(ctx, CITYR, cityCanvas.width, cityCanvas.height, polys);
+  const cfA = CITY_FRONT.length ? win(t, 52, 262, 2, 4) : 0;
+  if (cfA > 0.01) {
+    const W = cityCanvas.width, Hh = cityCanvas.height;
+    ctx.setTransform(W / CITYR.w, 0, 0, Hh / CITYR.h, -CITYR.x0 * W / CITYR.w, -CITYR.z0 * Hh / CITYR.h);
+    const zs = []; for (let i = 0; i <= CF_N; i++) zs.push(lerp(CF_Z0, CF_Z1, i / CF_N));
+    ctx.beginPath(); zs.forEach((z, i) => i ? ctx.lineTo(bankX(z) - 6.5, z) : ctx.moveTo(bankX(z) - 6.5, z)); for (let i = zs.length - 1; i >= 0; i--) ctx.lineTo(bankX(zs[i]) + 0.4, zs[i]);
+    ctx.closePath(); ctx.fillStyle = 'rgb(0,0,255)'; ctx.fill();
+    ctx.save();
+    if (t > 250) { ctx.beginPath(); for (const [p, , a, id] of polys) if (id.startsWith('pocket') && a > 0.3) { p.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); } ctx.clip(); }
+    ctx.beginPath(); zs.forEach((z, i) => i ? ctx.lineTo(bankX(z) - 6.5, z) : ctx.moveTo(bankX(z) - 6.5, z));
+    for (let i = zs.length - 1; i >= 0; i--) { const z = zs[i]; ctx.lineTo(bankX(z) - cityFrontDist(z, t), z); }
+    ctx.closePath(); ctx.fillStyle = t > 184 ? 'rgb(255,255,0)' : 'rgb(255,0,0)'; ctx.fill();
+    ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  cityTex.needsUpdate = true;
+}
+
+function updateFronts(t, camDist) {
+  const regW = clamp(camDist * 0.006, 0.012, 1.7), regFade = 1 - smooth(40, 70, camDist);
+  for (const tr of TERR) {
+    const rb = ribbons[tr.id]; if (!rb) continue;
+    const f = terrCache.fronts[tr.id], a = trackAlpha(tr, t) * (tr.id.startsWith('pocket') ? smooth(3, 8, camDist) : regFade);
+    rb.mesh.visible = !!f && a > 0.01; if (!rb.mesh.visible) continue;
+    let pts = f; if (tr.closed) { let A = 0; for (let i = 0; i < f.length; i++) { const p = f[i], q = f[(i + 1) % f.length]; A += p[0] * q[1] - q[0] * p[1]; } if (A < 0) pts = f.slice().reverse(); }
+    rb.set(pts, tr.id === 'axis' || tr.id === 'outer' ? (x, z) => 1 - smooth(-10, -7, x) * (1 - smooth(4, 7, x)) * smooth(-17, -14, z) * (1 - smooth(15, 18, z)) : null);
+    rb.mat.uniforms.uAlpha.value = a; rb.mat.uniforms.uW.value = tr.id.startsWith('pocket') ? clamp(camDist * 0.006, 0.05, 1.6) : regW;
+    if (tr.reveal) {
+      rb.mat.uniforms.uMode.value = 1; rb.mat.uniforms.uReveal.value = smooth(tr.reveal[0], tr.reveal[1], t);
+      let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] + 60, p[1] - 8); if (d < bd) { bd = d; bi = i; } }); rb.mat.uniforms.uSeam.value = bi / pts.length;
+    }
+  }
+}
+
+const _sd = new THREE.Vector3();
+function applyAtmos(t) {
+  const A = sKeys(ATMOS, t);
+  const el = A.sunEl * DEG, az = A.sunAz * DEG;
+  _sd.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).normalize();
+  U.uSunDir.value.copy(_sd);
+  U.uSunColor.value.setRGB(...A.sunC); sun.color.setRGB(...A.sunC); sun.intensity = A.sunI;
+  U.uAmbient.value.setRGB(...A.amb).multiplyScalar(0.8 + 0.4 * A.hemiI);
+  hemi.intensity = A.hemiI; hemi.color.setRGB(...A.zen).lerp(new THREE.Color(1, 1, 1), 0.45); hemi.groundColor.setRGB(...A.fogC).multiplyScalar(0.45);
+  scene.fog.color.setRGB(...A.fogC); scene.fog.density = A.fogD;
+  skyMat.uniforms.uHor.value.setRGB(...A.fogC); skyMat.uniforms.uZen.value.setRGB(...A.zen);
+  U.uSkyRefl.value.setRGB(...A.fogC).lerp(new THREE.Color(...A.zen), 0.4);
+  U.uHFog.value.set(A.hfog, A.hfall, 0, 0);
+  renderer.toneMappingExposure = A.exp;
+  U.uSnow.value = A.snow; U.uAutumn.value = A.aut; U.uIce.value = A.ice; U.uFire.value = A.fire; U.uDestroy.value = A.destroy; U.uScorch.value = A.scorch;
+  U.uTerr.value = A.terr; U.uGrid.value = A.grid; U.uSovStrip.value = A.sov;
+  FX.uSnowFall.value = A.snowfall; FX.uCloudHigh.value = A.cloudH; FX.uCloudLow.value = A.cloudL; FX.uSmokeI.value = A.smoke; FX.uFlashI.value = A.flash;
+  grade.uniforms.uSat.value = A.sat; grade.uniforms.uContrast.value = A.con; grade.uniforms.uGain.value.set(...A.gain); grade.uniforms.uVig.value = A.vig;
+  return A;
+}
+
+/* ---------- 航空機の流れ ---------- */
+function polyAt(pts, u, out) { // 折れ線上の位置と進行方向
+  if (!pts.L) { pts.L = 0; pts.cum = [0]; for (let i = 1; i < pts.length; i++) { pts.L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); pts.cum.push(pts.L); } }
+  const s = clamp(u, 0, 1) * pts.L; let i = 1; while (i < pts.length - 1 && pts.cum[i] < s) i++;
+  const a = pts[i - 1], b = pts[i], l = pts.cum[i] - pts.cum[i - 1] || 1e-6, k = (s - pts.cum[i - 1]) / l;
+  out[0] = lerp(a[0], b[0], k); out[1] = lerp(a[1], b[1], k); out[2] = (b[0] - a[0]) / l; out[3] = (b[1] - a[1]) / l; return out;
+}
+const _pa = [0, 0, 0, 0], _pcol = new THREE.Color();
+function updateFlights(t, camDist) {
+  const s = clamp(camDist * 0.0075, 0.02, 4); let k = 0;
+  for (const F of FLIGHTS) {
+    if (t < F.t0 - 0.1 || t > F.t1 + F.dur) continue;
+    const first = Math.max(0, Math.floor((t - F.dur - F.t0) / F.interval)), last = Math.floor((t - F.t0) / F.interval);
+    _pcol.set(F.color || '#7a7f86');
+    for (let i = first; i <= last && k < 390; i++) {
+      const td = F.t0 + i * F.interval; if (td > F.t1) break;
+      const u = (t - td) / F.dur; if (u < 0 || u > 1) continue;
+      polyAt(F.pts, u, _pa); const ux = _pa[2], uz = _pa[3], rot = Math.atan2(ux, uz);
+      const lost = F.loss && i % F.loss === 1 && u > (F.lossAt ?? 0.72);
+      const lat = (((i * 37) % 11) / 10 - 0.5) * F.spread;
+      for (let v = 0; v < F.vic && k < 390; v++) {
+        const ox = (v === 0 ? 0 : v % 2 ? -1 : 1) * Math.ceil(v / 2) * 1.8 * s, oz = -Math.ceil(v / 2) * 2.0 * s;
+        let x = _pa[0] - uz * lat, z = _pa[1] + ux * lat; x += -uz * ox + ux * oz; z += ux * ox + uz * oz;
+        let y = F.alt + Math.sin(u * Math.PI) * (F.arc ?? 1.2);
+        let sc = s * smooth(0, 0.04, u) * (1 - smooth(0.96, 1, u));
+        if (lost) { const d = (u - (F.lossAt ?? 0.72)) / (1 - (F.lossAt ?? 0.72)); y -= d * d * F.alt * 3; sc *= 1 - smooth(0.25, 0.4, d); }
+        _m4.compose(_v.set(x, Math.max(y, 0.02), z), _q.setFromEuler(_e.set(lost ? 0.5 : 0, rot, lost ? 0.8 : 0)), _s.set(sc, sc, sc)); planes.setMatrixAt(k, _m4); planes.setColorAt(k, _pcol); k++;
+      }
+    }
+  }
+  planes.count = k; planes.instanceMatrix.needsUpdate = true; if (planes.instanceColor) planes.instanceColor.needsUpdate = true;
+}
+
+/* ---------- カメラ ---------- */
+const formById = id => FORMS.find(f => f.id === id);
+let camFollow = [];
+const followPos = (f, t) => { const p = f.track.at(t); return [p[0], p[1]]; };
+let camTrack;
+function initCamera() { // 追尾キーは、その時刻の部隊位置 + オフセットを基準点にする
+  // 遠く離れた場面へ移るときは、途中で高く引いてから寄る（オーバーシュートも防ぐ）
+  for (let i = 0; i < CAM_KEYS.length - 1; i++) {
+    const A = CAM_KEYS[i], B = CAM_KEYS[i + 1], D = Math.hypot(B[1] - A[1], B[2] - A[2]);
+    if (D > 2.5 * (A[3] + B[3]) && !A.mid && !B.mid) {
+      A.hold = B.hold = true;
+      let yb = B[5]; while (yb - A[5] > 180) yb -= 360; while (yb - A[5] < -180) yb += 360;
+      const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2, Math.max(A[3], B[3], D * 0.55), 52, (A[5] + yb) / 2, 40]; M.mid = true;
+      CAM_KEYS.splice(i + 1, 0, M); i++;
+    }
+  }
+  camFollow = CAM_KEYS.map(k => k[7] ? formById(k[7]) : null);
+  let prevYaw = CAM_KEYS[0][5];
+  camTrack = new HTrack(CAM_KEYS.map(([t, x, z, d, p, y, fv], i) => {
+    while (y - prevYaw > 180) y -= 360; while (y - prevYaw < -180) y += 360; prevYaw = y;
+    return { t, v: [x, z, Math.log(d), p, y, fv], hold: CAM_KEYS[i].hold };
+  }));
+  CAM_KEYS.forEach((k, i) => { const f = camFollow[i]; if (f) k.base = followPos(f, k[0]); });
+}
+const camState = { target: new THREE.Vector3(), dist: 100 };
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function cinemaCam(t, outPos, outTgt) {
+  let [x, z, ld, p0, y0, fov] = camTrack.at(t);
+  let i = 0; while (i < CAM_KEYS.length - 2 && t > CAM_KEYS[i + 1][0]) i++;
+  const u = smooth(CAM_KEYS[i][0], CAM_KEYS[i + 1][0], t);
+  const dlt = k => { const f = camFollow[k]; if (!f || !CAM_KEYS[k].base) return [0, 0]; const p = followPos(f, clamp(t, f.t0, f.t1)); return [p[0] - CAM_KEYS[k].base[0], p[1] - CAM_KEYS[k].base[1]]; };
+  const d0 = dlt(i), d1 = dlt(i + 1); x += lerp(d0[0], d1[0], u); z += lerp(d0[1], d1[1], u);
+  const d = Math.exp(ld), dr = reduceMotion ? 0 : 1;
+  const p = clamp(p0 + 0.6 * Math.sin(t * 0.21 + 1) * dr, 4, 88) * DEG, y = (y0 + 0.8 * Math.sin(t * 0.13) * dr) * DEG;
+  outTgt.set(x, Hw(x, z), z);
+  outPos.set(x + d * Math.cos(p) * Math.sin(y), outTgt.y + d * Math.sin(p), z + d * Math.cos(p) * Math.cos(y));
+  const minY = Hw(outPos.x, outPos.z) + 0.04 + d * 0.02; if (outPos.y < minY) outPos.y = minY;
+  return fov;
+}
+
+/* =====================================================================
+   ラベル（HTML オーバーレイ）
+   ===================================================================== */
+const labelLayer = document.getElementById('labels');
+const labels = [];
+function addLabel(o) {
+  const el = document.createElement('div'); el.className = 'lb ' + o.cls; el.innerHTML = o.html; if (o.color) el.style.setProperty('--c', o.color);
+  el.style.opacity = 0; labelLayer.appendChild(el); o.el = el; o.w = 0; o.h = 0; o.prio ??= 1; labels.push(o); return o;
+}
+function buildLabels() {
+  for (const p of PLACES) addLabel({ cls: 'lb-' + p.k, html: p.text + (p.sub ? `<small>${p.sub}</small>` : ''), prio: p.k === 'city' ? 5 : p.k === 'river' ? 2 : 1,
+    pos: () => [p.p[0], Hw(p.p[0], p.p[1]) + 0.2, p.p[1]], alpha: (t, d) => win(d, p.min, p.max, p.min * 0.4, p.max * 0.2) * (p.t0 ? smooth(p.t0, p.t0 + 2, t) : 1) });
+  for (const l of LANDMARKS) addLabel({ cls: 'lb-pin', pin: 1, html: `<div class="pin-box">${l.text}${l.sub ? `<small>${l.sub}</small>` : ''}</div><div class="pin-line"></div>`, prio: 3,
+    pos: () => [l.p[0], Hw(l.p[0], l.p[1]) + (l.lift ?? 0.05), l.p[1]], alpha: (t, d) => (1 - smooth((l.max ?? 26) * 0.8, l.max ?? 26, d)) * smooth(l.min ?? 0.25, (l.min ?? 0.25) * 2, d) * win(t, l.t0 ?? UI_T.lm[0], l.t1 ?? UI_T.lm[1]) });
+  for (const e of EVENT_PINS) addLabel({ cls: 'lb-pin lb-event' + (e.axis ? ' axis' : ''), pin: 1, html: `<div class="pin-box">${e.text}<small>${e.sub}</small></div><div class="pin-line"></div>`, prio: 8,
+    pos: () => [e.p[0], Hw(e.p[0], e.p[1]) + 0.1, e.p[1]], alpha: t => win(t, e.t0, e.t1, 0.8, 1.2) });
+  for (const b of BIG_LABELS) addLabel({ cls: 'lb-big', html: b.text, prio: 6, pos: () => [b.p[0], 3, b.p[1]], alpha: (t, d) => win(t, b.t0, b.t1, 2, 2) * win(d, b.min, b.max, 10, 40) });
+  for (const f of FORMS) addLabel({ cls: 'lb-unit', color: FACTION[f.f], html: `<b>${f.name}</b>${f.sub ? `<span>${f.sub}</span>` : ''}`, prio: 4,
+    pos: () => { const p = f.pos || [0, 0]; return [p[0], (GEO_OF(f.kind) === 'air' ? (f.alt ?? 3) : Hw(p[0], p[1])) + camState.dist * 0.035, p[1]]; }, alpha: (t, d) => (f.alpha || 0) * smooth(Math.max(f.spread, 0.3) * 0.8, Math.max(f.spread, 0.3) * 2.2, d) * (1 - smooth(260, 420, d)) });
+  for (const a of arrows) if (a.label) addLabel({ cls: 'lb-arrow', color: LCOL[a.f], html: a.label, prio: 7, pos: () => a.labelPos(), alpha: (t, d) => (a.alpha || 0) * smooth(0.25, 0.5, a.p || 0) * smooth(a.width * 1.2, a.width * 4, d) * (1 - smooth(a.width * 90, a.width * 150, d)) });
+}
+const _pv = new THREE.Vector3();
+function updateLabels(t, d, show, dt) {
+  const kf = 1 - Math.exp(-dt * 10);
+  const W = labelLayer.clientWidth, Hh = labelLayer.clientHeight, placed = [];
+  const order = labels.slice().sort((a, b) => b.prio - a.prio);
+  for (const L of order) {
+    let a = show ? L.alpha(t, d) : 0;
+    if (a > 0.01) {
+      const p = L.pos(); _pv.set(p[0], p[1], p[2]).project(camera);
+      if (_pv.z > 1 || Math.abs(_pv.x) > 1.2 || Math.abs(_pv.y) > 1.2) a = 0;
+      else {
+        if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; }
+        const sx = (_pv.x * 0.5 + 0.5) * W, sy = (-_pv.y * 0.5 + 0.5) * Hh;
+        const x = sx - L.w / 2, y = L.pin ? sy - L.h : sy - L.h / 2;
+        const box = [x, y, x + L.w, y + L.h];
+        if (placed.some(b => box[0] < b[2] - 4 && box[2] > b[0] + 4 && box[1] < b[3] - 2 && box[3] > b[1] + 2)) a *= 0; else placed.push(box);
+        L.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+      }
+    }
+    L.cur = lerp(L.cur ?? 0, a, kf); if (L.cur < 0.01 && a === 0) L.cur = 0;
+    L.el.style.opacity = L.cur.toFixed(3); L.el.style.visibility = L.cur > 0 ? 'visible' : 'hidden';
+  }
+}
+
+/* =====================================================================
+   UI・サウンド・メインループ
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const app = $('app');
+const state = { t: 0, playing: false, speed: 1, labels: true, sound: true, started: false, blend: 0, lastInput: performance.now() };
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const scrub = $('scrub'); scrub.max = T_END; $('tEnd').textContent = fmt(T_END);
+CHAPTERS.forEach((c, i) => { if (!i) return; const d = document.createElement('div'); d.className = 'tick'; d.style.left = (c.t / T_END * 100) + '%'; d.innerHTML = `<span>${c.title}</span>`; $('ticks').appendChild(d); });
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2200); }
+function setPlaying(p) { state.playing = p; if (p && state.t >= T_END - 0.05) state.t = 0; $('icoPlay').innerHTML = p ? '<path d="M3 2h4v12H3zM9 2h4v12H9z"/>' : '<path d="M4 2l10 6-10 6z"/>'; $('btnPlay').setAttribute('aria-label', p ? '一時停止' : '再生'); audio.resume(p); }
+function seek(t) { state.t = clamp(t, 0, T_END); terrCache.t = -999; state.jump = true; }
+function chapterIndex(t) { let i = 0; while (i < CHAPTERS.length - 1 && t >= CHAPTERS[i + 1].t) i++; return i; }
+function jumpChapter(i) { i = clamp(i, 0, CHAPTERS.length - 1); seek(CHAPTERS[i].t + (i ? 0.01 : 0)); toast(`${CHAPTERS[i].num}　${CHAPTERS[i].title}`); }
+
+/* ---------- 生成サウンド（ドローン・風・遠雷のような砲声） ---------- */
+const audio = (() => {
+  let ctx, master, drone = [], windG, windF, noiseBuf, lastBoom = 0;
+  function init() {
+    if (ctx) return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = 0; const comp = ctx.createDynamicsCompressor(); master.connect(comp).connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(master);
+    for (const f of [73.42, 110, 87.31, 146.83]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 12; g.gain.value = 0.028; o.connect(g).connect(lp); o.start(); drone.push(o); }
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 160; lfo.connect(lg).connect(lp.frequency); lfo.start();
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; windF = ctx.createBiquadFilter(); windF.type = 'bandpass'; windF.frequency.value = 600; windF.Q.value = 0.6;
+    windG = ctx.createGain(); windG.gain.value = 0.02; src.connect(windF).connect(windG).connect(master); src.start();
+  }
+  function boom(vol) {
+    if (!ctx) return; const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 90 + Math.random() * 160;
+    const g = ctx.createGain(), n = ctx.currentTime; g.gain.setValueAtTime(0, n); g.gain.linearRampToValueAtTime(vol, n + 0.02); g.gain.exponentialRampToValueAtTime(0.0008, n + 1.2 + Math.random());
+    s.connect(f).connect(g).connect(master); s.start(n, Math.random()); s.stop(n + 2.5);
+  }
+  return {
+    start() { init(); ctx && ctx.resume(); this.resume(state.playing); },
+    resume(p) { if (!ctx) return; master.gain.setTargetAtTime(state.sound && p ? 0.8 : 0, ctx.currentTime, 0.4); },
+    update(t, A) {
+      if (!ctx || !state.playing || !state.sound) return;
+      windG.gain.setTargetAtTime(0.02 + 0.06 * A.snow + 0.03 * A.snowfall, ctx.currentTime, 1); windF.frequency.setTargetAtTime(500 + 500 * A.snowfall, ctx.currentTime, 1);
+      const base = battleLevel(t);
+      const now = performance.now(); if (base > 0.05 && now - lastBoom > 1000 / (base * 2) * (0.4 + Math.random())) { lastBoom = now; boom(0.12 + Math.random() * 0.25 * Math.min(1, base)); }
+    },
+  };
+})();
+
+/* ---------- 位置図・方位・縮尺 ---------- */
+const loc = $('locator'), lctx = loc.getContext('2d'); let LOCR = { x0: -10, z0: -9, s: 22 };
+const lp = (x, z) => [(x - LOCR.x0) / LOCR.s * loc.width, (z - LOCR.z0) / LOCR.s * loc.height];
+
+function drawLocator() {
+  const W = loc.width; lctx.clearRect(0, 0, W, W);
+  const line = (pts, c, w) => { lctx.beginPath(); pts.forEach((p, i) => { const [a, b] = lp(p[0], p[1]); i ? lctx.lineTo(a, b) : lctx.moveTo(a, b); }); lctx.strokeStyle = c; lctx.lineWidth = w; lctx.stroke(); };
+  for (const [p, style, a, id] of terrCache.polys) {
+    lctx.globalAlpha = a * 0.5; lctx.fillStyle = id === 'pocket' || id === 'pocketS' ? '#7a3a33' : style.includes('255)') && style !== 'rgb(255,0,0)' ? '#8a6a2a' : '#34507c';
+    lctx.beginPath(); p.forEach((q, i) => { const [a2, b] = lp(q[0], q[1]); i ? lctx.lineTo(a2, b) : lctx.moveTo(a2, b); }); lctx.closePath(); lctx.fill();
+  }
+  LOCR = locRect(state.t);
+  lctx.globalAlpha = 1; for (const L of LOC_LINES) { if (L.fill) { lctx.beginPath(); L.pts.forEach((q, i) => { const [a2, b2] = lp(q[0], q[1]); i ? lctx.lineTo(a2, b2) : lctx.moveTo(a2, b2); }); lctx.closePath(); lctx.fillStyle = L.fill; lctx.fill(); } else line(L.pts, L.color, L.w); }
+  for (const f of FORMS) if ((f.alpha || 0) > 0.2 && f.pos) { const [a2, b2] = lp(f.pos[0], f.pos[1]); lctx.fillStyle = FACTION[f.f]; lctx.fillRect(a2 - 3, b2 - 3, 6, 6); }
+  
+  const tg = camState.target, [tx, tz] = lp(tg.x, tg.z), f = camera.getWorldDirection(new THREE.Vector3()), ang = Math.atan2(f.x, f.z);
+  const r = clamp(camState.dist / LOCR.s * W * 0.9, 8, 120);
+  lctx.beginPath(); lctx.moveTo(tx, tz); lctx.arc(tx, tz, r, Math.PI / 2 - ang - 0.4, Math.PI / 2 - ang + 0.4); lctx.closePath();
+  lctx.fillStyle = 'rgba(194,166,106,.28)'; lctx.fill(); lctx.strokeStyle = '#c2a66a'; lctx.lineWidth = 2; lctx.stroke();
+  const fwd = Math.atan2(f.x, -f.z); $('compassRot').setAttribute('transform', `rotate(${(-fwd / DEG).toFixed(1)})`);
+  // 縮尺
+  const a = camState.target.clone().project(camera), right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const b = camState.target.clone().addScaledVector(right, 1).project(camera), pxPerKm = Math.abs(b.x - a.x) * 0.5 * canvas.clientWidth;
+  const nice = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].find(k => k * pxPerKm > 50) || 100;
+  $('scaleText').textContent = nice < 1 ? `${nice * 1000} m` : `${nice} km`; $('scaleBar').style.width = Math.round(nice * pxPerKm) + 'px';
+}
+
+/* ---------- HUD ---------- */
+let lastCap = -1, lastCh = -1, lastEv = -1;
+function updateHUD(t) {
+  const ci = CAPTIONS.findIndex(c => t >= c[0] && t < c[1]);
+  if (ci !== lastCap) { lastCap = ci; if (ci >= 0) $('captionText').textContent = CAPTIONS[ci][2]; $('caption').classList.toggle('on', ci >= 0); }
+  const ch = chapterIndex(t), C = CHAPTERS[ch];
+  const cardOn = ch > 0 && ch < CHAPTERS.length - 1 && t > C.t + 0.3 && t < C.t + 5.2;
+  if (ch !== lastCh) { lastCh = ch; $('ccNum').textContent = C.num; $('ccTitle').textContent = C.title; $('ccDates').textContent = C.dates; $('dChapter').textContent = `${C.num}　${C.title}`; }
+  $('chapterCard').classList.toggle('on', cardOn);
+  $('titleCard').classList.toggle('on', t > UI_T.title[0] && t < UI_T.title[1]);
+  $('statsCard').classList.toggle('on', t > UI_T.stats[0] && t < UI_T.stats[1]);
+  const on = t >= UI_T.date[0] && t < UI_T.date[1]; $('dateblock').classList.toggle('on', on);
+  if (on) {
+    let i = 0; while (i < DATE_T.length - 2 && t > DATE_T[i + 1][0]) i++;
+    const [ta, da] = DATE_T[i], [tb, db] = DATE_T[i + 1], ms = t <= ta ? da : lerp(da, db, clamp((t - ta) / (tb - ta), 0, 1));
+    const d = new Date(ms);
+    const m10 = new Date(Math.floor(ms / 600000) * 600000);
+    $('dYear').textContent = t >= UI_T.timeFrom ? `${d.getUTCFullYear()}　${m10.getUTCHours()}:${String(m10.getUTCMinutes()).padStart(2, '0')}` : d.getUTCFullYear(); $('dMonth').textContent = d.getUTCMonth() + 1; $('dDay').textContent = d.getUTCDate();
+  }
+  const ei = EVENTS.findIndex(e => t >= e[0] && t < e[1]);
+  if (ei !== lastEv) { lastEv = ei; const el = $('eventChip'); if (ei >= 0) { el.textContent = EVENTS[ei][2]; el.classList.toggle('axis', !!EVENTS[ei][3]); } el.classList.toggle('on', ei >= 0); }
+  $('tCur').textContent = fmt(t); if (document.activeElement !== scrub) scrub.value = t; $('trackFill').style.width = (t / T_END * 100) + '%';
+  grade.uniforms.uFade.value = 1 - smooth(0, 1.2, t) * (1 - smooth(T_END - 3, T_END, t) * 0.85);
+}
+
+/* ---------- メインループ ---------- */
+const tmpP = new THREE.Vector3(), tmpT = new THREE.Vector3();
+let lastFrame = performance.now(), slowTime = 0, locTick = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  if (state.playing) { state.t += dt * state.speed; if (state.t >= T_END) { state.t = T_END; setPlaying(false); } }
+  const t = state.t; U.uTime.value = now / 1000; U.uStory.value = t; grade.uniforms.uT.value = (now / 1000) % 100;
+  const A = state.freezeAtmos ? state.lastA : (state.lastA = applyAtmos(t));
+  // カメラ
+  const fov = cinemaCam(t, tmpP, tmpT);
+  camera.position.copy(tmpP); camera.lookAt(tmpT); camera.fov = fov; camState.target.copy(tmpT);
+  camState.dist = camera.position.distanceTo(camState.target);
+  camera.near = clamp(camState.dist * 0.004, 0.01, 2); camera.updateProjectionMatrix();
+  sky.position.copy(camera.position);
+  // 影
+  const S = clamp(camState.dist * 0.75, 2, 200);
+  sun.target.position.copy(camState.target); sun.position.copy(camState.target).addScaledVector(U.uSunDir.value, S * 3);
+  const sc = sun.shadow.camera; sc.left = -S; sc.right = S; sc.top = S; sc.bottom = -S; sc.near = 0.1; sc.far = S * 7; sc.updateProjectionMatrix(); sun.shadow.normalBias = S * 0.0025;
+  // 世界の状態
+  updateTerritory(t);
+  updateFronts(t, camState.dist);
+  for (const a of arrows) a.update(t);
+  updateUnits(FORMS, t, camState.dist);
+  updateFlights(t, camState.dist);
+  const box = clamp(camState.dist * 0.25, 1.2, 30); snowPts.material.uniforms.uBox.value = box; snowPts.material.uniforms.uCam.value.copy(camera.position); snowPts.material.uniforms.uPR.value = PR;
+  composer.render();
+  updateLabels(t, camState.dist, state.labels, state.jump ? 1 : dt); state.jump = false;
+  updateHUD(t);
+  if (++locTick % 4 === 0) drawLocator();
+  audio.update(t, A);
+  // 自動品質調整
+  if (dt > 0.045 && state.playing) slowTime += dt; else slowTime = Math.max(0, slowTime - dt * 0.5);
+  if (slowTime > 4 && QKEY !== 'low') { const nk = QKEY === 'high' ? 'std' : 'low'; applyQuality(nk); $('quality').value = nk; toast('動作が重いため画質を下げました'); slowTime = 0; }
+  if (state.playing && performance.now() - state.lastInput > 2800) $('controls').classList.add('idle');
+  requestAnimationFrame(frame);
+}
+
+function bindUI() {
+  $('btnPlay').onclick = () => setPlaying(!state.playing);
+  $('btnPrev').onclick = () => { const i = chapterIndex(state.t); jumpChapter(state.t - CHAPTERS[i].t > 2 ? i : i - 1); };
+  $('btnNext').onclick = () => jumpChapter(chapterIndex(state.t) + 1);
+  scrub.oninput = () => seek(+scrub.value);
+  $('speed').onchange = e => { state.speed = +e.target.value; };
+  $('quality').value = QKEY; $('quality').onchange = e => { applyQuality(e.target.value); slowTime = 0; };
+  $('btnLabels').onclick = () => { state.labels = !state.labels; $('btnLabels').setAttribute('aria-pressed', state.labels); };
+  $('btnSound').onclick = () => { state.sound = !state.sound; $('btnSound').setAttribute('aria-pressed', state.sound); audio.start(); };
+  $('btnFull').onclick = () => { const f = document.fullscreenElement; (f ? document.exitFullscreen() : app.requestFullscreen?.())?.catch?.(() => toast('全画面表示はこの環境では使えません')); };
+  const wake = () => { state.lastInput = performance.now(); $('controls').classList.remove('idle'); };
+  app.addEventListener('pointermove', wake); app.addEventListener('pointerdown', wake);
+  window.addEventListener('keydown', e => {
+    if (!state.started || e.target.tagName === 'SELECT') return; wake();
+    const k = e.key;
+    if (k === ' ') { e.preventDefault(); setPlaying(!state.playing); }
+    else if (k === 'ArrowRight') seek(state.t + 5); else if (k === 'ArrowLeft') seek(state.t - 5);
+    else if (k >= '1' && k <= '8') jumpChapter(+k - 1);
+    else if (k === 'l' || k === 'L') $('btnLabels').click();
+    else if (k === 'h' || k === 'H') app.classList.toggle('hide-ui');
+    else if (k === 'f' || k === 'F') $('btnFull').click();
+  });
+  $('btnStart').onclick = () => { state.started = true; $('start').classList.add('gone'); audio.start(); seek(0); setPlaying(true); canvas.focus(); };
+}
+
+async function main() {
+  const fill = $('loadFill'), txt = $('loadText');
+  const progress = p => { fill.style.width = (p * 100).toFixed(0) + '%'; };
+  applyQuality(QKEY);
+  await buildTerrain(progress);
+  txt.textContent = '市街と部隊を配置しています…';
+  buildOcean(); buildScenery(); buildSnow(); buildPlanes(); buildUnits(FORMS); buildFX();
+  arrows = ARROWS.map(d => new Arrow(d));
+  for (const tr of TERR) if (tr.ribbon) { const rb = new Ribbon(tr.n, !!tr.closed, 0.02); rb.mat.uniforms.uA.value.copy(FCOL[tr.colA]); rb.mat.uniforms.uB.value.copy(FCOL.fr); ribbons[tr.id] = rb; }
+  initCamera();
+  buildLabels(); bindUI();
+  progress(1); txt.textContent = '準備ができました';
+  $('btnStart').disabled = false; $('btnStart').focus();
+  requestAnimationFrame(frame);
+  window.__demo = { seek, setPlaying, state, scene, sun, U, terrainMat, bloom, composer, FORMS, camState, camera };
+}
+window.addEventListener('error', e => { const el = $('err'); el.style.display = 'block'; el.textContent = '表示エラー: ' + (e.message || e); });
+main().catch(e => { console.error(e); const el = $('err'); el.style.display = 'block'; el.textContent = 'WebGL の初期化に失敗しました: ' + e.message; });
+</script>
+</body>
+</html>
