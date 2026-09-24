@@ -1,0 +1,1802 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ワーテルロー 1815</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Shippori+Mincho+B1:wght@500;700;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --ink:#0b0d11; --ink-2:#141922; --ink-3:#202835;
+  --paper:#ebe5d6; --paper-dim:rgba(235,229,214,.72); --paper-faint:rgba(235,229,214,.42);
+  --rule:rgba(235,229,214,.22);
+  --axis:#86a7d9; --soviet:#d8463c; --romania:#d6a03a; --italy:#62a870; --brass:#c2a66a;
+  --f-display:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+  --f-ui:"Zen Kaku Gothic New","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  --f-num:"Barlow Condensed","Arial Narrow","Roboto Condensed",sans-serif;
+  --bar-h:clamp(0px,7vh,64px);
+  --gut:max(16px,3.2vw);
+}
+html{height:100%;box-sizing:border-box;background:var(--ink)}
+*,*::before,*::after{box-sizing:inherit}
+body{height:100%;margin:0;overflow:hidden;background:var(--ink);color:var(--paper);font-family:var(--f-ui);-webkit-font-smoothing:antialiased}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:var(--ink);-webkit-user-select:none;user-select:none}
+#stage{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+#labels{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.bar{position:absolute;left:0;right:0;height:var(--bar-h);background:#000;z-index:5;pointer-events:none;transition:transform 1s cubic-bezier(.6,0,.2,1)}
+.bar.top{top:0}.bar.bottom{bottom:0}
+#app:not(.cinema) .bar.top{transform:translateY(-100%)}
+#app:not(.cinema) .bar.bottom{transform:translateY(100%)}
+@media (max-aspect-ratio:5/4){.bar{display:none}:root{--bar-h:0px}}
+
+.hud{position:absolute;z-index:6;pointer-events:none;transition:opacity .6s}
+#app.hide-ui .hud,#app.hide-ui .controls{opacity:0!important}
+.mark{top:calc(var(--bar-h) + 14px);left:var(--gut)}
+.mark-kicker{font-size:10.5px;letter-spacing:.3em;color:var(--brass);font-weight:700}
+.mark-title{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.16em;margin-top:2px;text-shadow:0 1px 3px #000}
+
+.dateblock{top:calc(var(--bar-h) + 12px);right:var(--gut);text-align:right;opacity:0}
+.dateblock.on{opacity:1}
+.d-year{font-family:var(--f-num);font-weight:600;font-size:17px;letter-spacing:.34em;color:var(--brass);margin-right:-.34em}
+.d-md{font-family:var(--f-num);font-weight:700;font-size:52px;line-height:.95;letter-spacing:.01em;text-shadow:0 2px 12px rgba(0,0,0,.7);font-variant-numeric:tabular-nums}
+.d-md i{font-style:normal;font-family:var(--f-display);font-size:19px;font-weight:700;margin:0 .12em 0 .06em;color:var(--paper-dim)}
+.d-ch{font-size:12px;letter-spacing:.14em;color:var(--paper-dim);border-top:1px solid var(--rule);margin-top:6px;padding-top:5px}
+.event{display:inline-block;margin-top:8px;font-size:12px;font-weight:700;letter-spacing:.12em;padding:4px 10px;background:var(--soviet);color:#fff;opacity:0;transform:translateY(-4px);transition:opacity .4s,transform .4s}
+.event.on{opacity:1;transform:none}
+.event.axis{background:#3d5f93}
+
+.caption{left:var(--gut);bottom:calc(var(--bar-h) + 70px);max-width:min(44em,calc(100% - 2*var(--gut)));padding:12px 22px 13px 16px;border-left:2px solid var(--brass);background:linear-gradient(90deg,rgba(8,10,14,.74),rgba(8,10,14,.5) 70%,rgba(8,10,14,0));opacity:0;transform:translateY(8px);transition:opacity .7s,transform .7s}
+.caption.on{opacity:1;transform:none}
+.caption p{margin:0;font-family:var(--f-display);font-weight:500;font-size:clamp(15px,1.55vw,21px);line-height:1.75;letter-spacing:.04em;text-wrap:pretty;text-shadow:0 1px 2px #000}
+
+.card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:7;pointer-events:none;opacity:0;transition:opacity 1s;background:radial-gradient(ellipse at center,rgba(5,6,9,.62),rgba(5,6,9,0) 62%)}
+.card.on{opacity:1}
+.cc-num{font-size:13px;letter-spacing:.6em;color:var(--brass);font-weight:700;margin-right:-.6em}
+.cc-title{font-family:var(--f-display);font-weight:800;font-size:clamp(34px,5.4vw,70px);letter-spacing:.2em;margin:.18em -.2em .1em 0;text-shadow:0 4px 30px rgba(0,0,0,.8);text-wrap:balance}
+.cc-rule{width:0;height:1px;background:var(--paper);transition:width 1.6s cubic-bezier(.3,0,.1,1) .3s}
+.card.on .cc-rule{width:min(360px,60vw)}
+.cc-dates{font-family:var(--f-num);font-size:19px;font-weight:600;letter-spacing:.34em;margin-top:12px;color:var(--paper-dim)}
+.tc-latin{font-family:var(--f-num);font-weight:600;font-size:clamp(14px,1.6vw,20px);letter-spacing:1.1em;margin-right:-1.1em;color:var(--brass)}
+.tc-jp{font-family:var(--f-display);font-weight:800;font-size:clamp(36px,6.4vw,84px);letter-spacing:.16em;margin:.2em -.16em .25em 0;text-shadow:0 4px 40px rgba(0,0,0,.85)}
+
+.stats{display:flex;gap:clamp(22px,5vw,72px);flex-wrap:wrap;justify-content:center;margin-top:28px}
+.stat{min-width:9em}
+.stat-num{font-family:var(--f-display);font-weight:800;font-size:clamp(28px,3.6vw,46px);letter-spacing:.06em}
+.stat-label{font-size:12.5px;letter-spacing:.12em;color:var(--paper-dim);margin-top:4px}
+
+.side{right:var(--gut);bottom:calc(var(--bar-h) + 70px);display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.loc-wrap{position:relative;width:164px;height:164px;border:1px solid var(--rule);background:rgba(10,12,16,.55)}
+#locator{width:164px;height:164px;display:block}
+.compass{position:absolute;top:6px;left:6px;width:26px;height:26px}
+.scale{display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-num);font-size:12px;letter-spacing:.1em;color:var(--paper-dim)}
+.scale i{display:block;height:5px;border:1px solid var(--paper);border-top:none;margin-top:2px}
+.legend{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end;font-size:11.5px;color:var(--paper-dim)}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend b{width:10px;height:10px;background:var(--c);display:block}
+@media (max-width:760px){.side{display:none}.mark-title{font-size:13px}.d-md{font-size:38px}}
+
+.controls{position:absolute;left:0;right:0;bottom:0;z-index:8;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:14px var(--gut) 12px;background:linear-gradient(0deg,rgba(5,6,9,.9),rgba(5,6,9,0));transition:opacity .5s,transform .5s}
+.controls.idle{opacity:0;transform:translateY(10px)}
+.cbtn{appearance:none;border:1px solid var(--rule);background:rgba(20,25,34,.7);color:var(--paper);height:34px;min-width:34px;padding:0 9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;font:500 12.5px var(--f-ui);letter-spacing:.06em;cursor:pointer;border-radius:2px}
+.cbtn:hover{border-color:var(--paper-faint);background:rgba(40,48,62,.8)}
+.cbtn:focus-visible,.scrub input:focus-visible,select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.cbtn svg{width:15px;height:15px;fill:currentColor}
+.cbtn[aria-pressed="false"]{color:var(--paper-faint)}
+.tm{font-family:var(--f-num);font-size:14px;letter-spacing:.08em;color:var(--paper-dim);font-variant-numeric:tabular-nums;min-width:92px;text-align:center}
+.scrub{position:relative;flex:1 1 240px;height:34px;display:flex;align-items:center}
+.scrub input{width:100%;margin:0;appearance:none;-webkit-appearance:none;background:transparent;height:34px;cursor:pointer;position:relative;z-index:2}
+.scrub input::-webkit-slider-runnable-track{height:4px;background:transparent}
+.scrub input::-moz-range-track{height:4px;background:transparent}
+.scrub input::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--brass);margin-top:-4.5px;border:2px solid var(--ink)}
+.scrub input::-moz-range-thumb{width:11px;height:11px;border-radius:50%;background:var(--brass);border:2px solid var(--ink)}
+.track{position:absolute;left:0;right:0;top:50%;height:4px;margin-top:-2px;background:rgba(235,229,214,.16);pointer-events:none}
+.track-fill{position:absolute;left:0;top:0;bottom:0;background:var(--paper-dim)}
+.tick{position:absolute;top:-4px;width:1px;height:12px;background:var(--paper-faint)}
+.tick span{position:absolute;bottom:14px;left:0;transform:translateX(-10%);font-size:10.5px;white-space:nowrap;color:var(--paper-faint);letter-spacing:.06em}
+@media (max-width:900px){.tick span{display:none}}
+select.cbtn{padding-right:6px}
+
+.start{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:24px var(--gut);background:radial-gradient(ellipse at 50% 60%,rgba(8,10,14,.35),rgba(8,10,14,.88));transition:opacity 1.2s}
+.start.gone{opacity:0;pointer-events:none}
+.start-inner{max-width:640px;text-align:center}
+.s-kicker{font-size:11px;letter-spacing:.42em;color:var(--brass);font-weight:700}
+.s-title{font-family:var(--f-display);font-weight:800;font-size:clamp(32px,6vw,62px);letter-spacing:.14em;margin:.28em 0 .1em;line-height:1.25;text-wrap:balance}
+.s-latin{font-family:var(--f-num);font-weight:600;letter-spacing:.6em;color:var(--paper-dim);font-size:15px}
+.s-desc{font-family:var(--f-display);font-size:16px;line-height:1.9;color:var(--paper-dim);margin:22px auto 26px;max-width:32em;text-wrap:pretty}
+.load{width:min(320px,80%);margin:0 auto 22px}
+.load-bar{height:2px;background:var(--rule);position:relative;overflow:hidden}
+.load-bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--brass);transition:width .2s}
+.load-text{font-size:11.5px;color:var(--paper-faint);margin-top:8px;letter-spacing:.12em}
+.s-btn{appearance:none;cursor:pointer;border:1px solid var(--paper);background:var(--paper);color:var(--ink);font:700 15px var(--f-ui);letter-spacing:.2em;padding:13px 34px;border-radius:1px}
+.s-btn:disabled{opacity:.35;cursor:wait}
+.s-btn:not(:disabled):hover{background:transparent;color:var(--paper)}
+.s-btn:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+.s-hint{font-size:11.5px;color:var(--paper-faint);margin-top:18px;letter-spacing:.06em;line-height:1.8}
+.toast{position:absolute;top:calc(var(--bar-h) + 16px);left:50%;transform:translate(-50%,-8px);z-index:9;background:rgba(10,12,16,.85);border:1px solid var(--rule);padding:7px 14px;font-size:12.5px;letter-spacing:.06em;opacity:0;transition:opacity .4s,transform .4s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.err{position:absolute;inset:auto var(--gut) 90px;z-index:11;color:#fff;background:#6a1f1a;padding:10px 14px;font-size:13px;display:none}
+
+.lb{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;color:var(--paper);text-shadow:0 1px 2px rgba(0,0,0,.95),0 0 10px rgba(0,0,0,.55)}
+.lb-city{font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.26em;text-align:center}
+.lb-city small{display:block;font-family:var(--f-num);font-size:11px;letter-spacing:.5em;color:var(--paper-dim);font-weight:600}
+.lb-place{font-size:12.5px;font-weight:500;letter-spacing:.06em}
+.lb-place::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--paper);margin-right:6px;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.55)}
+.lb-river{font-family:var(--f-display);font-size:13.5px;letter-spacing:.42em;color:#a9c9e8;font-weight:700}
+.lb-unit{font-size:12px;line-height:1.3;padding:3px 9px 4px 7px;background:rgba(9,11,15,.74);border-left:3px solid var(--c);text-shadow:none}
+.lb-unit b{display:block;font-weight:700;letter-spacing:.04em}
+.lb-unit span{font-size:10.5px;color:var(--paper-dim)}
+.lb-arrow{font-family:var(--f-display);font-weight:800;font-size:15.5px;letter-spacing:.08em;color:var(--c);text-shadow:0 0 3px #000,0 0 3px #000,0 2px 8px #000}
+.lb-pin{display:flex;flex-direction:column;align-items:center}
+.pin-box{font-size:12px;padding:4px 9px 5px;background:rgba(236,230,216,.93);color:#12151b;font-weight:700;letter-spacing:.04em;text-shadow:none;text-align:center}
+.pin-box small{display:block;font-family:var(--f-num);font-weight:600;font-size:11px;letter-spacing:.14em;color:#6b5528}
+.pin-line{width:1px;height:30px;background:linear-gradient(rgba(236,230,216,.95),rgba(236,230,216,.15))}
+.lb-event .pin-box{background:var(--soviet);color:#fff}
+.lb-event .pin-box small{color:#ffe1d8}
+.lb-event.axis .pin-box{background:#3d5f93}
+.lb-big{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.5em;color:#ffb3a8;text-shadow:0 0 4px #000,0 0 18px rgba(0,0,0,.9)}
+@media (prefers-reduced-motion:reduce){.caption,.card,.bar,.controls{transition:none}}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<div id="app" class="cinema">
+  <canvas id="stage" tabindex="-1"></canvas>
+  <div id="labels"></div>
+  <div class="bar top"></div><div class="bar bottom"></div>
+
+  <header class="hud mark"><div class="mark-kicker">3D 再現ドキュメント</div><div class="mark-title">ワーテルローの戦い</div></header>
+
+  <div class="hud dateblock" id="dateblock">
+    <div class="d-year" id="dYear">1815</div>
+    <div class="d-md"><span id="dMonth">6</span><i>月</i><span id="dDay">15</span><i>日</i></div>
+    <div class="d-ch" id="dChapter"></div>
+    <div class="event" id="eventChip"></div>
+  </div>
+
+  <div class="hud caption" id="caption"><p id="captionText"></p></div>
+
+  <div class="hud side">
+    <div class="loc-wrap"><canvas id="locator" width="328" height="328" aria-label="位置図"></canvas>
+      <svg class="compass" id="compass" viewBox="-13 -13 26 26" aria-hidden="true"><g id="compassRot"><path d="M0,-11 L4,2 L0,0 L-4,2Z" fill="#ebe5d6"/><path d="M0,11 L4,2 L0,0 L-4,2Z" fill="rgba(235,229,214,.35)"/><text x="0" y="-5.5" font-size="0" fill="#000">N</text></g></svg>
+    </div>
+    <div class="scale" id="scale"><span id="scaleText">10 km</span><i id="scaleBar" style="width:60px"></i></div>
+    <div class="legend"><span><b style="--c:#3f68d6"></b>フランス軍</span><span><b style="--c:#d6453a"></b>英連合軍</span><span><b style="--c:#e38b2c"></b>ネーデルラント軍</span><span><b style="--c:#5d6a82"></b>プロイセン軍</span></div>
+  </div>
+
+  <div class="card" id="titleCard">
+    <div class="tc-latin">WATERLOO</div>
+    <div class="tc-jp">ワーテルローの戦い</div>
+    <div class="cc-rule"></div>
+    <div class="cc-dates">1815.6.18</div>
+  </div>
+  <div class="card" id="chapterCard">
+    <div class="cc-num" id="ccNum"></div>
+    <div class="cc-title" id="ccTitle"></div>
+    <div class="cc-rule"></div>
+    <div class="cc-dates" id="ccDates"></div>
+  </div>
+  <div class="card" id="statsCard">
+    <div class="cc-num">終章</div>
+    <div class="cc-title" style="font-size:clamp(26px,3.6vw,44px)">百日天下の終わり</div>
+    <div class="cc-rule"></div>
+    <div class="stats">
+      <div class="stat"><div class="stat-num">約1日</div><div class="stat-label">1815年6月18日 11:30頃 〜 21:00頃</div></div>
+      <div class="stat"><div class="stat-num">約19万人</div><div class="stat-label">参加兵力（三軍合計・推定）</div></div>
+      <div class="stat"><div class="stat-num">約5万人</div><div class="stat-label">死傷・捕虜（推定・諸説あり）</div></div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="cbtn" id="btnPlay" aria-label="再生"><svg viewBox="0 0 16 16" id="icoPlay"><path d="M4 2l10 6-10 6z"/></svg></button>
+    <button class="cbtn" id="btnPrev" aria-label="前の章"><svg viewBox="0 0 16 16"><path d="M3 2h2v12H3zM14 2v12L6 8z"/></svg></button>
+    <button class="cbtn" id="btnNext" aria-label="次の章"><svg viewBox="0 0 16 16"><path d="M11 2h2v12h-2zM2 2v12l8-6z"/></svg></button>
+    <div class="tm"><span id="tCur">0:00</span> / <span id="tEnd">0:00</span></div>
+    <div class="scrub"><div class="track"><div class="track-fill" id="trackFill"></div><div id="ticks"></div></div><input type="range" id="scrub" min="0" max="100" step="0.01" value="0" aria-label="再生位置"></div>
+    <select class="cbtn" id="speed" aria-label="再生速度"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+    <select class="cbtn" id="quality" aria-label="画質"><option value="high">高画質</option><option value="std">標準</option><option value="low">軽量</option></select>
+    <button class="cbtn" id="btnLabels" aria-pressed="true" aria-label="ラベル表示">ラベル</button>
+    <button class="cbtn" id="btnSound" aria-pressed="true" aria-label="サウンド">音</button>
+    <button class="cbtn" id="btnFull" aria-label="全画面"><svg viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg></button>
+  </div>
+
+  <div class="start" id="start">
+    <div class="start-inner">
+      <div class="s-kicker">3D 再現ドキュメント</div>
+      <h1 class="s-title">ワーテルローの戦い</h1>
+      <div class="s-latin">WATERLOO 1815</div>
+      <p class="s-desc">1815年6月18日、ベルギーの丘陵で決したナポレオン最後の戦い。ウーグモンの攻防、騎兵の大突撃、プロイセン軍の到着、近衛の敗走まで。カメラが主要な場面を自動で追う約4分40秒の3D俯瞰映像。</p>
+      <div class="load"><div class="load-bar"><i id="loadFill"></i></div><div class="load-text" id="loadText">地形を生成しています…</div></div>
+      <button class="s-btn" id="btnStart" disabled>▶ 視聴を開始</button>
+      <div class="s-hint">Space 再生／一時停止　← → 5秒移動　1〜8 章へ移動<br>L ラベル　H 字幕等を隠す　F 全画面</div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <div class="err" id="err"></div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+/* =====================================================================
+   座標系: 1 unit = 1 km。x = 東, z = 南（北は -z）。原点 = ラ・エー・サント農場。
+   高さ: メートル値 × VY
+   ===================================================================== */
+const VY = 0.018;      // 地形 m → world（縦方向を約18倍に誇張）
+const BVY = 0.0045;    // 建物 m → world
+const DEG = Math.PI / 180;
+
+const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
+const lerp = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const easeInOut = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const easeOut = t => 1 - Math.pow(1 - t, 3);
+const win = (t, a, b, fi = 1, fo = 1) => smooth(a, a + fi, t) * (1 - smooth(b, b + fo, t)); // 時間窓
+
+function rng(a) {
+  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+/* ---------- Simplex 2D ---------- */
+const PERM = new Uint8Array(512);
+{ const p = new Uint8Array(256), r = rng(1942); for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); const t = p[i]; p[i] = p[j]; p[j] = t; }
+  for (let i = 0; i < 512; i++) PERM[i] = p[i & 255]; }
+const GX = [1, -1, 1, -1, 1, -1, 0, 0], GZ = [1, 1, -1, -1, 0, 0, 1, -1];
+const F2 = 0.5 * (Math.sqrt(3) - 1), G2 = (3 - Math.sqrt(3)) / 6;
+function noise2(xin, yin) {
+  const s = (xin + yin) * F2, i = Math.floor(xin + s), j = Math.floor(yin + s);
+  const t = (i + j) * G2, x0 = xin - (i - t), y0 = yin - (j - t);
+  const i1 = x0 > y0 ? 1 : 0, j1 = 1 - i1;
+  const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+  const ii = i & 255, jj = j & 255; let n = 0, g, q;
+  q = 0.5 - x0 * x0 - y0 * y0; if (q > 0) { g = PERM[ii + PERM[jj]] & 7; q *= q; n += q * q * (GX[g] * x0 + GZ[g] * y0); }
+  q = 0.5 - x1 * x1 - y1 * y1; if (q > 0) { g = PERM[ii + i1 + PERM[jj + j1]] & 7; q *= q; n += q * q * (GX[g] * x1 + GZ[g] * y1); }
+  q = 0.5 - x2 * x2 - y2 * y2; if (q > 0) { g = PERM[ii + 1 + PERM[jj + 1]] & 7; q *= q; n += q * q * (GX[g] * x2 + GZ[g] * y2); }
+  return 70 * n;
+}
+function fbm2(x, y, oct) {
+  let a = 1, f = 1, s = 0, n = 0;
+  for (let o = 0; o < oct; o++) { s += a * noise2(x * f, y * f); n += a; a *= 0.5; f *= 2.03; }
+  return s / n;
+}
+
+/* ---------- ポリライン ---------- */
+function polyLen(p, closed) { let L = 0; const n = p.length; for (let i = 0; i < n - (closed ? 0 : 1); i++) { const a = p[i], b = p[(i + 1) % n]; L += Math.hypot(b[0] - a[0], b[1] - a[1]); } return L; }
+function resample(p, n, closed = false) {
+  const L = polyLen(p, closed), out = [], m = p.length, segs = closed ? m : m - 1;
+  const step = L / (closed ? n : n - 1); let si = 0, acc = 0;
+  for (let k = 0; k < n; k++) {
+    const target = k * step;
+    while (si < segs - 1) { const a = p[si], b = p[(si + 1) % m]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (acc + l >= target) break; acc += l; si++; }
+    const a = p[si], b = p[(si + 1) % m]; const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1e-6;
+    const u = clamp((target - acc) / l, 0, 1); out.push([lerp(a[0], b[0], u), lerp(a[1], b[1], u)]);
+  }
+  return out;
+}
+function smoothPoly(p, sub = 4, closed = false) { // Catmull-Rom 補間
+  const n = p.length, out = [], P = i => closed ? p[(i + n) % n] : p[clamp(i, 0, n - 1)];
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    for (let s = 0; s < sub; s++) {
+      const t = s / sub, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map(d => 0.5 * (2 * p1[d] + (-p0[d] + p2[d]) * t + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * t2 + (-p0[d] + 3 * p1[d] - 3 * p2[d] + p3[d]) * t3)));
+    }
+  }
+  if (!closed) out.push(p[n - 1].slice());
+  return out;
+}
+class PolyDist { // 線分群への最近距離（bbox で早期棄却）
+  constructor(pts) {
+    this.pts = pts; const n = pts.length - 1; this.n = n;
+    this.ax = new Float64Array(n); this.az = new Float64Array(n); this.dx = new Float64Array(n); this.dz = new Float64Array(n);
+    this.l2 = new Float64Array(n); this.cum = new Float64Array(n + 1);
+    this.mnx = new Float64Array(n); this.mxx = new Float64Array(n); this.mnz = new Float64Array(n); this.mxz = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      const a = pts[i], b = pts[i + 1];
+      this.ax[i] = a[0]; this.az[i] = a[1]; this.dx[i] = b[0] - a[0]; this.dz[i] = b[1] - a[1];
+      this.l2[i] = this.dx[i] ** 2 + this.dz[i] ** 2 || 1e-9; this.cum[i + 1] = this.cum[i] + Math.sqrt(this.l2[i]);
+      this.mnx[i] = Math.min(a[0], b[0]); this.mxx[i] = Math.max(a[0], b[0]); this.mnz[i] = Math.min(a[1], b[1]); this.mxz[i] = Math.max(a[1], b[1]);
+    }
+    this.L = this.cum[n];
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    this.bb = [x0, x1, z0, z1]; this.d = Infinity; this.s = 0;
+  }
+  query(x, z, R) { // 見つかれば true。this.d = 距離, this.s = 始点からの割合
+    const b = this.bb; if (x < b[0] - R || x > b[1] + R || z < b[2] - R || z > b[3] + R) return false;
+    let best = R * R, bi = -1, bt = 0;
+    for (let i = 0; i < this.n; i++) {
+      if (x < this.mnx[i] - R || x > this.mxx[i] + R || z < this.mnz[i] - R || z > this.mxz[i] + R) continue;
+      const px = x - this.ax[i], pz = z - this.az[i];
+      let t = (px * this.dx[i] + pz * this.dz[i]) / this.l2[i]; t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const ex = px - this.dx[i] * t, ez = pz - this.dz[i] * t, d2 = ex * ex + ez * ez;
+      if (d2 < best) { best = d2; bi = i; bt = t; }
+    }
+    if (bi < 0) return false;
+    this.d = Math.sqrt(best); this.s = (this.cum[bi] + bt * Math.sqrt(this.l2[bi])) / this.L; return true;
+  }
+}
+function pointInPoly(x, z, p) { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const a = p[i], b = p[j]; if ((a[1] > z) !== (b[1] > z) && x < (b[0] - a[0]) * (z - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; }
+
+/* ---------- キーフレーム ---------- */
+// Hermite（時間方向に C1 連続）。keys: [{t, v:[..]}]
+class HTrack {
+  constructor(keys) {
+    this.k = keys; const n = keys.length, d = keys[0].v.length; this.m = [];
+    for (let i = 0; i < n; i++) {
+      const m = new Array(d).fill(0);
+      if (i > 0 && i < n - 1 && !keys[i].hold) {
+        const a = keys[i - 1], b = keys[i], c = keys[i + 1];
+        for (let j = 0; j < d; j++) {
+          const s0 = (b.v[j] - a.v[j]) / (b.t - a.t), s1 = (c.v[j] - b.v[j]) / (c.t - b.t);
+          m[j] = (s0 * (c.t - b.t) + s1 * (b.t - a.t)) / (c.t - a.t);
+          if (s0 * s1 <= 0) m[j] *= 0.35; // 往復時のオーバーシュート抑制
+        }
+      }
+      this.m.push(m);
+    }
+    this.out = new Array(d).fill(0);
+  }
+  at(t) {
+    const k = this.k, n = k.length, o = this.out;
+    if (t <= k[0].t) { for (let j = 0; j < o.length; j++) o[j] = k[0].v[j]; return o; }
+    if (t >= k[n - 1].t) { for (let j = 0; j < o.length; j++) o[j] = k[n - 1].v[j]; return o; }
+    let i = 0; while (i < n - 2 && t > k[i + 1].t) i++;
+    const a = k[i], b = k[i + 1], h = b.t - a.t, u = (t - a.t) / h, u2 = u * u, u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    for (let j = 0; j < o.length; j++) o[j] = h00 * a.v[j] + h10 * h * this.m[i][j] + h01 * b.v[j] + h11 * h * this.m[i + 1][j];
+    return o;
+  }
+}
+// 区間ごとに smoothstep（オーバーシュートなし）。keys: [[t, {param:value|[r,g,b]}], ...]
+function sKeys(keys, t) {
+  const n = keys.length; if (t <= keys[0][0]) return keys[0][1]; if (t >= keys[n - 1][0]) return keys[n - 1][1];
+  let i = 0; while (i < n - 2 && t > keys[i + 1][0]) i++;
+  const [ta, A] = keys[i], [tb, B] = keys[i + 1], u = smooth(ta, tb, t), o = {};
+  for (const p in A) { const a = A[p], b = B[p] ?? a; o[p] = Array.isArray(a) ? a.map((x, j) => lerp(x, b[j], u)) : lerp(a, b, u); }
+  return o;
+}
+const hex2lin = h => { const c = new THREE.Color(h); return [c.r, c.g, c.b]; };
+
+/* =====================================================================
+   地理データ：ワーテルロー（1 unit = 1 km、原点 = ラ・エー・サント、北 = -z）
+   ===================================================================== */
+const ROADS = [
+  { name: 'ブリュッセル街道', pts: [[-1.4, -24], [-1.0, -14], [-0.5, -8], [-0.1, -4.2], [0, -1.3], [0, 0], [0.35, 1.45], [0.6, 2.8], [0.9, 4.5], [1.2, 7.5], [1.5, 13], [2.6, 22], [4, 33], [4.6, 42]], w: 0.03 },
+  { name: 'ニヴェル街道', pts: [[0, -1.3], [-0.7, -0.7], [-1.4, 0.0], [-2.3, 0.9], [-3.6, 2.4], [-6, 5], [-10, 9]], w: 0.022 },
+  { name: 'オアン街道', pts: [[-1.6, -0.55], [-0.6, -0.3], [0, -0.22], [0.9, -0.2], [1.8, -0.25], [2.6, -0.5], [3.6, -1.4], [4.2, -3.6], [5, -6]], w: 0.016 },
+  { name: 'ワーヴルへの道', pts: [[3.6, -1.4], [5.2, -1.0], [6.4, -0.5], [8.5, -1.6], [10.5, -3.2], [13, -5]], w: 0.016 },
+  { name: 'プランスノワへの道', pts: [[0.35, 1.45], [1.3, 1.9], [2.2, 2.3], [2.9, 2.5], [3.8, 2.2], [4.6, 1.8], [5.5, 0.8]], w: 0.014 },
+].map(r => ({ ...r, sm: smoothPoly(r.pts, 4) }));
+const RIVERS = [
+  { name: 'ラスヌ川', pts: [[7.5, -6], [6.6, -3], [6.0, -1], [5.4, 0.8], [4.9, 2.4], [4.6, 4.2], [4.5, 6.5], [4.8, 9]], depth: 32, w: 1.1 },
+  { name: 'ディル川', pts: [[9, 12], [10.5, 6], [11.8, 1], [12.8, -4], [13.4, -8], [14.2, -14], [15, -22]], depth: 30, w: 1.6 },
+  { name: 'スモアン川', pts: [[1.4, 0.6], [2.4, 0.5], [3.3, 0.8], [4.4, 1.2], [5.2, 1.0]], depth: 9, w: 0.35 },
+].map(r => { const p = smoothPoly(r.pts, 5); return { ...r, sm: p, pd: new PolyDist(p) }; });
+// 森：[cx, cz, rx, rz, 密度]
+const WOODS = [[-1.05, 0.72, 0.28, 0.2, 1], [4.4, 1.55, 0.75, 0.55, 1], [-2.5, -8.5, 4.5, 3.4, 1], [2.5, -9, 3, 2.6, 0.9], [-4.5, -4, 1.3, 1.0, 0.8], [6.2, 3.2, 0.9, 0.7, 0.8], [-3.3, 3.8, 0.8, 0.5, 0.7], [7.8, -2.2, 0.8, 0.9, 0.8]];
+const inWood = (x, z) => { let m = 0; for (const [cx, cz, rx, rz, d] of WOODS) { const q = Math.hypot((x - cx) / rx, (z - cz) / rz) + 0.25 * noise2(x * 2.2, z * 2.2); if (q < 1) m = Math.max(m, d * smooth(1, 0.75, q)); } return m; };
+
+function H(x, z) {
+  let h = 118 + 14 * fbm2(x * 0.06 + 3.1, z * 0.06 - 7.2, 4) + 4 * fbm2(x * 0.3, z * 0.3, 3);
+  // モン・サン・ジャンの尾根（連合軍）とラ・ベル・アリアンスの尾根（仏軍）
+  const band = 1 - smooth(3.5, 6, Math.abs(x - 0.6));
+  h += band * (10 * Math.exp(-(((z + 0.35) / 0.6) ** 2)) + 9 * Math.exp(-(((z - 1.7) / 0.75) ** 2)) - 7 * Math.exp(-(((z - 0.75) / 0.35) ** 2)));
+  h += 5 * Math.exp(-(((x + 1.5) / 0.8) ** 2 + ((z - 0.1) / 1.0) ** 2)); // ウーグモン周辺の高まり
+  for (const r of RIVERS) if (r.pd.query(x, z, r.w * 3)) h -= r.depth * (1 - smooth(r.w * 0.15, r.w * 2.4, r.pd.d));
+  return Math.max(h, 40);
+}
+const Hy = (x, z) => H(x, z) * VY;
+let Hw = (x, z) => Math.max(H(x, z) * VY, 0);
+function cityDensity(x, z) { return 0; }
+
+const PLACES = [
+  { k: 'city', text: 'ワーテルロー', sub: 'WATERLOO', p: [-0.3, -4.4], min: 8, max: 140 },
+  { k: 'city', text: 'ブリュッセル', sub: 'BRUXELLES', p: [-1.2, -21], min: 25, max: 200 },
+  { k: 'place', text: 'シャルルロワ', p: [4, 33], min: 20, max: 200 },
+  { k: 'place', text: 'カトル・ブラ', p: [1.5, 13], min: 10, max: 160 },
+  { k: 'place', text: 'リニー', p: [10, 19], min: 10, max: 160 },
+  { k: 'place', text: 'ワーヴル', p: [13, -5], min: 8, max: 160 },
+  { k: 'place', text: 'ジュナップ', p: [1.2, 7.5], min: 6, max: 60 },
+  { k: 'place', text: 'シャペル・サン・ランベール', p: [6.4, -0.6], min: 4, max: 40 },
+  { k: 'place', text: 'ラスヌ', p: [5.5, 0.9], min: 4, max: 30 },
+  { k: 'place', text: 'オアン', p: [4.2, -3.6], min: 4, max: 30 },
+  { k: 'place', text: 'モン・サン・ジャン', p: [-0.3, -1.9], min: 3, max: 22 },
+  { k: 'river', text: 'ディル川', p: [12.3, -1.5], min: 8, max: 80 },
+  { k: 'river', text: 'ラスヌ川', p: [4.8, 3.6], min: 4, max: 30 },
+  { k: 'river', text: 'ソワーニュの森', p: [-2, -8.6], min: 6, max: 60 },
+];
+const LANDMARKS = [
+  { text: 'ウーグモン', sub: 'HOUGOUMONT', p: [-1.15, 0.45], max: 9 },
+  { text: 'ラ・エー・サント', sub: 'LA HAYE SAINTE', p: [0, 0], max: 9 },
+  { text: 'パプロット', sub: 'PAPELOTTE', p: [1.9, 0.15], max: 9 },
+  { text: 'ラ・ベル・アリアンス', sub: 'LA BELLE ALLIANCE', p: [0.35, 1.45], max: 9 },
+  { text: 'プランスノワ', sub: 'PLANCENOIT', p: [2.9, 2.5], max: 10 },
+  { text: 'モン・サン・ジャン農場', p: [-0.05, -1.3], max: 7 },
+  { text: 'ロソム（ナポレオン本営）', p: [0.55, 2.7], max: 8 },
+  { text: 'フリシェルモン', p: [3.3, 0.7], max: 8 },
+];
+
+/* =====================================================================
+   レンダラー・シーン・共通 uniform・霧
+   ===================================================================== */
+const U = {
+  uTime: { value: 0 }, uStory: { value: 0 },
+  uSnow: { value: 0 }, uAutumn: { value: 0 }, uScorch: { value: 0 }, uDestroy: { value: 0 }, uFire: { value: 0 },
+  uIce: { value: 0 }, uGrid: { value: 0 }, uTerr: { value: 0 }, uSovStrip: { value: 0 },
+  uSunDir: { value: new THREE.Vector3(0.4, 0.6, 0.3).normalize() }, uSunColor: { value: new THREE.Color(1, 0.9, 0.75) },
+  uAmbient: { value: new THREE.Color(0.35, 0.38, 0.45) }, uSkyRefl: { value: new THREE.Color(0.5, 0.55, 0.6) },
+  uHFog: { value: new THREE.Vector4(0.02, 1.2, 0.0, 0) }, // 密度, 減衰, 基準高, -
+};
+// 高さ霧 + 距離霧（ノイズでまだらに流れる）を全マテリアルに適用
+THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+varying float vFogDepth; varying vec3 vFogW;
+#endif`;
+THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+vFogDepth = - mvPosition.z; vFogW = (inverse(viewMatrix) * mvPosition).xyz;
+#endif`;
+THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+uniform vec3 fogColor; varying float vFogDepth; varying vec3 vFogW;
+uniform float fogDensity; uniform vec4 uHFog; uniform float uTime;
+float _fh(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float _fn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
+  return mix(mix(_fh(i),_fh(i+vec2(1,0)),f.x), mix(_fh(i+vec2(0,1)),_fh(i+vec2(1,1)),f.x), f.y); }
+float fogAmount(vec3 w, float depth){
+  float f = 1.0 - exp(-fogDensity*fogDensity*depth*depth);
+  float k = max(uHFog.y, 1e-3); float hc = cameraPosition.y - uHFog.z, hp = w.y - uHFog.z; float dy = hp - hc;
+  float integ = abs(dy) > 1e-3 ? (exp(-k*hc) - exp(-k*hp)) / (k*dy) : exp(-k*hp);
+  float n = _fn(w.xz*0.045 + uTime*vec2(0.020,0.008)) * 0.65 + _fn(w.xz*0.19 - uTime*vec2(0.012,0.03)) * 0.35;
+  float hf = 1.0 - exp(-uHFog.x * (0.35 + 1.3*n) * length(w - cameraPosition) * clamp(integ, 0.0, 40.0));
+  return 1.0 - (1.0 - f) * (1.0 - hf);
+}
+#endif`;
+THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogAmount(vFogW, vFogDepth));
+#endif`;
+function fogUniforms(s) { s.uniforms.uHFog = U.uHFog; s.uniforms.uTime = U.uTime; }
+
+const canvas = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const QUALITY = { high: { pr: 1.75, shadow: 2048, msaa: 4, bloom: true }, std: { pr: 1.25, shadow: 1024, msaa: 2, bloom: true }, low: { pr: 0.85, shadow: 0, msaa: 0, bloom: false } };
+let QKEY = 'std'; try { QKEY = localStorage.getItem('stalingrad-q') || (matchMedia('(max-width: 760px)').matches ? 'low' : 'std'); } catch (e) {}
+if (!QUALITY[QKEY]) QKEY = 'std';
+let PR = Math.min(window.devicePixelRatio || 1, QUALITY[QKEY].pr);
+renderer.setPixelRatio(PR);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xb8b0a0, 0.002);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 4000);
+camera.position.set(0, 300, 200);
+
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.bias = -0.0004;
+scene.add(sun, sun.target);
+const hemi = new THREE.HemisphereLight(0xbfd0e0, 0x5a5040, 1);
+scene.add(hemi);
+
+// 空（地平線色 = 霧の色でつなぐ）
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { uZen: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uSunDir: U.uSunDir, uSunColor: U.uSunColor, uTime: U.uTime },
+  vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position,1.); gl_Position = p.xyww; }`,
+  fragmentShader: `varying vec3 vDir; uniform vec3 uZen, uHor, uSunDir, uSunColor; uniform float uTime;
+  float h1(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+  float n1(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(h1(i),h1(i+vec2(1,0)),f.x),mix(h1(i+vec2(0,1)),h1(i+vec2(1,1)),f.x),f.y);}
+  void main(){ vec3 d = normalize(vDir); float h = d.y;
+    vec3 c = mix(uHor, uZen, pow(clamp(h,0.,1.), 0.5));
+    vec2 q = d.xz / max(h, 0.06) * 1.6; float cl = n1(q + uTime*0.01)*0.6 + n1(q*2.3 - uTime*0.014)*0.4;
+    c = mix(c, uHor*1.08, smoothstep(0.45, 0.85, cl) * smoothstep(0.02, 0.25, h) * 0.35);
+    float s = max(dot(d, normalize(uSunDir)), 0.);
+    c += uSunColor * (pow(s, 1600.)*18. + pow(s, 40.)*0.25 + pow(s, 5.)*0.12);
+    c = mix(uHor, c, smoothstep(-0.02, 0.05, h));
+    gl_FragColor = vec4(c, 1.); }`,
+});
+const sky = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMat);
+sky.renderOrder = -10; sky.frustumCulled = false;
+scene.add(sky);
+
+/* ---------- ポストプロセス ---------- */
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: QUALITY[QKEY].msaa }));
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.55, 0.9);
+composer.addPass(bloom);
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uSat: { value: 0.9 }, uContrast: { value: 1.05 }, uGain: { value: new THREE.Vector3(1, 1, 1) }, uVig: { value: 0.35 }, uGrain: { value: 0.04 }, uT: { value: 0 }, uFade: { value: 0 } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.); }`,
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uSat, uContrast, uVig, uGrain, uT, uFade; uniform vec3 uGain; varying vec2 vUv;
+  float hh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233)) + uT*7.13) * 43758.5453); }
+  void main(){ vec2 d = vUv - 0.5; float ca = 0.0022 * dot(d,d);
+    vec3 c = vec3(texture2D(tDiffuse, vUv + d*ca*4.).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - d*ca*4.).b);
+    float l = dot(c, vec3(0.2126,0.7152,0.0722));
+    c = mix(vec3(l), c, uSat) * uGain;
+    c = max((c - 0.18) * uContrast + 0.18, 0.0);
+    float v = smoothstep(0.95, 0.25, length(d * vec2(1.0, 0.82)));
+    c *= mix(1.0 - uVig, 1.0, v);
+    c += (hh(vUv*1024.) - 0.5) * uGrain * (0.15 + sqrt(l));
+    c *= 1.0 - uFade;
+    gl_FragColor = vec4(c, 1.); }`,
+});
+composer.addPass(grade);
+composer.addPass(new OutputPass());
+
+function resize() {
+  const w = canvas.clientWidth || window.innerWidth, h = canvas.clientHeight || window.innerHeight;
+  renderer.setPixelRatio(PR); renderer.setSize(w, h, false);
+  composer.setPixelRatio(PR); composer.setSize(w, h);
+  bloom.resolution.set(w * PR / 2, h * PR / 2);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+function applyQuality(key) {
+  QKEY = key; const q = QUALITY[key]; try { localStorage.setItem('stalingrad-q', key); } catch (e) {}
+  PR = Math.min(window.devicePixelRatio || 1, q.pr);
+  sun.castShadow = q.shadow > 0;
+  if (q.shadow && sun.shadow.mapSize.x !== q.shadow) { sun.shadow.mapSize.set(q.shadow, q.shadow); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  for (const rt of [composer.renderTarget1, composer.renderTarget2]) if (rt.samples !== q.msaa) { rt.samples = q.msaa; rt.dispose(); }
+  bloom.enabled = q.bloom; resize();
+}
+
+/* =====================================================================
+   地形（広域タイル + 市街の高解像度タイル）、勢力図テクスチャ、水面
+   ===================================================================== */
+const REGION = { x0: -25, z0: -26, w: 50, h: 66 };
+const CITYR = { x0: -4, z0: -4, w: 9, h: 8 }, GRID = 0.25, CSTEP = 0.05;
+const regionCanvas = document.createElement('canvas'); regionCanvas.width = 256; regionCanvas.height = 338;
+const cityCanvas = document.createElement('canvas'); cityCanvas.width = 256; cityCanvas.height = 228;
+const regionTex = new THREE.CanvasTexture(regionCanvas), cityTex = new THREE.CanvasTexture(cityCanvas);
+for (const t of [regionTex, cityTex]) { t.flipY = false; t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; }
+
+const C = { grass: hex2lin('#6f7d3c'), rye: hex2lin('#99904f'), wood: hex2lin('#34401f'), valley: hex2lin('#56673a'), clay: hex2lin('#8a7552') };
+function terrainColor(x, z, h, ny, out) {
+  const n1 = 0.5 + 0.5 * noise2(x * 0.5 + 7, z * 0.5 - 3);
+  let r = lerp(C.grass[0], C.rye[0], n1), g = lerp(C.grass[1], C.rye[1], n1), b = lerp(C.grass[2], C.rye[2], n1);
+  const mixc = (c, t) => { r = lerp(r, c[0], t); g = lerp(g, c[1], t); b = lerp(b, c[2], t); };
+  let val = 0; for (const rv of RIVERS) if (rv.pd.query(x, z, rv.w)) val = Math.max(val, 1 - smooth(rv.w * 0.2, rv.w, rv.pd.d));
+  mixc(C.valley, val * 0.8);
+  mixc(C.clay, smooth(0.04, 0.14, 1 - ny) * 0.6);
+  const w = inWood(x, z); mixc(C.wood, w);
+  out[0] = r; out[1] = g; out[2] = b;
+  out[3] = 1;
+  out[4] = 0;
+  out[5] = smooth(-3.2, -2.2, x) * (1 - smooth(3.4, 4.6, x)) * smooth(-1.4, -0.6, z) * (1 - smooth(2.6, 3.6, z)); // 踏み荒らされる戦場
+  out[6] = Math.max(w, val * 0.8);
+  return out;
+}
+
+function axisGrid(c0, c1, step, o0, o1) { // コアは等間隔、外側は次第に粗く
+  const a = []; for (let v = c0; v <= c1 + 1e-6; v += step) a.push(+v.toFixed(4));
+  let v = c0, s = step; const pre = []; while (v > o0) { s = Math.min(8, step + 0.05 * (c0 - v)); v -= s; pre.push(v); }
+  v = c1; s = step; const post = []; while (v < o1) { s = Math.min(8, step + 0.05 * (v - c1)); v += s; post.push(v); }
+  return [...pre.reverse(), ...a, ...post];
+}
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+async function buildTile(xs, zs, heightFn, skipCell, progress, p0, p1) {
+  const nx = xs.length, nz = zs.length, N = nx * nz;
+  const pos = new Float32Array(N * 3), hm = new Float32Array(N);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) { const k = j * nx + i, h = heightFn(xs[i], zs[j], i, j); hm[k] = h; pos[k * 3] = xs[i]; pos[k * 3 + 1] = h * VY; pos[k * 3 + 2] = zs[j]; }
+    if (j % 40 === 0) { progress(lerp(p0, p1, 0.8 * j / nz)); await tick(); }
+  }
+  const idx = [];
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    if (skipCell && skipCell(xs[i], xs[i + 1], zs[j], zs[j + 1])) continue;
+    const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1; idx.push(a, c, b, b, c, d);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setIndex(N > 65535 ? new THREE.Uint32BufferAttribute(idx, 1) : new THREE.Uint16BufferAttribute(idx, 1));
+  geo.computeVertexNormals();
+  const nrm = geo.attributes.normal.array, col = new Float32Array(N * 3), ext = new Float32Array(N * 4), o = [0, 0, 0, 0, 0, 0, 0];
+  for (let k = 0; k < N; k++) {
+    terrainColor(pos[k * 3], pos[k * 3 + 2], hm[k], nrm[k * 3 + 1], o);
+    col[k * 3] = o[0]; col[k * 3 + 1] = o[1]; col[k * 3 + 2] = o[2];
+    ext[k * 4] = o[3]; ext[k * 4 + 1] = o[4]; ext[k * 4 + 2] = o[5]; ext[k * 4 + 3] = o[6];
+    if (k % 30000 === 0) { progress(lerp(p0, p1, 0.8 + 0.2 * k / N)); await tick(); }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('aExtra', new THREE.BufferAttribute(ext, 4));
+  geo.computeBoundingSphere(); geo.userData = { xs, zs, hm };
+  return geo;
+}
+
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.96, metalness: 0 });
+terrainMat.onBeforeCompile = s => {
+  fogUniforms(s);
+  Object.assign(s.uniforms, { uSnow: U.uSnow, uAutumn: U.uAutumn, uScorch: U.uScorch, uGrid: U.uGrid, uTerr: U.uTerr, uSovStrip: U.uSovStrip,
+    uRegionTex: { value: regionTex }, uCityTex: { value: cityTex },
+    uRegionRect: { value: new THREE.Vector4(REGION.x0, REGION.z0, REGION.w, REGION.h) }, uCityRect: { value: new THREE.Vector4(CITYR.x0, CITYR.z0, CITYR.w, CITYR.h) } });
+  s.vertexShader = 'attribute vec4 aExtra; varying vec4 vExtra; varying vec3 vWP;\n' + s.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvExtra = aExtra; vWP = (modelMatrix * vec4(transformed,1.0)).xyz;');
+  s.fragmentShader = `varying vec4 vExtra; varying vec3 vWP; uniform float uSnow, uAutumn, uScorch, uGrid, uTerr, uSovStrip;
+uniform sampler2D uRegionTex, uCityTex; uniform vec4 uRegionRect, uCityRect;
+float th(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
+float tn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(th(i),th(i+vec2(1,0)),f.x), mix(th(i+vec2(0,1)),th(i+vec2(1,1)),f.x), f.y); }
+` + s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+{
+  vec3 c = diffuseColor.rgb; vec2 p = vWP.xz;
+  float n1 = tn(p*0.9), n2 = tn(p*4.3), n3 = tn(p*0.21);
+  c *= 0.84 + 0.2*n1 + 0.08*n2;
+  // 麦畑・牧草地のパッチワークと生け垣
+  vec2 fq = mat2(0.94, -0.34, 0.34, 0.94) * p * vec2(2.4, 3.6); vec2 cell = floor(fq); float fh = th(cell + 0.5);
+  vec3 fcol = fh < 0.3 ? vec3(0.20, 0.25, 0.07) : fh < 0.55 ? vec3(0.36, 0.32, 0.12) : fh < 0.8 ? vec3(0.15, 0.21, 0.06) : vec3(0.30, 0.27, 0.12);
+  vec2 fr = fract(fq); float hedge = 1.0 - smoothstep(0.0, 0.05, min(min(fr.x, 1.0 - fr.x), min(fr.y, 1.0 - fr.y)));
+  float fd = 1.0 - smoothstep(6.0, 30.0, length(vWP - cameraPosition));
+  float open = 1.0 - clamp(vExtra.w, 0.0, 1.0);
+  c = mix(c, fcol * (0.9 + 0.25 * n2), 0.72 * open * fd);
+  c *= 1.0 - 0.25 * hedge * open * fd;
+  vec3 aut = mix(vec3(dot(c, vec3(.3,.5,.2))), c, 0.5) * vec3(1.0, 0.9, 0.78);
+  c = mix(c, aut, uAutumn);
+  float sc = clamp(uScorch * vExtra.z * (0.6 + 0.6*n1), 0., 1.);
+  c = mix(c, vec3(0.13,0.10,0.06) * (0.8 + 0.4*n2), sc * 0.85);
+  float sn = smoothstep(0.0, 0.25, uSnow*1.25*vExtra.x - (1.0 - (n1*0.6 + n3*0.4))*0.55);
+  vec3 snowC = vec3(0.80,0.84,0.90) * (0.94 + 0.06*n2);
+  snowC = mix(snowC, snowC*vec3(0.5,0.49,0.48), clamp(uScorch*vExtra.z*0.9, 0., 1.)*(0.5+0.5*n2));
+  c = mix(c, snowC, sn);
+  // 勢力図
+  vec2 ruv = (p - uRegionRect.xy) / uRegionRect.zw; vec4 tr = texture2D(uRegionTex, ruv);
+  tr *= step(0.0, ruv.x)*step(ruv.x, 1.0)*step(0.0, ruv.y)*step(ruv.y, 1.0);
+  vec2 cuv = (p - uCityRect.xy) / uCityRect.zw;
+  float inC = step(0.0, cuv.x)*step(cuv.x, 1.0)*step(0.0, cuv.y)*step(cuv.y, 1.0);
+  vec4 tc = texture2D(uCityTex, clamp(cuv, 0.0, 1.0));
+  float axis = mix(tr.r, tc.r, inC), pocket = mix(tr.g, tc.g, inC), allied = tr.b*(1.0-inC), sov = tc.b*inC*uSovStrip;
+  float hatch = smoothstep(0.35, 0.5, abs(fract((p.x + p.y)*0.35) - 0.5));
+  vec3 tA = mix(c*0.62 + vec3(0.05,0.10,0.22), c*0.5 + vec3(0.20,0.12,0.02), allied);
+  c = mix(c, tA, clamp(axis, 0., 1.)*uTerr*0.8);
+  c = mix(c, c*0.7 + vec3(0.16,0.03,0.02), pocket*hatch*uTerr*0.45);
+  c = mix(c, c*0.82 + vec3(0.10,0.012,0.0), sov*0.5);
+  // 地図グリッド（10 km）
+  vec2 gq = p/10.0; vec2 gw = fwidth(gq); vec2 gg = abs(fract(gq - 0.5) - 0.5) / max(gw, vec2(1e-4));
+  float gl = 1.0 - min(min(gg.x, gg.y), 1.0);
+  c = mix(c, vec3(0.9,0.88,0.8), gl*uGrid*0.22);
+  diffuseColor.rgb = c;
+}`);
+};
+
+let terrainMeshes = [];
+async function buildTerrain(progress) {
+  const xs = axisGrid(-25, 25, GRID, -140, 140), zs = axisGrid(-26, 40, GRID, -140, 160);
+  const inCity = (x0, x1, z0, z1) => x0 >= CITYR.x0 - 1e-4 && x1 <= CITYR.x0 + CITYR.w + 1e-4 && z0 >= CITYR.z0 - 1e-4 && z1 <= CITYR.z0 + CITYR.h + 1e-4;
+  const g1 = await buildTile(xs, zs, H, inCity, progress, 0, 0.62);
+  // 市街タイル（境界は広域タイルの辺に合わせて補間し、隙間を防ぐ）
+  const st = CSTEP, cxs = [], czs = [];
+  for (let i = 0; i <= Math.round(CITYR.w / st); i++) cxs.push(CITYR.x0 + i * st);
+  for (let j = 0; j <= Math.round(CITYR.h / st); j++) czs.push(CITYR.z0 + j * st);
+  const nxC = cxs.length - 1, nzC = czs.length - 1;
+  const G = GRID, edgeH = (x, z) => {
+    if (Math.abs(x - CITYR.x0) < 1e-6 || Math.abs(x - cxs[nxC]) < 1e-6) { const a = CITYR.z0 + Math.floor((z - CITYR.z0) / G + 1e-6) * G, u = (z - a) / G; return u < 1e-6 ? H(x, a) : lerp(H(x, a), H(x, a + G), u); }
+    const a = CITYR.x0 + Math.floor((x - CITYR.x0) / G + 1e-6) * G, u = (x - a) / G; return u < 1e-6 ? H(a, z) : lerp(H(a, z), H(a + G, z), u);
+  };
+  const g2 = await buildTile(cxs, czs, (x, z, i, j) => (i === 0 || j === 0 || i === nxC || j === nzC) ? edgeH(x, z) : H(x, z), null, progress, 0.62, 0.92);
+  for (const g of [g1, g2]) { const m = new THREE.Mesh(g, terrainMat); m.receiveShadow = true; scene.add(m); terrainMeshes.push(m); }
+  // 実行時の高さ参照は生成済みの格子から補間（H を毎フレーム評価しない）
+  const L = g1.userData, Cc = g2.userData, nxL = L.xs.length, ncx = Cc.xs.length;
+  const find = (arr, v) => { let lo = 0, hi = arr.length - 2; if (v <= arr[0]) return 0; if (v >= arr[hi + 1]) return hi; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (arr[m] <= v) lo = m; else hi = m - 1; } return lo; };
+  Hw = (x, z) => {
+    let h;
+    if (x > CITYR.x0 && x < CITYR.x0 + CITYR.w && z > CITYR.z0 && z < CITYR.z0 + CITYR.h) {
+      const fx = (x - CITYR.x0) / CSTEP, fz = (z - CITYR.z0) / CSTEP, i = Math.min(Math.floor(fx), ncx - 2), j = Math.min(Math.floor(fz), Cc.zs.length - 2), u = fx - i, v = fz - j, k = j * ncx + i, hm = Cc.hm;
+      h = lerp(lerp(hm[k], hm[k + 1], u), lerp(hm[k + ncx], hm[k + ncx + 1], u), v);
+    } else {
+      const i = find(L.xs, x), j = find(L.zs, z), u = clamp((x - L.xs[i]) / (L.xs[i + 1] - L.xs[i]), 0, 1), v = clamp((z - L.zs[j]) / (L.zs[j + 1] - L.zs[j]), 0, 1), k = j * nxL + i, hm = L.hm;
+      h = lerp(lerp(hm[k], hm[k + 1], u), lerp(hm[k + nxL], hm[k + nxL + 1], u), v);
+    }
+    return Math.max(h * VY, 0);
+  };
+}
+
+/* ---------- 水面 ---------- */
+const waterMat = new THREE.ShaderMaterial({
+  fog: true, transparent: false,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDeep: { value: new THREE.Color(0.05, 0.09, 0.11) } }]),
+  vertexShader: `varying vec3 vW;
+#include <fog_pars_vertex>
+void main(){ vec4 wp = modelMatrix * vec4(position,1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+}`,
+  fragmentShader: `varying vec3 vW; uniform vec3 uDeep, uSkyRefl, uSunColor, uSunDir, uAmbient; uniform float uIce;
+
+#include <fog_pars_fragment>
+  float wh(vec2 p){ return fract(sin(dot(p, vec2(41.3,289.1))) * 43758.5453); }
+  float wn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(wh(i),wh(i+vec2(1,0)),f.x), mix(wh(i+vec2(0,1)),wh(i+vec2(1,1)),f.x), f.y); }
+  float wv(vec2 p){ return wn(p*3.0 + vec2(uTime*0.35, uTime*0.2))*0.6 + wn(p*7.0 - vec2(uTime*0.25, -uTime*0.4))*0.4; }
+  void main(){
+    vec2 p = vW.xz; float e = 0.02;
+    float h0 = wv(p), hx = wv(p + vec2(e,0.)), hz = wv(p + vec2(0.,e));
+    vec3 N = normalize(vec3((h0-hx)*0.9, 1.0, (h0-hz)*0.9));
+    vec3 V = normalize(cameraPosition - vW);
+    float fr = 0.04 + 0.9*pow(1.0 - max(dot(N, V), 0.0), 5.0);
+    vec3 col = mix(uDeep*(0.6 + uAmbient), uSkyRefl, fr);
+    vec3 L = normalize(uSunDir);
+    col += uSunColor * pow(max(dot(reflect(-V, N), L), 0.0), 220.0) * 3.0;
+    // 氷
+    float fl = wn(p*1.3) * 0.7 + wn(p*6.0) * 0.3;
+    float ice = smoothstep(1.02 - uIce*1.05, 1.1 - uIce*1.05, fl + 0.08);
+    float crack = smoothstep(0.02, 0.0, abs(wn(p*9.0) - 0.5)) * 0.35;
+    vec3 iceC = vec3(0.70,0.76,0.83) * (uAmbient*0.9 + uSunColor*max(L.y,0.)*0.55) * (1.0 - crack);
+    col = mix(col, iceC, ice);
+    gl_FragColor = vec4(col, 1.0);
+#include <fog_fragment>
+  }`,
+});
+waterMat.onBeforeCompile = s => { fogUniforms(s); Object.assign(s.uniforms, { uSkyRefl: U.uSkyRefl, uSunColor: U.uSunColor, uSunDir: U.uSunDir, uAmbient: U.uAmbient, uIce: U.uIce }); };
+waterMat.uniforms.uIce = U.uIce; waterMat.uniforms.uSkyRefl = U.uSkyRefl; waterMat.uniforms.uSunColor = U.uSunColor; waterMat.uniforms.uSunDir = U.uSunDir; waterMat.uniforms.uAmbient = U.uAmbient; waterMat.uniforms.uTime = U.uTime; waterMat.uniforms.uHFog = U.uHFog;
+
+function ribbonGeo(pts, halfW, yFn) {
+  const n = pts.length, pos = new Float32Array(n * 6), idx = [];
+  for (let i = 0; i < n; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+    const nx = -dz / l, nz = dx / l, [x, z] = pts[i];
+    const w = halfW * (i === 0 || i === n - 1 ? 0.4 : 1);
+    pos.set([x + nx * w, yFn(x + nx * w, z + nz * w, x, z), z + nz * w, x - nx * w, yFn(x - nx * w, z - nz * w, x, z), z - nz * w], i * 6);
+    if (i < n - 1) { const k = i * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setIndex(idx); return g;
+}
+const roadMat = new THREE.MeshStandardMaterial({ color: 0xb8a57c, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+roadMat.onBeforeCompile = s => fogUniforms(s);
+function buildWater() {
+  const add = (g, m) => { const mesh = new THREE.Mesh(g, m); mesh.renderOrder = 1; mesh.receiveShadow = true; scene.add(mesh); };
+  for (const r of RIVERS) add(ribbonGeo(resample(r.sm, Math.ceil(polyLen(r.sm) / 0.06)), r.w > 1 ? 0.035 : 0.018, (x, z, cx, cz) => Hy(cx, cz) + 0.015), waterMat);
+  for (const r of ROADS) { const g = ribbonGeo(resample(r.sm, Math.ceil(polyLen(r.sm) / 0.05)), r.w, (x, z) => Hy(x, z) + 0.006); g.computeVertexNormals(); add(g, roadMat); }
+}
+
+/* =====================================================================
+   市街：建物（破壊・炎上・積雪をシェーダで表現）、工場、煙突
+   ===================================================================== */
+function ruinPatch(s, depth) {
+  s.uniforms.uDestroy = U.uDestroy; s.uniforms.uStory = U.uStory;
+  s.vertexShader = 'attribute vec4 aB; uniform float uDestroy; uniform float uStory; varying vec4 vB; varying float vLY; varying float vUp; varying float vRu;\n' +
+    s.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+    vB = aB; vLY = position.y; vUp = normal.y;
+    float ru = step(aB.x, uStory); vRu = ru;
+    if (ru > 0.5) {
+      float jag = fract(sin(dot(position.xz*7.0 + aB.yz*13.0, vec2(12.9898,78.233))) * 43758.5453);
+      transformed.y *= mix(0.22, 0.62, jag) * (0.6 + 0.4*aB.w);
+    }`);
+  if (depth) return;
+  Object.assign(s.uniforms, { uFire: U.uFire, uSnow: U.uSnow, uStory: U.uStory });
+  s.fragmentShader = 'varying vec4 vB; varying float vLY; varying float vUp; varying float vRu; uniform float uFire, uSnow, uStory;\n' +
+    s.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+    diffuseColor.rgb *= 0.78 + 0.45*vB.y;
+    diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb*vec3(0.42,0.4,0.38), vRu);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.78,0.81,0.86), uSnow*step(0.6, vUp)*0.92);`)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+    float flick = 0.55 + 0.45*sin(uTime*9.0 + vB.z*40.0)*sin(uTime*5.3 + vB.z*17.0);
+    float burn = step(vB.z, uStory) * (1.0 - smoothstep(vB.z + 60.0, vB.z + 90.0, uStory)) * (1.0 - vLY) * (0.5 + 0.5*vRu);
+    totalEmissiveRadiance += vec3(1.0, 0.33, 0.07) * burn * flick * 3.2;`);
+}
+function ruinMaterial(color) {
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.92, metalness: 0 });
+  m.onBeforeCompile = s => { fogUniforms(s); ruinPatch(s, false); };
+  const d = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  d.onBeforeCompile = s => ruinPatch(s, true);
+  return [m, d];
+}
+
+
+/* ---------- 農場・村・森 ---------- */
+// 農場: [x, z, 回転(度), 規模, 炎上開始 t, 崩れる t]
+const FARMS = [
+  ['hougoumont', -1.15, 0.45, 12, 1.25, 132, 160], ['lahayesainte', 0, 0, 0, 0.8, 196, 999], ['papelotte', 1.9, 0.15, 8, 0.8, 999, 999],
+  ['lahaie', 2.2, -0.1, 4, 0.7, 999, 999], ['bellealliance', 0.35, 1.45, 0, 0.55, 999, 999], ['mtstjean', -0.05, -1.3, 0, 0.9, 999, 999],
+  ['frichermont', 3.3, 0.7, 20, 0.8, 999, 999], ['rossomme', 0.55, 2.7, 0, 0.5, 999, 999], ['caillou', 0.9, 4.5, 0, 0.6, 999, 999],
+];
+// 村: [x, z, 半径, 戸数, 炎上開始 t]
+const VILLAGES = [[-0.3, -4.4, 0.45, 70, 999], [-0.25, -1.9, 0.22, 22, 999], [2.9, 2.5, 0.3, 40, 206], [5.5, 0.9, 0.3, 30, 999], [4.2, -3.6, 0.3, 30, 999],
+  [1.2, 7.5, 0.35, 45, 999], [13, -5, 0.6, 110, 999], [-3.6, -2.6, 0.35, 40, 999], [1.5, 13, 0.2, 18, 999], [10, 19, 0.3, 30, 999], [4, 33, 0.9, 160, 999], [-1.2, -21, 2.2, 420, 999], [3.2, 1.0, 0.18, 12, 999]];
+let treeMesh;
+function buildCity() {
+  const r = rng(18150618), list = []; // [x, z, w, d, hMeters, rot, ruinT, tone, burnT]
+  for (const [id, cx, cz, rotD, sz, burn, ruin] of FARMS) {
+    const rot = rotD * DEG, c = Math.cos(rot), s = Math.sin(rot), L = 0.055 * sz;
+    const put = (ox, oz, w, d, hm, main) => list.push([cx + ox * c + oz * s, cz - ox * s + oz * c, w, d, hm, -rot, main ? ruin : (ruin < 999 ? ruin + r() * 20 : 999), 0.4 + r() * 0.4, burn < 999 ? burn + r() * 10 : 999]);
+    put(0, -L, L * 1.9, 0.012, 9, 1); put(-L, 0, 0.012, L * 1.6, 7, 0); put(L, 0, 0.012, L * 1.6, 8, 0); put(0, L, L * 1.4, 0.012, 7, 0); // 中庭を囲む建物
+    put(-L * 0.9, L * 0.95, 0.004, 0.004, 3, 0);
+    for (let k = 0; k < 4; k++) put((k % 2 ? 1 : -1) * L * 1.15, (k < 2 ? -1 : 1) * L * 1.15, k < 2 ? L * 2.3 : 0.004, 0.004, 3, 0); // 塀
+    if (id === 'hougoumont') { put(-0.02, -0.01, 0.02, 0.02, 14, 1); put(0.03, 0.01, 0.012, 0.012, 16, 0); }
+  }
+  for (const [vx, vz, rad, n, burn] of VILLAGES) for (let i = 0; i < n; i++) {
+    const a = r() * Math.PI * 2, d = Math.sqrt(r()) * rad, x = vx + Math.cos(a) * d, z = vz + Math.sin(a) * d;
+    list.push([x, z, 0.012 + r() * 0.012, 0.01 + r() * 0.01, 5 + r() * 5, r() * Math.PI, burn < 999 && r() < 0.5 ? burn + 8 + r() * 30 : 999, r(), burn < 999 && r() < 0.6 ? burn + r() * 20 : 999]);
+  }
+  list.push([2.9, 2.45, 0.018, 0.035, 12, 0.3, 999, 0.6, 999]); list.push([2.9, 2.425, 0.008, 0.008, 26, 0.3, 999, 0.6, 999]); // プランスノワの教会
+  const geo = new THREE.BoxGeometry(1, 1, 1, 2, 1, 2); geo.translate(0, 0.5, 0);
+  const n = list.length, aB = new Float32Array(n * 4);
+  const [mat, depthMat] = ruinMaterial(0xa89a86);
+  const mesh = new THREE.InstancedMesh(geo, mat, n);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  list.forEach((b, i) => { m4.compose(v.set(b[0], Hy(b[0], b[1]) - 0.01, b[1]), q.setFromEuler(e.set(0, b[5], 0)), sc.set(b[2], b[4] * BVY + 0.01, b[3])); mesh.setMatrixAt(i, m4); aB.set([b[6], b[7], b[8], r()], i * 4); });
+  geo.setAttribute('aB', new THREE.InstancedBufferAttribute(aB, 4));
+  mesh.customDepthMaterial = depthMat; mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
+  // 森と並木
+  const trees = [];
+  for (const [cx, cz, rx, rz] of WOODS) { const sp = rx > 2 ? 0.075 : 0.032; for (let x = cx - rx; x < cx + rx; x += sp) for (let z = cz - rz; z < cz + rz; z += sp) { const jx = x + (r() - 0.5) * sp, jz = z + (r() - 0.5) * sp; if (r() < inWood(jx, jz) * 0.95) trees.push([jx, jz, 0.8 + r() * 0.6]); } }
+  for (let i = 0; i < 90; i++) trees.push([-1.15 + 0.25 + (r() - 0.5) * 0.2, 0.45 - 0.1 + (r() - 0.5) * 0.3, 0.6]); // ウーグモンの果樹園
+  for (const rd of ROADS) for (const [x, z] of resample(rd.sm, Math.ceil(polyLen(rd.sm) / 0.09))) if (r() < 0.35 && Math.abs(x) + Math.abs(z) < 12) trees.push([x + 0.03, z, 0.6 + r() * 0.3]);
+  const tg = new THREE.IcosahedronGeometry(1, 1); tg.scale(1, 1.2, 1); tg.translate(0, 1.1, 0);
+  const tm = new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }); tm.onBeforeCompile = s => fogUniforms(s);
+  treeMesh = new THREE.InstancedMesh(tg, tm, trees.length); const col = new THREE.Color();
+  trees.forEach(([x, z, s2], i) => { const k = 0.016 * s2; m4.compose(v.set(x, Hy(x, z) - 0.005, z), q.setFromEuler(e.set(0, r() * 6, 0)), sc.set(k, k * 1.3, k)); treeMesh.setMatrixAt(i, m4); treeMesh.setColorAt(i, col.setRGB(0.05 + r() * 0.03, 0.09 + r() * 0.04, 0.03)); });
+  treeMesh.castShadow = true; treeMesh.receiveShadow = true; scene.add(treeMesh);
+  return list;
+}
+
+/* =====================================================================
+   エフェクト：煙・炎・閃光・雲（GPU ビルボード。時刻の関数なのでシーク可能）、雪、航空機
+   ===================================================================== */
+const FX = { uSmokeI: { value: 1 }, uFlashI: { value: 1 }, uCloudHigh: { value: 1 }, uCloudLow: { value: 0.3 }, uSnowFall: { value: 0 },
+  uFrontX: { value: new Float32Array(48) }, uFrontY: { value: new Float32Array(48) }, uFrontA: { value: new Float32Array(48) }, uFrontZ: { value: new THREE.Vector2(-14, 26) } };
+
+function makeBillboards(rows, body, frag, additive) {
+  const n = rows.length, base = new THREE.PlaneGeometry(1, 1), g = new THREE.InstancedBufferGeometry();
+  g.index = base.index; g.setAttribute('position', base.attributes.position); g.instanceCount = n;
+  for (let a = 0; a < 4; a++) { const arr = new Float32Array(n * 4); rows.forEach((r, i) => arr.set(r[a], i * 4)); g.setAttribute('a' + 'ABCD'[a], new THREE.InstancedBufferAttribute(arr, 4)); }
+  const mat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    defines: additive ? { ADDITIVE: 1 } : {},
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, {}]),
+    vertexShader: `attribute vec4 aA, aB, aC, aD; uniform float uStory, uSmokeI, uFlashI, uCloudHigh, uCloudLow, uFire;
+      uniform vec3 uSunColor, uAmbient; uniform float uFrontX[48], uFrontY[48], uFrontA[48]; uniform vec2 uFrontZ;
+      varying vec2 vUv; varying vec4 vCol; varying float vSeed;
+      float hs(float x){ return fract(sin(x*91.345)*47453.5453); }
+#include <fog_pars_vertex>
+      void main(){ vec3 center = aA.xyz; float size = aA.w; vec4 col = vec4(1.0); float rot = 0.0;
+        ${body}
+        vec4 mvPosition = viewMatrix * vec4(center, 1.0);
+        float c = cos(rot), s = sin(rot); mvPosition.xy += mat2(c, -s, s, c) * position.xy * size;
+        gl_Position = projectionMatrix * mvPosition; vUv = position.xy + 0.5; vCol = col; vSeed = aC.x;
+#include <fog_vertex>
+      }`,
+    fragmentShader: `varying vec2 vUv; varying vec4 vCol; varying float vSeed;
+      float bh(vec2 p){ return fract(sin(dot(p, vec2(12.9898,78.233))) * 43758.5453); }
+      float bn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(bh(i),bh(i+vec2(1,0)),f.x), mix(bh(i+vec2(0,1)),bh(i+vec2(1,1)),f.x), f.y); }
+#include <fog_pars_fragment>
+      void main(){ vec2 d = vUv - 0.5; float r = length(d) * 2.0; if (r > 1.0 || vCol.a < 0.002) discard;
+        ${frag}
+#ifdef USE_FOG
+  #ifdef ADDITIVE
+        gl_FragColor.rgb *= 1.0 - fogAmount(vFogW, vFogDepth);
+  #else
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogAmount(vFogW, vFogDepth));
+  #endif
+#endif
+      }`,
+  });
+  Object.assign(mat.uniforms, FX, { uStory: U.uStory, uTime: U.uTime, uHFog: U.uHFog, uSunColor: U.uSunColor, uAmbient: U.uAmbient, uFire: U.uFire });
+  const m = new THREE.Mesh(g, mat); m.frustumCulled = false; scene.add(m); return m;
+}
+
+const SMOKE_BODY = `
+  float act = smoothstep(aB.x, aB.x + 3.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 6.0, uStory));
+  float age = fract((uStory * 0.9 + aB.w) / aB.z);
+  float k = aA.w;
+  center += vec3(0.9, 0.0, 0.3) * age * aC.z * k + vec3(sin(aC.x * 40.0 + age * 3.0), 0.0, cos(aC.x * 17.0 + age * 2.0)) * 0.12 * k * age;
+  center.y += aC.y * age * k * 0.5;
+  size = k * (0.25 + 1.6 * age);
+  rot = aC.x * 6.28 + age * 0.6;
+  float a = smoothstep(0.0, 0.12, age) * (1.0 - smoothstep(0.45, 1.0, age));
+  vec3 base = mix(mix(vec3(0.05, 0.045, 0.04), vec3(0.32, 0.31, 0.3), age), vec3(0.62, 0.62, 0.6), aD.x);
+  col = vec4(base * (uAmbient * 1.1 + uSunColor * (0.35 + 0.35 * aD.x)), a * act * uSmokeI * aC.w * (0.55 + 0.2 * aD.x));`;
+const PUFF_FRAG = `float n = bn(vUv * 3.2 + vSeed * 17.0) * 0.6 + bn(vUv * 7.0 - vSeed * 5.0) * 0.4;
+  float a = smoothstep(1.0, 0.2, r) * (0.45 + 0.75 * n);
+  gl_FragColor = vec4(vCol.rgb * (0.85 + 0.3 * n), vCol.a * a);`;
+const FIRE_BODY = `
+  float act = smoothstep(aB.x, aB.x + 2.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 6.0, uStory));
+  float age = fract((uStory * 1.3 + aB.w) / aB.z);
+  center.y += age * 0.12 * aA.w * 4.0; center.x += sin(aC.x * 50.0 + uStory * 3.0) * 0.02 * aA.w * 4.0;
+  size = aA.w * (1.0 - age * 0.6);
+  float fl = 0.6 + 0.4 * sin(uStory * 13.0 + aC.x * 30.0);
+  col = vec4(mix(vec3(4.0, 1.6, 0.35), vec3(2.0, 0.4, 0.08), age) * fl, act * uFire * aC.w * (1.0 - age));`;
+const GLOW_FRAG = `float a = pow(1.0 - r, 2.2); gl_FragColor = vec4(vCol.rgb, vCol.a * a);`;
+const FLASH_BODY = `
+  float act = smoothstep(aB.x, aB.x + 1.0, uStory) * (1.0 - smoothstep(aB.y, aB.y + 2.0, uStory));
+  float cyc = floor((uStory + aB.w) / aB.z), age = fract((uStory + aB.w) / aB.z);
+  float r1 = hs(aC.x + cyc * 1.37), r2 = hs(aC.x * 3.1 + cyc * 2.11), r3 = hs(aC.x * 7.7 + cyc * 0.73);
+  float vis = 1.0;
+  if (aC.w < 0.5) { // 線分に沿って
+    vec2 A = aA.xz, B = aC.yz; vec2 dir = normalize(B - A + 1e-4); vec2 nrm = vec2(-dir.y, dir.x);
+    vec2 p = mix(A, B, r1) + nrm * (r2 - 0.5) * aD.x;
+    center = vec3(p.x, mix(aA.y, aD.y, r1) + 0.15 * aD.z, p.y);
+  } else { // 市街の前線上
+    float zz = mix(uFrontZ.x, uFrontZ.y, r1); float fi = clamp((zz - uFrontZ.x) / (uFrontZ.y - uFrontZ.x) * 47.0, 0.0, 46.99);
+    int i = int(fi); float fu = fract(fi);
+    float fx = mix(uFrontX[i], uFrontX[i + 1], fu), fy = mix(uFrontY[i], uFrontY[i + 1], fu);
+    vis = mix(uFrontA[i], uFrontA[i + 1], fu);
+    center = vec3(fx - r2 * 0.35 + 0.05, fy + 0.06, zz);
+  }
+  float fl = exp(-age * 16.0) + 0.25 * exp(-age * 3.0);
+  size = aA.w * (0.5 + 1.5 * age) * (0.6 + r3 * 0.8);
+  col = vec4(mix(vec3(4.5, 3.4, 2.2), vec3(3.2, 1.0, 0.25), smoothstep(0.0, 0.2, age)) * fl, act * uFlashI * vis);`;
+const CLOUD_BODY = `
+  center.x += uStory * 0.012 * (0.6 + aB.z) * size;
+  float lay = aB.y < 0.5 ? uCloudHigh : uCloudLow;
+  float dc = length(center - cameraPosition);
+  float a = aB.x * lay * smoothstep(size * 0.12, size * 0.75, dc);
+  rot = aB.z * 6.28;
+  col = vec4(mix(uAmbient * 1.25, uAmbient + uSunColor * 0.9, 0.55 + 0.45 * aB.w), a);`;
+const CLOUD_FRAG = `float n = bn(vUv * 2.5 + vSeed * 13.0) * 0.55 + bn(vUv * 5.5 - vSeed * 3.0) * 0.3 + bn(vUv * 11.0) * 0.15;
+  float a = smoothstep(1.0, 0.1, r + (n - 0.5) * 0.7) ;
+  gl_FragColor = vec4(vCol.rgb * (0.8 + 0.35 * (1.0 - vUv.y * 0.5) * n), vCol.a * a);`;
+
+let smokeFX, fireFX, flashFX, cloudFX;
+function buildFX() {
+  const r = rng(1815);
+  const smoke = [], fire = [], flash = [];
+  // 火災: [x, z, 開始 t, 終了 t, 規模]
+  for (const [x0, z0, t0, t1, s] of FIRES) for (let e = 0; e < 6; e++) {
+    const x = x0 + (r() - 0.5) * 0.12 * s, z = z0 + (r() - 0.5) * 0.12 * s, y = Hy(x, z) + 0.02, st = t0 + r() * 6;
+    for (let k = 0; k < 6; k++) smoke.push([[x, y, z, 0.09 * s], [st, t1, 7 + r() * 3, k / 6 * 8 + r()], [r(), 2.6, 0.9, 0.9], [0, 0, 0, 0]]);
+    for (let k = 0; k < 4; k++) fire.push([[x + (r() - 0.5) * 0.02, y, z + (r() - 0.5) * 0.02, 0.018 * s], [st, t1, 0.8 + r() * 0.6, r() * 2], [r(), 0, 0, 0.8 + r() * 0.5], [0, 0, 0, 0]]);
+  }
+  // 砲煙と閃光: [ax, az, bx, bz, 開始 t, 終了 t, 強さ, 種類(0 砲兵 1 歩兵)]
+  for (const [ax, az, bx, bz, t0, t1, k, kind] of FIRELINES) {
+    const ay = Hy(ax, az), by = Hy(bx, bz), L = Math.hypot(bx - ax, bz - az), ne = Math.max(2, Math.round(L * 6 * k));
+    for (let e = 0; e < ne; e++) {
+      const u = r(), x = lerp(ax, bx, u) + (r() - 0.5) * 0.06, z = lerp(az, bz, u) + (r() - 0.5) * 0.06, y = lerp(ay, by, u) + 0.01;
+      for (let q = 0; q < 4; q++) smoke.push([[x, y, z, kind ? 0.07 : 0.12], [t0 + r() * 2, t1, 6 + r() * 4, q / 4 * 8 + r() * 2], [r(), 0.8, 0.6, 0.7], [1, 0, 0, 0]]);
+    }
+    for (let i = 0; i < Math.round(L * 30 * k); i++) flash.push([[ax, ay, az, kind ? 0.03 : 0.06], [t0, t1, (kind ? 0.7 : 1.4) * (0.7 + r() * 0.6), r() * 20], [r() * 100, bx, bz, 0], [0.06, by, 0.2, 0]]);
+  }
+  smokeFX = makeBillboards(smoke, SMOKE_BODY, PUFF_FRAG, false); smokeFX.renderOrder = 5;
+  fireFX = makeBillboards(fire, FIRE_BODY, GLOW_FRAG, true); fireFX.renderOrder = 6;
+  flashFX = makeBillboards(flash, FLASH_BODY, GLOW_FRAG, true); flashFX.renderOrder = 7;
+  const clouds = [];
+  for (let i = 0; i < 90; i++) clouds.push([[3 + (r() - 0.5) * 70, 26 + r() * 22, 6 + (r() - 0.5) * 80, 12 + r() * 16], [0.5 + r() * 0.35, 0, r(), r()], [r(), 0, 0, 0], [0, 0, 0, 0]]);
+  for (let i = 0; i < 120; i++) clouds.push([[1 + (r() - 0.5) * 40, 5 + r() * 3, (r() - 0.5) * 40, 1.6 + r() * 2.6], [0.35 + r() * 0.35, 1, r(), r()], [r(), 0, 0, 0], [0, 0, 0, 0]]);
+  cloudFX = makeBillboards(clouds, CLOUD_BODY, CLOUD_FRAG, false); cloudFX.renderOrder = 8;
+}
+
+/* ---------- 降雪（カメラ周辺の箱をループ） ---------- */
+let snowPts;
+function buildSnow() {
+  const n = 7000, r = rng(7), p = new Float32Array(n * 3); for (let i = 0; i < n * 3; i++) p[i] = r();
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false,
+    uniforms: { uStory: U.uStory, uSnowFall: FX.uSnowFall, uBox: { value: 4 }, uCam: { value: new THREE.Vector3() }, uPR: { value: 1 } },
+    vertexShader: `uniform float uStory, uBox, uPR; uniform vec3 uCam; varying float vA;
+      void main(){ vec3 p = position; vec3 vel = vec3(0.25 + 0.1*sin(p.x*20.), -4.0 - p.y*1.2, 0.12);
+        vec3 w = mod(p * uBox * 2.0 + vel * uStory * uBox * 0.25 - uCam, uBox * 2.0) - uBox + uCam;
+        vec4 mv = viewMatrix * vec4(w, 1.0); gl_Position = projectionMatrix * mv;
+        gl_PointSize = clamp(uPR * 2.2 * uBox / -mv.z * 3.0, 1.0, 6.0 * uPR); vA = smoothstep(uBox, uBox*0.3, length(w - uCam)); }`,
+    fragmentShader: `uniform float uSnowFall; varying float vA; void main(){ float r = length(gl_PointCoord - 0.5); if (r > 0.5) discard; gl_FragColor = vec4(vec3(0.72, 0.78, 0.86), (1.0 - r*2.0) * uSnowFall * vA * 0.55); }`,
+  });
+  snowPts = new THREE.Points(g, m); snowPts.frustumCulled = false; snowPts.renderOrder = 9; scene.add(snowPts);
+}
+
+/* ---------- 航空機 ---------- */
+let planes, planeCount = 0;
+function buildPlanes() {
+  const parts = [new THREE.BoxGeometry(0.12, 0.1, 1.0), new THREE.BoxGeometry(1.5, 0.025, 0.24).translate(0, 0.02, 0.05), new THREE.BoxGeometry(0.46, 0.02, 0.13).translate(0, 0.03, -0.45), new THREE.BoxGeometry(0.02, 0.2, 0.14).translate(0, 0.11, -0.45)];
+  const pos = [], idx = []; let off = 0;
+  for (const p of parts) { const g = p.toNonIndexed(); pos.push(...g.attributes.position.array); for (let i = 0; i < g.attributes.position.count; i++) idx.push(off + i); off += g.attributes.position.count; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
+  planes = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.6, metalness: 0.2 }), 260);
+  planes.castShadow = true; planes.frustumCulled = false; planes.count = 0; scene.add(planes);
+}
+
+/* =====================================================================
+   軍事表現：進軍矢印・前線リボン・部隊・勢力図
+   ===================================================================== */
+const FACTION = { fr: '#3f68d6', gb: '#d6453a', pr: '#5d6a82', nl: '#e38b2c' };
+const LCOL = { fr: '#8fb0ff', gb: '#ff8a7c', pr: '#c4ccda', nl: '#ffb45e' };
+const FCOL = Object.fromEntries(Object.entries(FACTION).map(([k, v]) => [k, new THREE.Color(v)]));
+
+/* ---------- 進軍矢印（立体リボン＋矢じり＋接地影） ---------- */
+const arrowMatBase = {
+  vertexShader: `attribute vec2 aUV; attribute float aPart; varying vec2 vUV; varying float vPart; varying vec3 vN;
+#include <fog_pars_vertex>
+  void main(){ vUV = aUV; vPart = aPart; vN = normal; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+  }`,
+};
+function arrowMaterial(color) {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, fog: true, depthWrite: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uColor: { value: color.clone() }, uAlpha: { value: 1 }, uLv: { value: 1 }, uW: { value: 1 } }]),
+    vertexShader: arrowMatBase.vertexShader,
+    fragmentShader: `uniform vec3 uColor, uSunDir, uSunColor, uAmbient; uniform float uAlpha, uLv, uW; varying vec2 vUV; varying float vPart; varying vec3 vN;
+#include <fog_pars_fragment>
+    void main(){
+      float lam = max(dot(normalize(vN), normalize(uSunDir)), 0.0);
+      vec3 base = uColor;
+      float across = abs(vUV.y - 0.5) * 2.0;
+      if (vPart < 0.5) {
+        base *= mix(1.18, 0.78, across * across);
+        float s = fract(vUV.x / (uW * 2.2) - across * 0.35 - uTime * 0.55);
+        base += uColor * smoothstep(0.0, 0.06, s) * smoothstep(0.32, 0.16, s) * 0.45;
+        base = mix(base, vec3(1.0), smoothstep(0.84, 0.93, across) * 0.6);
+      } else base *= 0.5;
+      vec3 col = base * (uAmbient * 0.9 + uSunColor * lam * 0.75) + uColor * 0.45;
+      float a = uAlpha * smoothstep(0.0, 0.1, vUV.x / uLv);
+      gl_FragColor = vec4(col, a);
+#include <fog_fragment>
+    }`,
+  });
+  Object.assign(m.uniforms, { uSunDir: U.uSunDir, uSunColor: U.uSunColor, uAmbient: U.uAmbient, uTime: U.uTime, uHFog: U.uHFog });
+  return m;
+}
+const shadowMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, fog: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uAlpha: { value: 1 } }]),
+  vertexShader: arrowMatBase.vertexShader,
+  fragmentShader: `varying vec2 vUV; varying float vPart; varying vec3 vN; uniform float uAlpha;
+#include <fog_pars_fragment>
+  void main(){ float across = abs(vUV.y - 0.5) * 2.0; gl_FragColor = vec4(0.0, 0.0, 0.0, 0.34 * uAlpha * (1.0 - smoothstep(0.55, 1.0, across)));
+#include <fog_fragment>
+  }`,
+});
+Object.assign(shadowMat.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+
+class Arrow {
+  constructor(d) {
+    Object.assign(this, { width: 5, fade: 2.5 }, d);
+    this.color = FCOL[d.f];
+    const pts = resample(smoothPoly(d.pts, 8), 260);
+    this.L = polyLen(pts); this.tab = [];
+    this.hover = clamp(this.width * 0.2, 0.06, 1.3); this.th = this.hover * 0.45;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
+      const nx = -dz / l, nz = dx / l, [x, z] = pts[i], hw = this.width;
+      const y = Math.max(Hw(x, z), Hw(x + nx * hw, z + nz * hw), Hw(x - nx * hw, z - nz * hw));
+      this.tab.push({ x, z, nx, nz, s: this.L * i / (pts.length - 1), y });
+    }
+    const n = this.tab.length; const ys = this.tab.map(t => t.y);
+    for (let i = 0; i < n; i++) { let m = 0; for (let k = -6; k <= 6; k++) m = Math.max(m, ys[clamp(i + k, 0, n - 1)]); this.tab[i].y = m + this.hover; }
+    this.mat = arrowMaterial(this.color); this.smat = shadowMat.clone(); Object.assign(this.smat.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+    this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.mat); this.mesh.renderOrder = 4; this.mesh.frustumCulled = false;
+    this.shadow = new THREE.Mesh(new THREE.BufferGeometry(), this.smat); this.shadow.renderOrder = 3; this.shadow.frustumCulled = false;
+    scene.add(this.mesh, this.shadow); this.lastP = -1; this.tip = [0, 0, 0];
+  }
+  sample(s) {
+    const t = this.tab, f = clamp(s / this.L, 0, 1) * (t.length - 1), i = Math.min(Math.floor(f), t.length - 2), u = f - i, a = t[i], b = t[i + 1];
+    const nx = lerp(a.nx, b.nx, u), nz = lerp(a.nz, b.nz, u), nl = Math.hypot(nx, nz) || 1;
+    return { x: lerp(a.x, b.x, u), z: lerp(a.z, b.z, u), y: lerp(a.y, b.y, u), nx: nx / nl, nz: nz / nl };
+  }
+  build(p) {
+    const Lv = this.L * p, headL = Math.min(this.width * 2.3, Lv * 0.45), sb = Lv - headL, W = this.width;
+    const P = [], N = [], UV = [], PT = [], I = [], SP = [], SUV = [], SI = [];
+    const sd = U.uSunDir.value, so = [-sd.x / Math.max(sd.y, 0.25), -sd.z / Math.max(sd.y, 0.25)];
+    const stations = [];
+    const nb = Math.max(2, Math.ceil(sb / this.L * 120));
+    for (let k = 0; k <= nb; k++) { const s = sb * k / nb; stations.push([s, W * 0.5 * (0.55 + 0.45 * smooth(0, this.L * 0.18, s))]); }
+    const nh = 10; for (let k = 0; k <= nh; k++) { const s = sb + headL * k / nh; stations.push([s, W * 1.05 * (1 - k / nh) + 0.0001]); }
+    const vtx = (x, y, z, nx, ny, nz, u, v, part) => { P.push(x, y, z); N.push(nx, ny, nz); UV.push(u, v); PT.push(part); return P.length / 3 - 1; };
+    let prev = null;
+    stations.forEach(([s, hw], idx) => {
+      const c = this.sample(s), y = c.y, yb = y - this.th;
+      const lx = c.x + c.nx * hw, lz = c.z + c.nz * hw, rx = c.x - c.nx * hw, rz = c.z - c.nz * hw;
+      const cur = {
+        tl: vtx(lx, y, lz, 0, 1, 0, s, 0, 0), tr: vtx(rx, y, rz, 0, 1, 0, s, 1, 0),
+        sl: vtx(lx, y, lz, c.nx, 0, c.nz, s, 0, 1), bl: vtx(lx, yb, lz, c.nx, 0, c.nz, s, 0, 1),
+        sr: vtx(rx, y, rz, -c.nx, 0, -c.nz, s, 1, 1), br: vtx(rx, yb, rz, -c.nx, 0, -c.nz, s, 1, 1), hw, c,
+      };
+      if (prev && !(idx === nb + 1)) {
+        I.push(prev.tl, cur.tl, prev.tr, prev.tr, cur.tl, cur.tr);
+        I.push(prev.sl, prev.bl, cur.sl, cur.sl, prev.bl, cur.bl);
+        I.push(prev.sr, cur.sr, prev.br, prev.br, cur.sr, cur.br);
+      }
+      if (idx === nb + 1 && prev) { // 矢じりの肩：本体との段差を埋める
+        I.push(prev.tl, cur.tl, prev.tr, prev.tr, cur.tl, cur.tr);
+        const bx = -(c.nz), bz = c.nx; // 後ろ向き
+        const q = [vtx(lx, y, lz, bz, 0, -bx, s, 0, 1), vtx(lx, yb, lz, bz, 0, -bx, s, 0, 1), vtx(c.x + c.nx * prev.hw, y, c.z + c.nz * prev.hw, bz, 0, -bx, s, 0, 1), vtx(c.x + c.nx * prev.hw, yb, c.z + c.nz * prev.hw, bz, 0, -bx, s, 0, 1)];
+        I.push(q[0], q[1], q[2], q[2], q[1], q[3]);
+        const q2 = [vtx(rx, y, rz, bz, 0, -bx, s, 1, 1), vtx(rx, yb, rz, bz, 0, -bx, s, 1, 1), vtx(c.x - c.nx * prev.hw, y, c.z - c.nz * prev.hw, bz, 0, -bx, s, 1, 1), vtx(c.x - c.nx * prev.hw, yb, c.z - c.nz * prev.hw, bz, 0, -bx, s, 1, 1)];
+        I.push(q2[0], q2[2], q2[1], q2[1], q2[2], q2[3]);
+      }
+      // 影
+      const off = (y - Hw(c.x, c.z)) * 0.9, sx = so[0] * off, sz = so[1] * off, hs = hw * 1.08;
+      const gy = (x, z) => Hw(x, z) + 0.04 + this.hover * 0.05;
+      const a = SP.length / 3;
+      SP.push(c.x + c.nx * hs + sx, gy(c.x + c.nx * hs + sx, c.z + c.nz * hs + sz), c.z + c.nz * hs + sz, c.x - c.nx * hs + sx, gy(c.x - c.nx * hs + sx, c.z - c.nz * hs + sz), c.z - c.nz * hs + sz);
+      SUV.push(s, 0, s, 1);
+      if (idx > 0) SI.push(a - 2, a, a - 1, a - 1, a, a + 1);
+      prev = cur; this.tip = [c.x, y, c.z];
+    });
+    const g = this.mesh.geometry; g.dispose();
+    const ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); ng.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+    ng.setAttribute('aUV', new THREE.Float32BufferAttribute(UV, 2)); ng.setAttribute('aPart', new THREE.Float32BufferAttribute(PT, 1)); ng.setIndex(I);
+    this.mesh.geometry = ng;
+    this.shadow.geometry.dispose();
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.Float32BufferAttribute(SP, 3)); sg.setAttribute('aUV', new THREE.Float32BufferAttribute(SUV, 2));
+    sg.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(SP.length).fill(0), 3)); sg.setAttribute('aPart', new THREE.Float32BufferAttribute(new Array(SP.length / 3).fill(0), 1)); sg.setIndex(SI);
+    this.shadow.geometry = sg;
+    this.mat.uniforms.uLv.value = Math.max(Lv, 1e-3); this.mat.uniforms.uW.value = W;
+  }
+  update(t) {
+    const p = easeInOut(clamp((t - this.t0) / (this.t1 - this.t0), 0, 1));
+    const end = this.out ?? (this.t1 + 14);
+    const a = smooth(this.t0 - 0.2, this.t0 + 0.4, t) * (1 - smooth(end, end + this.fade, t));
+    const vis = a > 0.003 && p > 0.004;
+    this.mesh.visible = this.shadow.visible = vis; this.alpha = vis ? a : 0; this.p = p;
+    if (!vis) return;
+    if (Math.abs(p - this.lastP) > 0.0015) { this.build(p); this.lastP = p; }
+    this.mat.uniforms.uAlpha.value = a; this.smat.uniforms.uAlpha.value = a;
+  }
+  labelPos() { const c = this.sample(this.L * this.p * 0.55); return [c.x, c.y + this.hover * 0.8, c.z]; }
+}
+
+/* ---------- 前線リボン（二色：左 = 枢軸側, 右 = ソ連側） ---------- */
+function makeRibbonMaterial() {
+  const m = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uA: { value: FCOL.gb.clone() }, uB: { value: FCOL.fr.clone() }, uAlpha: { value: 1 }, uW: { value: 1 }, uReveal: { value: 1 }, uMode: { value: 0 }, uSeam: { value: 0 }, uGlow: { value: 1 } }]),
+    vertexShader: `attribute vec3 aOff; attribute float aU; attribute float aVis; uniform float uW; varying float vV; varying float vU; varying float vVis;
+#include <fog_pars_vertex>
+    void main(){ vec3 p = position + vec3(aOff.x, 0.0, aOff.y) * uW * 0.5; vV = aOff.z; vU = aU; vVis = aVis;
+      vec4 mvPosition = viewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mvPosition;
+#include <fog_vertex>
+    }`,
+    fragmentShader: `uniform vec3 uA, uB; uniform float uAlpha, uReveal, uMode, uSeam, uGlow; varying float vV; varying float vU; varying float vVis;
+#include <fog_pars_fragment>
+    void main(){ float o = fract(uSeam + 0.5); float dd = abs(vU - o); dd = min(dd, 1.0 - dd);
+      float vis = uMode < 0.5 ? step(vU, uReveal) : step(dd, uReveal * 0.5 + 0.001); if (vis < 0.5) discard;
+      float v = vV * 0.5 + 0.5; vec3 c = v < 0.5 ? uA : uB;
+      float core = 1.0 - smoothstep(0.0, 0.22, abs(v - 0.5));
+      float pulse = 0.75 + 0.25 * sin(uTime * 2.5 - vU * 60.0);
+      vec3 col = c * (1.1 + 1.3 * uGlow * pulse) + c * core * 0.8 * uGlow + vec3(1.0, 0.9, 0.8) * core * 0.25;
+      float a = uAlpha * vVis * (1.0 - smoothstep(0.7, 1.0, abs(vV))) * (0.55 + 0.45 * core);
+      gl_FragColor = vec4(col, a);
+#include <fog_fragment>
+    }`,
+  });
+  Object.assign(m.uniforms, { uTime: U.uTime, uHFog: U.uHFog });
+  return m;
+}
+class Ribbon {
+  constructor(n, closed, hover, mode = 0) {
+    this.n = n; this.closed = closed; this.hover = hover;
+    const cnt = n * 2, g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(cnt * 3); this.off = new Float32Array(cnt * 3); this.u = new Float32Array(cnt); this.vis = new Float32Array(cnt).fill(1);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); g.setAttribute('aOff', new THREE.BufferAttribute(this.off, 3));
+    g.setAttribute('aU', new THREE.BufferAttribute(this.u, 1)); g.setAttribute('aVis', new THREE.BufferAttribute(this.vis, 1));
+    const I = []; const segs = closed ? n : n - 1;
+    for (let i = 0; i < segs; i++) { const a = i * 2, b = ((i + 1) % n) * 2; I.push(a, b, a + 1, a + 1, b, b + 1); }
+    g.setIndex(I); this.mat = makeRibbonMaterial(); this.mat.uniforms.uMode.value = mode;
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = 3; scene.add(this.mesh);
+  }
+  set(pts, visFn) { // pts: n 点
+    const n = this.n;
+    for (let i = 0; i < n; i++) {
+      const a = pts[this.closed ? (i - 1 + n) % n : Math.max(0, i - 1)], b = pts[this.closed ? (i + 1) % n : Math.min(n - 1, i + 1)];
+      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, [x, z] = pts[i];
+      const y = Math.max(Hw(x, z), Hw(x + nx * 0.4, z + nz * 0.4), Hw(x - nx * 0.4, z - nz * 0.4)) + this.hover;
+      for (let s = 0; s < 2; s++) { const k = i * 2 + s, sg = s ? -1 : 1; this.pos.set([x, y, z], k * 3); this.off.set([nx * sg, nz * sg, sg], k * 3); this.u[k] = this.closed ? i / n : i / (n - 1); this.vis[k] = visFn ? visFn(x, z, i) : 1; }
+    }
+    for (const k of ['position', 'aOff', 'aU', 'aVis']) this.mesh.geometry.attributes[k].needsUpdate = true;
+  }
+}
+
+/* ---------- 部隊（小さな戦車・歩兵ブロックの編隊） ---------- */
+let unitMesh; const unitSlots = [];
+function buildUnits(forms) {
+  const g = new THREE.BoxGeometry(1, 0.32, 0.42); g.translate(0, 0.16, 0);
+  let total = 0; for (const f of forms) total += f.n;
+  const mat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.1 });
+  mat.onBeforeCompile = s => { fogUniforms(s); s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor * 0.55;'); };
+  unitMesh = new THREE.InstancedMesh(g, mat, total); unitMesh.castShadow = true; unitMesh.frustumCulled = false;
+  const r = rng(1122); let k = 0;
+  for (const f of forms) {
+    f.slots = [];
+    const cols = Math.ceil(Math.sqrt(f.n * (f.line ? 4 : 1)));
+    for (let i = 0; i < f.n; i++) {
+      const cx = (i % cols) / Math.max(cols - 1, 1) - 0.5, cz = Math.floor(i / cols) / Math.max(Math.ceil(f.n / cols) - 1, 1) - 0.5;
+      f.slots.push({ i, k: k++, ox: cx + (r() - 0.5) * 0.12, oz: (cz + (r() - 0.5) * 0.15) * (f.line ? 0.3 : 1), sc: 0.8 + r() * 0.4, rr: r(), rot: (r() - 0.5) * 0.2, keep: r() });
+      unitMesh.setColorAt(k - 1, FCOL[f.f]);
+    }
+    f.track = new HTrack(f.keys.map(kk => ({ t: kk[0], v: [kk[1], kk[2], kk[3] ?? 0], hold: kk[4] })));
+  }
+  scene.add(unitMesh);
+}
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
+function updateUnits(forms, t, camDist) {
+  const us = clamp(camDist * 0.016, 0.028, 3.2);
+  for (const f of forms) {
+    const [x, z] = f.track.at(t); const x2 = f.track.at(t + 0.35);
+    let hd = f.face ?? 0; const mx = x2[0] - x, mz = x2[1] - z; if (Math.hypot(mx, mz) > 0.02 * Math.max(1, f.spread * 0.1)) hd = Math.atan2(mx, -mz) / DEG;
+    f.pos = [x, z]; f.heading = hd;
+    const a = win(t, f.t0, f.t1, 1.5, 2.5), sc = f.scatter ? smooth(f.scatter[0], f.scatter[1], t) : 0;
+    const str = f.str ? sKeys(f.str, t).v : 1, sur = f.surr ? smooth(f.surr, f.surr + 4, t) : 0;
+    f.alpha = a * (1 - sc * 0.9) * (1 - sur);
+    const th = Math.PI - hd * DEG, ch = Math.cos(th), sh = Math.sin(th);
+    const W = f.spread * (f.line ? 1 : 0.7), D = f.spread * (f.line ? 1 : 0.7);
+    for (const s of f.slots) {
+      let ox = s.ox * W, oz = s.oz * D, rotX = 0;
+      if (f.kind === 'cav') { ox += Math.sin(s.rr * 40 + t * 0.7) * f.spread * 0.04; oz += Math.cos(s.keep * 40 + t * 0.6) * f.spread * 0.04; }
+      const sqk = f.sq ? win(t, f.sq[0], f.sq[1], 3, 3) : 0;
+      if (sqk > 0) { // 方陣（騎兵突撃に対する歩兵の防御隊形）
+        const gi = Math.floor(s.i / 4), ci = s.i % 4, ng = Math.ceil(f.n / 4), gc = Math.ceil(Math.sqrt(ng * 2.5));
+        const gx = ((gi % gc) / Math.max(gc - 1, 1) - 0.5) * W * 1.1 + (Math.floor(gi / gc) % 2) * W * 0.18, gz = (Math.floor(gi / gc) / Math.max(Math.ceil(ng / gc) - 1, 1) - 0.5) * D * 0.9;
+        const half = us * 0.75, sx = [0, half, 0, -half][ci], sz = [-half, 0, half, 0][ci];
+        ox = lerp(ox, gx + sx, sqk); oz = lerp(oz, gz + sz, sqk); rotX = sqk * [0, Math.PI / 2, 0, Math.PI / 2][ci];
+      }
+      if (sc > 0) { ox += (s.rr - 0.5) * f.spread * 1.6 * sc; oz += (s.keep - 0.5) * f.spread * 1.6 * sc + sc * f.spread * 0.6; }
+      const wx = x + ox * ch + oz * sh, wz = z - ox * sh + oz * ch;
+      const vis = a > 0.01 && s.keep < str * (1 - sc * 0.7) && (1 - sur) > 0.02;
+      const k = s.k, size = vis ? us * s.sc * (f.small ?? 1) * Math.min(1, a * 1.5) * (1 - sur * 0.8) : 0;
+      m4Unit(k, wx, wz, th + s.rot + sc * s.rr * 3 + rotX, size * (f.kind === 'cav' ? 0.55 : f.kind === 'art' ? 0.6 : 1));
+      if (sur > 0) { _c.copy(FCOL[f.f]).lerp(new THREE.Color(0.3, 0.3, 0.3), sur); unitMesh.setColorAt(k, _c); }
+      else if (f._grey) unitMesh.setColorAt(k, FCOL[f.f]);
+    }
+    f._grey = sur > 0;
+  }
+  unitMesh.instanceMatrix.needsUpdate = true; if (unitMesh.instanceColor) unitMesh.instanceColor.needsUpdate = true;
+}
+function m4Unit(k, x, z, rot, size) {
+  _m4.compose(_v.set(x, Hw(x, z) + size * 0.02, z), _q.setFromEuler(_e.set(0, rot, 0)), _s.set(size, size, size)); unitMesh.setMatrixAt(k, _m4);
+}
+
+/* ---------- 勢力図（キャンバス） ---------- */
+function trackPoly(tr, t) { // 前線キーを補間して [多角形, 前線]
+  const ks = tr.keys; let i = 0; while (i < ks.length - 2 && t > ks[i + 1][0]) i++;
+  const A = ks[i], B = ks[Math.min(i + 1, ks.length - 1)], u = A === B ? 0 : easeInOut(clamp((t - A[0]) / (B[0] - A[0]), 0, 1));
+  const n = tr.n || 120; A.rs ??= resample(A[1], n, !!tr.closed); B.rs ??= resample(B[1], n, !!tr.closed);
+  const front = A.rs.map((p, j) => [lerp(p[0], B.rs[j][0], u), lerp(p[1], B.rs[j][1], u)]);
+  return front;
+}
+function trackAlpha(tr, t) { return win(t, tr.t0, tr.t1, tr.fi ?? 3, tr.fo ?? 4); }
+function drawPolys(ctx, R, W, Hh, polys) {
+  ctx.setTransform(W / R.w, 0, 0, Hh / R.h, -R.x0 * W / R.w, -R.z0 * Hh / R.h);
+  for (const [pts, style, alpha] of polys) {
+    if (alpha < 0.01) continue; ctx.globalAlpha = alpha; ctx.fillStyle = style; ctx.beginPath();
+    pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill();
+  }
+  ctx.globalAlpha = 1; ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+/* =====================================================================
+   ストーリーデータ：ワーテルローの戦い（t = 映像内の秒）
+   ===================================================================== */
+const T_END = 282;
+const CHAPTERS = [
+  { t: 0, num: '序章', title: '百日天下', dates: '1815.6.15 — 6.17' },
+  { t: 30, num: '第一章', title: '雨上がりの朝', dates: '1815.6.18　午前' },
+  { t: 58, num: '第二章', title: 'ウーグモン', dates: '11:30頃' },
+  { t: 94, num: '第三章', title: 'デルロン軍団の突撃', dates: '13:30頃' },
+  { t: 134, num: '第四章', title: 'ネイの騎兵突撃', dates: '16:00頃' },
+  { t: 170, num: '第五章', title: 'プロイセン軍の到着', dates: '16:30頃 — 18:30頃' },
+  { t: 210, num: '第六章', title: '近衛の敗走', dates: '19:30頃 — 21:00頃' },
+  { t: 256, num: '終章', title: '百日天下の終わり', dates: '1815.6.18' },
+];
+const CAPTIONS = [
+  [9, 16, '1815年6月、エルバ島を脱出して帝位に返り咲いたナポレオンは、北方軍を率いてベルギーへ進撃した。'],
+  [16, 23, '6月16日、リニーでプロイセン軍を破り、カトル・ブラではネイがウェリントンの連合軍と戦った。'],
+  [23, 30, '17日、豪雨の中でウェリントンはモン・サン・ジャンの尾根へ後退。プロイセン軍はワーヴルへ退き、グルーシーが追撃に向かった。'],
+  [34, 42, '6月18日朝。夜通しの雨で地面はぬかるみ、ナポレオンは砲兵が動けるよう攻撃開始を昼近くまで遅らせた。'],
+  [42, 50, 'ウェリントン軍は約6万8千。尾根の北側の斜面に兵を伏せ、前方のウーグモン、ラ・エー・サント、パプロットを拠点とした。'],
+  [50, 57, '南の尾根にはナポレオンの約7万3千。東のワーヴルからは、ブリュッヘルのプロイセン軍が合流に向かっていた。'],
+  [62, 70, '11時30分頃、ジェローム・ボナパルトの師団がウーグモンを攻撃。陽動のはずの戦いは、一日中続く消耗戦になった。'],
+  [70, 78, '厚い塀に囲まれた農場を英近衛兵が守り抜き、フランス軍は多くの兵をここに注ぎ込むことになった。'],
+  [78, 86, '北門に突入した仏兵は、門を閉じた守備隊に阻まれた。午後には館が炎上するが、農場は最後まで落ちなかった。'],
+  [86, 93, 'フランス軍の大砲列が連合軍の尾根に砲撃を加える。しかし兵の多くは尾根の陰にいて、被害は限られた。'],
+  [98, 106, '13時30分頃、デルロン伯の第1軍団、約1万6千が密集縦隊で連合軍の左翼へ前進した。'],
+  [106, 113, '尾根を越えたところでピクトン師団が一斉射撃。ピクトンはこの戦闘で戦死した。'],
+  [113, 121, 'アクスブリッジ伯の重騎兵2個旅団が突撃し、仏軍の縦隊を崩して多くの捕虜を得た。'],
+  [121, 130, 'しかし勢いに乗って大砲列まで突き進んだ騎兵は、フランスの槍騎兵・胸甲騎兵に反撃され、大きな損害を出した。'],
+  [138, 146, '16時頃、ネイは連合軍が退却を始めたと見て、騎兵による大突撃を命じた。'],
+  [146, 154, '連合軍の歩兵は方陣を組んで迎え撃つ。騎兵は方陣の間を何度も駆け抜けたが、崩すことはできなかった。'],
+  [154, 164, '歩兵や砲兵の十分な支援がないまま、騎兵の突撃は夕方近くまで繰り返され、フランス騎兵は消耗していった。'],
+  [174, 182, '16時30分頃、ビューローの第4軍団がパリの森から現れ、フランス軍右翼後方のプランスノワへ向かった。'],
+  [182, 190, 'ナポレオンはロボーの第6軍団、さらに若年近衛を東へ差し向けた。プランスノワでは激しい争奪戦が続く。'],
+  [190, 198, '戦場の中央では、ラ・エー・サントを守る国王ドイツ人部隊が弾薬の尽きかけた中で抵抗を続けていた。'],
+  [198, 207, '18時30分頃、ラ・エー・サントは陥落。フランス軍は連合軍の中央に迫り、ウェリントンの戦線は危機を迎えた。'],
+  [214, 222, '19時30分頃、ナポレオンは最後の切り札、近衛の中堅歩兵を連合軍の右翼中央へ前進させた。'],
+  [222, 230, '尾根で待ち構えた英近衛歩兵などの射撃を受け、近衛は後退した。「近衛が退くぞ！」の声が仏軍に広がる。'],
+  [230, 238, '東からはツィーテンの第1軍団が到着して連合軍の左翼と合流。フランス軍の戦線は各所で崩れ始めた。'],
+  [238, 246, 'ウェリントンは帽子を振って全軍の前進を合図。プロイセン軍もプランスノワを奪い、フランス軍は総崩れとなった。'],
+  [246, 255, '21時過ぎ、ウェリントンとブリュッヘルはラ・ベル・アリアンス付近で会見。追撃はプロイセン軍が引き受けた。'],
+  [259, 268, 'この日の戦いで、両軍合わせて約5万人が死傷、あるいは捕虜になったとされる（諸説あり）。'],
+  [268, 280, 'ナポレオンは6月22日に再び退位し、のちにセントヘレナ島へ流された。「百日天下」はここに終わった。'],
+];
+const DATE_KEYS = [[0, '1815-06-15T04:00'], [14, '1815-06-16T14:00'], [22, '1815-06-17T14:00'], [30, '1815-06-18T08:00'], [58, '1815-06-18T11:20'], [66, '1815-06-18T11:40'], [94, '1815-06-18T13:20'],
+  [134, '1815-06-18T15:50'], [170, '1815-06-18T16:20'], [200, '1815-06-18T18:30'], [212, '1815-06-18T19:20'], [230, '1815-06-18T20:00'], [252, '1815-06-18T21:30'], [282, '1815-06-18T22:00']];
+const EVENTS = [[4, 12, '仏 サンブル川を渡河', 1], [13, 19, 'リニーの戦い／カトル・ブラの戦い', 1], [62, 72, '仏 ウーグモン攻撃', 1], [100, 110, '仏 第1軍団 前進', 1], [113, 121, '英 重騎兵の突撃'],
+  [140, 152, '仏 騎兵大突撃', 1], [174, 184, '普 プロイセン軍 到着'], [198, 206, 'ラ・エー・サント陥落', 1], [216, 226, '仏 近衛の攻撃', 1], [238, 248, '連合軍 全軍前進']];
+
+const ATMOS_RAW = [
+  [0, { sunEl: 35, sunAz: 120, sunI: 2.6, sunC: '#fff0da', amb: '#6f7680', hemiI: 1.0, fogC: '#c3c7c3', fogD: 0.006, hfog: 0.004, hfall: 0.8, zen: '#5b7ca2', exp: 1.0,
+    snow: 0, aut: 0, ice: 0, fire: 0, destroy: 0, scorch: 0, snowfall: 0, sat: 0.92, con: 1.06, gain: [1, 1, 1], vig: 0.4, cloudH: 1, cloudL: 0.3, terr: 0, grid: 0.35, smoke: 1, flash: 1, sov: 0 }],
+  [12, { cloudH: 0.25 }],
+  [20, { sunI: 1.1, sunC: '#d9dde2', fogC: '#8c9296', zen: '#5d646c', snowfall: 1, sat: 0.7, fogD: 0.009, cloudL: 0.6, exp: 0.95 }],
+  [30, { sunEl: 14, sunAz: 80, sunI: 1.6, sunC: '#ffe4c2', fogC: '#b3b8b8', zen: '#6f8196', snowfall: 0.15, hfog: 0.05, hfall: 1.6, fogD: 0.03, sat: 0.8, grid: 0, cloudL: 0.45, cloudH: 0 }],
+  [56, { sunEl: 45, sunAz: 135, sunI: 2.4, sunC: '#fff2df', fogC: '#bfc3c0', zen: '#6e8aac', snowfall: 0, hfog: 0.012, fogD: 0.03, sat: 0.9 }],
+  [96, { sunEl: 60, sunAz: 190, sunI: 2.8, scorch: 0.35 }],
+  [134, { sunEl: 45, sunAz: 235, sunI: 2.6, scorch: 0.6, fogC: '#c4c0b6' }],
+  [180, { sunEl: 28, sunAz: 265, sunI: 2.5, sunC: '#ffe4bd', scorch: 0.8 }],
+  [212, { sunEl: 13, sunAz: 292, sunI: 2.4, sunC: '#ffbd7a', fogC: '#c8ae90', zen: '#51688c', scorch: 0.9, sat: 0.95, con: 1.1, gain: [1.04, 0.99, 0.94] }],
+  [248, { sunEl: 3, sunAz: 305, sunI: 1.9, sunC: '#ff8c4a', fogC: '#8c7468', zen: '#2f3b58', exp: 0.95 }],
+  [262, { sunEl: -2, sunAz: 310, sunI: 0.9, sunC: '#ff7a44', fogC: '#4f4a52', zen: '#1b2238', amb: '#4d5670', exp: 1.0, smoke: 0.6 }],
+  [282, {}],
+];
+const ATMOS = (() => { let prev = {}; return ATMOS_RAW.map(([t, o]) => { const cur = { ...prev }; for (const k in o) cur[k] = typeof o[k] === 'string' ? hex2lin(o[k]) : o[k]; prev = cur; return [t, cur]; }); })();
+
+// カメラ: [t, 注視点x, 注視点z, 距離, 俯角, 方位(0=南から北を見る, 90=東から西を見る), 画角, 追尾する部隊id]
+const CAM_KEYS = [
+  [0, 5, 8, 95, 70, -10, 40], [8, 6, 22, 60, 50, -8, 40], [15, 6, 16, 55, 46, -18, 40], [23, 5, 5, 60, 48, -8, 40], [30, 1, 1, 26, 40, -6, 40],
+  [37, 0.4, 0.6, 6.5, 26, -12, 40], [45, -0.3, -0.4, 4.5, 22, -165, 40], [52, 0.6, 1.8, 5, 24, -20, 40], [57, 0.4, 0.8, 7.5, 34, 20, 40],
+  [62, -1.1, 0.8, 2.4, 24, -32, 40], [70, -1.15, 0.5, 1.5, 30, 20, 40], [78, -1.1, 0.4, 1.3, 26, 80, 40], [86, 0.6, 0.6, 3.6, 22, -120, 40], [92, 0.3, 0.8, 4.5, 30, -60, 40],
+  [98, 1.0, 1.1, 3.2, 22, -30, 40, 'derlon'], [106, 0.9, 0.2, 2.2, 20, -150, 40, 'derlon'], [113, 0.6, -0.4, 2.8, 22, -175, 40, 'uxbridge'], [121, 0.8, 0.6, 2.6, 22, -140, 40, 'uxbridge'], [129, 0.8, 0.9, 3.2, 28, -60, 40],
+  [136, -0.4, 0.6, 3.4, 26, -20, 40], [144, -0.5, 0.1, 2.2, 24, 40, 40, 'cav_fr'], [152, -0.4, -0.3, 1.6, 32, 70, 40], [160, -0.3, -0.3, 2.0, 38, 130, 40], [166, 0.3, 0.4, 4.0, 34, 20, 40],
+  [172, 5.0, 0.6, 5.5, 26, 60, 40, 'bulow'], [180, 4.2, 1.8, 3.6, 24, 95, 40, 'bulow'], [188, 3.0, 2.4, 2.2, 26, 60, 40], [194, 0.1, 0.1, 1.8, 26, -150, 40], [202, 0.1, 0.0, 1.4, 30, -110, 40], [208, 0.5, 0.8, 4.2, 32, -40, 40],
+  [214, 0.2, 1.3, 2.6, 22, -20, 40, 'garde'], [222, -0.3, 0.2, 1.6, 20, -170, 40, 'garde'], [228, -0.2, 0.4, 2.2, 24, -150, 40], [234, 2.4, 0.1, 3.4, 26, -120, 40, 'zieten'],
+  [242, 0.3, 0.6, 5.5, 30, 180, 40], [250, 0.35, 1.45, 2.2, 22, -150, 40], [258, 0.3, 0.8, 5, 28, -170, 40], [270, 0.3, 0.6, 8, 22, -160, 40], [282, 0.3, 0.6, 12, 26, -160, 40],
+];
+
+// 進軍矢印
+const ARROWS = [
+  { f: 'fr', label: 'サンブル川渡河', pts: [[4.5, 42], [4, 34], [4.8, 27]], t0: 3, t1: 9, width: 2.2, out: 26 },
+  { f: 'fr', label: 'リニーへ（ナポレオン）', pts: [[4.8, 27], [7, 23], [9.5, 20]], t0: 9, t1: 15, width: 2, out: 26 },
+  { f: 'fr', label: 'カトル・ブラへ（ネイ）', pts: [[4.2, 27], [2.6, 20], [1.6, 14]], t0: 9, t1: 15, width: 1.7, out: 26 },
+  { f: 'pr', label: 'ワーヴルへ後退', pts: [[10.5, 18], [12.5, 10], [13.5, 2], [13.2, -4]], t0: 21, t1: 28, width: 1.6, out: 34 },
+  { f: 'gb', label: 'モン・サン・ジャンへ後退', pts: [[1.4, 12], [1.2, 7], [0.4, 2.5], [0, -0.8]], t0: 22, t1: 29, width: 1.6, out: 34 },
+  { f: 'fr', label: 'グルーシー追撃', pts: [[9.5, 20], [11, 12], [12, 4], [12, -1]], t0: 24, t1: 30, width: 1.3, out: 40 },
+  { f: 'pr', label: 'プロイセン軍 西へ', pts: [[12.6, -4], [10, -2.6], [7.4, -1], [5.6, 0.3]], t0: 50, t1: 57, width: 1.1, out: 64 },
+  { f: 'fr', label: 'ジェローム師団', pts: [[-1.0, 1.5], [-1.08, 1.05], [-1.13, 0.62]], t0: 62, t1: 69, width: 0.18, out: 74 },
+  { f: 'fr', label: '', pts: [[-1.6, 1.3], [-1.55, 0.8], [-1.35, 0.4]], t0: 72, t1: 78, width: 0.12, out: 84 },
+  { f: 'fr', label: '第1軍団（デルロン）', pts: [[0.7, 1.2], [0.55, 0.6], [0.45, 0.0], [0.4, -0.3]], t0: 100, t1: 110, width: 0.26, out: 116 },
+  { f: 'fr', label: '', pts: [[1.2, 1.15], [1.1, 0.55], [0.95, -0.05], [0.9, -0.3]], t0: 101, t1: 111, width: 0.26, out: 116 },
+  { f: 'fr', label: '', pts: [[1.7, 1.1], [1.6, 0.55], [1.45, 0.0], [1.4, -0.25]], t0: 102, t1: 111, width: 0.24, out: 116 },
+  { f: 'gb', label: '重騎兵の突撃（アクスブリッジ）', pts: [[0.1, -0.8], [0.35, -0.2], [0.7, 0.4], [0.95, 0.95]], t0: 113, t1: 120, width: 0.24, out: 128 },
+  { f: 'fr', label: '槍騎兵の反撃', pts: [[1.8, 1.3], [1.4, 1.0], [1.0, 0.8]], t0: 121, t1: 126, width: 0.18, out: 132 },
+  { f: 'fr', label: '騎兵大突撃（ネイ）', pts: [[-0.6, 1.4], [-0.55, 0.9], [-0.45, 0.35], [-0.4, -0.25]], t0: 140, t1: 148, width: 0.3, out: 150 },
+  { f: 'fr', label: '', pts: [[-0.2, 1.4], [-0.25, 0.9], [-0.3, 0.35], [-0.2, -0.25]], t0: 142, t1: 150, width: 0.26, out: 151 },
+  { f: 'pr', label: '第4軍団（ビューロー）', pts: [[6.4, -0.4], [5.3, 0.9], [4.4, 1.7], [3.4, 2.3]], t0: 174, t1: 186, width: 0.35, out: 212 },
+  { f: 'fr', label: '若年近衛', pts: [[1.0, 2.6], [1.8, 2.5], [2.6, 2.45]], t0: 186, t1: 192, width: 0.18, out: 212 },
+  { f: 'fr', label: 'ラ・エー・サント攻撃', pts: [[0.35, 0.9], [0.15, 0.45], [0.02, 0.08]], t0: 196, t1: 202, width: 0.16, out: 212 },
+  { f: 'pr', label: '第1軍団（ツィーテン）', pts: [[4.2, -3.5], [3.6, -2], [2.8, -0.7], [2.2, 0.0]], t0: 214, t1: 228, width: 0.3, out: 250 },
+  { f: 'fr', label: '近衛の攻撃', pts: [[0.4, 1.35], [0.0, 0.9], [-0.35, 0.45], [-0.55, -0.05]], t0: 216, t1: 224, width: 0.24, out: 232 },
+  { f: 'gb', label: '全軍前進', pts: [[-0.6, -0.35], [-0.3, 0.3], [0.1, 1.0], [0.3, 1.5]], t0: 238, t1: 246, width: 0.34, out: 258 },
+  { f: 'gb', label: '', pts: [[-1.4, -0.3], [-1.2, 0.5], [-0.7, 1.2], [-0.3, 1.8]], t0: 239, t1: 247, width: 0.26, out: 258 },
+  { f: 'pr', label: 'プランスノワ奪取', pts: [[4.0, 1.9], [3.4, 2.3], [2.6, 2.6], [1.6, 2.8]], t0: 236, t1: 246, width: 0.3, out: 258 },
+  { f: 'pr', label: '追撃（プロイセン軍）', pts: [[0.6, 2.0], [0.8, 3.5], [1.0, 5.5], [1.2, 7.4]], t0: 248, t1: 258, width: 0.4, out: 272 },
+];
+
+// 戦線（塗りなし、リボンのみ）
+const TERR = [
+  { id: 'line', t0: 36, t1: 244, fi: 3, fo: 5, ribbon: true, n: 120, colA: 'gb',
+    keys: [[36, [[-2.3, 0.1], [-1.6, 0.95], [-0.8, 0.95], [-0.45, 0.45], [0, 0.35], [0.7, 0.38], [1.5, 0.55], [2.4, 0.5], [3.2, 0.75]]],
+      [108, [[-2.3, 0.1], [-1.6, 0.95], [-0.8, 0.95], [-0.45, 0.45], [0, 0.2], [0.5, -0.05], [1.0, -0.05], [1.5, 0.1], [2.4, 0.4], [3.2, 0.75]]],
+      [124, [[-2.3, 0.1], [-1.6, 0.95], [-0.8, 0.95], [-0.45, 0.45], [0, 0.35], [0.7, 0.38], [1.5, 0.55], [2.4, 0.5], [3.2, 0.75]]],
+      [202, [[-2.3, 0.1], [-1.6, 0.95], [-0.8, 0.95], [-0.45, 0.3], [0, -0.12], [0.7, 0.2], [1.5, 0.45], [2.4, 0.45], [3.2, 0.75]]],
+      [226, [[-2.3, 0.1], [-1.6, 0.95], [-0.8, 0.9], [-0.45, 0.1], [0, -0.1], [0.7, 0.2], [1.5, 0.45], [2.4, 0.45], [3.2, 0.75]]],
+      [244, [[-2.3, 0.8], [-1.6, 1.5], [-0.8, 1.6], [-0.3, 1.5], [0.3, 1.6], [1, 1.5], [1.5, 1.3], [2.4, 1.2], [3.2, 1.5]]]] },
+  { id: 'east', t0: 178, t1: 250, fi: 3, fo: 5, ribbon: true, n: 60, colA: 'pr',
+    keys: [[178, [[4.9, 0.4], [4.4, 1.3], [3.9, 2.2], [3.7, 3.2]]], [206, [[3.6, 1.2], [3.2, 2.0], [3.0, 2.8], [3.1, 3.6]]], [246, [[2.2, 1.8], [1.8, 2.4], [1.4, 3.0], [1.4, 3.8]]]] },
+];
+const CITY_FRONT = [];
+const FIRES = [[-1.15, 0.43, 132, 999, 1.2], [0, 0.0, 199, 999, 0.7], [2.9, 2.5, 190, 999, 1.3], [1.9, 0.15, 232, 999, 0.6], [0.35, 1.45, 244, 999, 0.5]];
+// 射撃線: [ax, az, bx, bz, 開始, 終了, 強さ, 種類(0 砲兵 1 歩兵)]
+const FIRELINES = [
+  [0.2, 1.05, 1.7, 0.95, 88, 240, 1.2, 0], [-1.2, 1.2, -0.3, 1.3, 88, 230, 0.6, 0], [-1.6, -0.45, 1.5, -0.4, 90, 238, 0.7, 0],
+  [-1.3, 0.3, -1.0, 0.65, 62, 240, 1.4, 1], [-1.45, 0.55, -1.2, 0.85, 64, 238, 0.8, 1],
+  [0.2, -0.25, 1.4, -0.25, 105, 114, 1.8, 1], [-0.1, -0.05, 0.1, 0.1, 96, 204, 1.0, 1],
+  [-0.9, -0.35, 0.1, -0.35, 142, 166, 1.8, 1], [1.7, 0.1, 2.3, 0.0, 100, 240, 0.7, 1],
+  [3.3, 2.0, 3.0, 2.9, 182, 246, 1.6, 1], [4.2, 1.4, 3.6, 2.4, 176, 240, 1.0, 0],
+  [-0.6, -0.15, 0.0, -0.1, 218, 228, 2.2, 1], [1.8, -0.1, 2.6, -0.3, 222, 236, 1.2, 1],
+];
+// 部隊: keys [t, x, z, 向き, hold]。kind: inf / cav / art
+const FORMS = [
+  // 序章（作戦地図）
+  { id: 'nord', f: 'fr', name: 'フランス北方軍', sub: 'ナポレオン', n: 40, spread: 4, t0: 0, t1: 31, keys: [[0, 4.6, 40], [8, 4.5, 27], [14, 7.5, 21], [22, 6, 16], [30, 2, 6]] },
+  { id: 'allied0', f: 'gb', name: '英連合軍', sub: 'ウェリントン', n: 40, spread: 4, t0: 0, t1: 31, keys: [[0, -1, -17], [10, 0.5, 6], [15, 1.5, 11], [22, 1.2, 8], [29, 0, -1]] },
+  { id: 'prus0', f: 'pr', name: 'プロイセン軍', sub: 'ブリュッヘル', n: 40, spread: 4, t0: 0, t1: 31, keys: [[0, 16, 17], [12, 11, 18.5], [18, 11, 17], [27, 13, -3]] },
+  // 6月18日 フランス軍
+  { id: 'reille', f: 'fr', name: '第2軍団', sub: 'レイユ', n: 26, spread: 1.3, t0: 30, t1: 246, scatter: [240, 250], keys: [[30, -0.9, 1.75, 0], [240, -0.9, 1.7], [252, -0.6, 3.2]] },
+  { id: 'jerome', f: 'fr', name: 'ジェローム師団', sub: '', n: 12, spread: 0.35, t0: 58, t1: 246, keys: [[58, -1.0, 1.45, 0], [68, -1.1, 0.95], [80, -1.2, 0.85], [240, -1.2, 0.9]], str: [[0, { v: 1 }], [90, { v: 0.6 }], [200, { v: 0.4 }]], scatter: [240, 250] },
+  { id: 'derlon', f: 'fr', name: '第1軍団', sub: 'デルロン', n: 30, spread: 1.4, t0: 30, t1: 246, keys: [[30, 1.1, 1.3, 0], [99, 1.1, 1.25], [110, 0.95, 0.0], [116, 0.95, -0.05], [126, 1.05, 1.1], [240, 1.1, 1.1]], str: [[0, { v: 1 }], [114, { v: 1 }], [124, { v: 0.55 }]], scatter: [240, 252] },
+  { id: 'battery', f: 'fr', name: '大砲列', sub: '約80門', n: 16, spread: 1.4, line: true, kind: 'art', t0: 34, t1: 246, keys: [[34, 0.95, 1.0, 0], [240, 0.95, 1.0]], str: [[0, { v: 1 }], [118, { v: 1 }], [124, { v: 0.75 }]], scatter: [242, 252] },
+  { id: 'cav_fr', f: 'fr', name: '騎兵軍団', sub: 'ネイ指揮', n: 30, spread: 0.9, kind: 'cav', t0: 30, t1: 246, keys: [[30, -0.3, 2.0, 0], [139, -0.35, 1.5], [146, -0.35, 0.05], [150, -0.4, -0.35], [154, -0.3, 0.3], [158, -0.4, -0.3], [163, -0.35, 0.4], [170, -0.3, 1.6]], str: [[0, { v: 1 }], [150, { v: 0.9 }], [168, { v: 0.5 }]], scatter: [240, 250] },
+  { id: 'lancers', f: 'fr', name: '槍騎兵', sub: '', n: 10, spread: 0.3, kind: 'cav', t0: 118, t1: 132, keys: [[118, 1.9, 1.4], [124, 1.1, 0.85], [132, 1.5, 1.3]] },
+  { id: 'lobau', f: 'fr', name: '第6軍団', sub: 'ロボー', n: 16, spread: 0.8, t0: 30, t1: 248, keys: [[30, 0.6, 2.3, 0], [176, 0.8, 2.3], [186, 2.1, 2.1, 90], [240, 2.2, 2.1], [250, 1.2, 3.2]], scatter: [242, 252] },
+  { id: 'yg', f: 'fr', name: '若年近衛', sub: '', n: 12, spread: 0.4, t0: 30, t1: 248, keys: [[30, 0.5, 3.0, 0], [186, 0.9, 2.7], [194, 2.7, 2.5], [240, 2.7, 2.5]], scatter: [238, 248] },
+  { id: 'garde', f: 'fr', name: '近衛（中堅・古参）', sub: '', n: 14, spread: 0.5, t0: 30, t1: 250, keys: [[30, 0.45, 2.6, 0], [212, 0.45, 1.6], [224, -0.35, 0.3], [226, -0.4, 0.2], [236, 0.3, 1.6]], scatter: [228, 240] },
+  { id: 'nap', f: 'fr', name: 'ナポレオン', sub: '本営', n: 3, spread: 0.08, small: 0.8, t0: 32, t1: 250, keys: [[32, 0.55, 2.7], [200, 0.45, 1.6], [236, 0.45, 1.6], [250, 0.9, 4.5]] },
+  { id: 'grouchy', f: 'fr', name: 'グルーシー', sub: '約3万（ワーヴル方面）', n: 24, spread: 2, t0: 30, t1: 256, keys: [[30, 12, 1.5], [256, 12, 0]] },
+  // 連合軍
+  { id: 'gb_r', f: 'gb', name: '右翼（英近衛ほか）', sub: '', n: 24, spread: 1.1, t0: 30, t1: 262, sq: [140, 168], keys: [[30, -0.85, -0.55, 180], [238, -0.85, -0.5], [250, -0.6, 1.2]] },
+  { id: 'gb_c', f: 'gb', name: '中央（アルテン）', sub: '', n: 20, spread: 0.8, t0: 30, t1: 262, sq: [140, 168], keys: [[30, -0.05, -0.5, 180], [238, -0.1, -0.45], [250, 0.1, 1.2]], str: [[0, { v: 1 }], [200, { v: 1 }], [212, { v: 0.7 }]] },
+  { id: 'gb_l', f: 'gb', name: '左翼（ピクトン）', sub: '', n: 22, spread: 1.2, t0: 30, t1: 262, keys: [[30, 1.0, -0.45, 180], [238, 1.0, -0.45], [250, 1.0, 1.0]], str: [[0, { v: 1 }], [110, { v: 0.8 }]] },
+  { id: 'nl', f: 'nl', name: 'ネーデルラント軍', sub: '', n: 18, spread: 1.0, t0: 30, t1: 262, keys: [[30, 2.0, -0.4, 180], [240, 2.0, -0.4], [252, 1.8, 0.8]] },
+  { id: 'hg', f: 'gb', name: 'ウーグモン守備隊', sub: '英近衛', n: 8, spread: 0.18, small: 0.6, t0: 30, t1: 262, keys: [[30, -1.15, 0.45], [262, -1.15, 0.45]] },
+  { id: 'kgl', f: 'gb', name: '国王ドイツ人部隊', sub: 'ラ・エー・サント守備', n: 6, spread: 0.12, small: 0.6, t0: 30, t1: 203, keys: [[30, 0.0, 0.0], [196, 0.0, 0.0], [203, -0.05, -0.35]], str: [[0, { v: 1 }], [190, { v: 0.5 }]] },
+  { id: 'uxbridge', f: 'gb', name: '重騎兵2個旅団', sub: 'アクスブリッジ', n: 18, spread: 0.6, kind: 'cav', t0: 30, t1: 262, keys: [[30, 0.2, -0.95, 180], [112, 0.2, -0.95], [118, 0.75, 0.55], [122, 0.95, 0.95], [130, 0.3, -0.9], [262, 0.3, -0.9]], str: [[0, { v: 1 }], [120, { v: 1 }], [130, { v: 0.45 }]] },
+  { id: 'wel', f: 'gb', name: 'ウェリントン', sub: '', n: 3, spread: 0.06, small: 0.8, t0: 32, t1: 262, keys: [[32, -0.12, -0.38], [240, -0.12, -0.38], [250, 0.3, 1.35]] },
+  // プロイセン軍
+  { id: 'bulow', f: 'pr', name: '第4軍団', sub: 'ビューロー', n: 26, spread: 1.0, t0: 150, t1: 262, keys: [[150, 7.0, -0.8], [172, 5.4, 0.7], [182, 4.3, 1.7], [200, 3.6, 2.2], [238, 3.3, 2.4], [252, 1.8, 2.8]] },
+  { id: 'pirch', f: 'pr', name: '第2軍団', sub: 'ピルヒ', n: 18, spread: 0.9, t0: 190, t1: 262, keys: [[190, 6.2, 0.0], [214, 4.6, 1.8], [246, 3.2, 2.8]] },
+  { id: 'zieten', f: 'pr', name: '第1軍団', sub: 'ツィーテン', n: 20, spread: 0.9, t0: 204, t1: 262, keys: [[204, 4.4, -4.0], [220, 3.3, -1.4], [232, 2.3, -0.2], [250, 1.6, 1.2]] },
+  { id: 'thiel', f: 'pr', name: '第3軍団', sub: 'ティールマン（ワーヴル）', n: 16, spread: 1.5, t0: 30, t1: 262, keys: [[30, 13.2, -3.5], [262, 13.2, -3.5]] },
+];
+const FLIGHTS = [];
+const EVENT_PINS = [
+  { text: 'リニーの戦い', sub: '6月16日', p: [10, 19], t0: 13, t1: 21, axis: 1 },
+  { text: 'カトル・ブラの戦い', sub: '6月16日', p: [1.5, 13], t0: 13, t1: 21 },
+  { text: '北門の攻防', sub: 'ウーグモン', p: [-1.12, 0.36], t0: 78, t1: 88 },
+  { text: 'ピクトン戦死', sub: '13時30分頃', p: [0.6, -0.3], t0: 107, t1: 114 },
+  { text: '方陣', sub: '騎兵突撃を迎え撃つ', p: [-0.5, -0.5], t0: 147, t1: 160 },
+  { text: 'ラ・エー・サント陥落', sub: '18時30分頃', p: [0, 0], t0: 200, t1: 210, axis: 1 },
+  { text: '「近衛が退くぞ！」', sub: '19時30分過ぎ', p: [-0.4, 0.2], t0: 224, t1: 232 },
+  { text: 'ウェリントンとブリュッヘルの会見', sub: '21時過ぎ', p: [0.35, 1.45], t0: 247, t1: 258 },
+];
+const BIG_LABELS = [];
+
+/* =====================================================================
+   ディレクター：時刻 t から全要素を決定（シーク・一時停止に対応）
+   ===================================================================== */
+let arrows = [], ribbons = {}, cityRibbon, buildingsList;
+const DAY = 86400000, parseD = s => Date.parse(s + ':00Z');
+const DATE_T = DATE_KEYS.map(([t, d]) => [t, parseD(d)]);
+
+function cityFrontDist(z, t) {
+  const K = CITY_FRONT; let i = 0; while (i < K.length - 2 && t > K[i + 1][0]) i++;
+  const A = K[i], B = K[Math.min(i + 1, K.length - 1)], u = A === B ? 0 : easeInOut(clamp((t - A[0]) / (B[0] - A[0]), 0, 1));
+  const f = (pts) => { if (z <= pts[0][0]) return pts[0][1]; for (let j = 0; j < pts.length - 1; j++) if (z <= pts[j + 1][0]) return lerp(pts[j][1], pts[j + 1][1], (z - pts[j][0]) / (pts[j + 1][0] - pts[j][0])); return pts[pts.length - 1][1]; };
+  return lerp(f(A[1]), f(B[1]), u);
+}
+const CF_N = 140, CF_Z0 = -14, CF_Z1 = 26;
+let terrCache = { t: -999, polys: [], fronts: {} };
+
+function updateTerritory(t, force) {
+  if (!force && Math.abs(t - terrCache.t) < 0.08) return;
+  terrCache.t = t; const polys = [], fronts = {};
+  for (const tr of TERR) {
+    const a = trackAlpha(tr, t); if (a < 0.005) { fronts[tr.id] = null; continue; }
+    const f = trackPoly(tr, t); fronts[tr.id] = f;
+    if (tr.style) polys.push([tr.rear ? f.concat(tr.rear) : f, tr.style, a, tr.id]);
+  }
+  terrCache.polys = polys; terrCache.fronts = fronts;
+  let ctx = regionCanvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, regionCanvas.width, regionCanvas.height);
+  ctx.filter = 'blur(1.2px)'; drawPolys(ctx, REGION, regionCanvas.width, regionCanvas.height, polys); ctx.filter = 'none';
+  regionTex.needsUpdate = true;
+  // 市街：河岸帯を前線で上書き
+  ctx = cityCanvas.getContext('2d');
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cityCanvas.width, cityCanvas.height);
+  drawPolys(ctx, CITYR, cityCanvas.width, cityCanvas.height, polys);
+  const cfA = CITY_FRONT.length ? win(t, 52, 262, 2, 4) : 0;
+  if (cfA > 0.01) {
+    const W = cityCanvas.width, Hh = cityCanvas.height;
+    ctx.setTransform(W / CITYR.w, 0, 0, Hh / CITYR.h, -CITYR.x0 * W / CITYR.w, -CITYR.z0 * Hh / CITYR.h);
+    const zs = []; for (let i = 0; i <= CF_N; i++) zs.push(lerp(CF_Z0, CF_Z1, i / CF_N));
+    ctx.beginPath(); zs.forEach((z, i) => i ? ctx.lineTo(bankX(z) - 6.5, z) : ctx.moveTo(bankX(z) - 6.5, z)); for (let i = zs.length - 1; i >= 0; i--) ctx.lineTo(bankX(zs[i]) + 0.4, zs[i]);
+    ctx.closePath(); ctx.fillStyle = 'rgb(0,0,255)'; ctx.fill();
+    ctx.save();
+    if (t > 250) { ctx.beginPath(); for (const [p, , a, id] of polys) if (id.startsWith('pocket') && a > 0.3) { p.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); } ctx.clip(); }
+    ctx.beginPath(); zs.forEach((z, i) => i ? ctx.lineTo(bankX(z) - 6.5, z) : ctx.moveTo(bankX(z) - 6.5, z));
+    for (let i = zs.length - 1; i >= 0; i--) { const z = zs[i]; ctx.lineTo(bankX(z) - cityFrontDist(z, t), z); }
+    ctx.closePath(); ctx.fillStyle = t > 184 ? 'rgb(255,255,0)' : 'rgb(255,0,0)'; ctx.fill();
+    ctx.restore(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  cityTex.needsUpdate = true;
+}
+
+function updateFronts(t, camDist) {
+  const regW = clamp(camDist * 0.006, 0.012, 1.7), regFade = 1 - smooth(40, 70, camDist);
+  for (const tr of TERR) {
+    const rb = ribbons[tr.id]; if (!rb) continue;
+    const f = terrCache.fronts[tr.id], a = trackAlpha(tr, t) * (tr.id.startsWith('pocket') ? smooth(3, 8, camDist) : regFade);
+    rb.mesh.visible = !!f && a > 0.01; if (!rb.mesh.visible) continue;
+    let pts = f; if (tr.closed) { let A = 0; for (let i = 0; i < f.length; i++) { const p = f[i], q = f[(i + 1) % f.length]; A += p[0] * q[1] - q[0] * p[1]; } if (A < 0) pts = f.slice().reverse(); }
+    rb.set(pts, tr.id === 'axis' || tr.id === 'outer' ? (x, z) => 1 - smooth(-10, -7, x) * (1 - smooth(4, 7, x)) * smooth(-17, -14, z) * (1 - smooth(15, 18, z)) : null);
+    rb.mat.uniforms.uAlpha.value = a; rb.mat.uniforms.uW.value = tr.id.startsWith('pocket') ? clamp(camDist * 0.006, 0.05, 1.6) : regW;
+    if (tr.reveal) {
+      rb.mat.uniforms.uMode.value = 1; rb.mat.uniforms.uReveal.value = smooth(tr.reveal[0], tr.reveal[1], t);
+      let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] + 60, p[1] - 8); if (d < bd) { bd = d; bi = i; } }); rb.mat.uniforms.uSeam.value = bi / pts.length;
+    }
+  }
+}
+
+const _sd = new THREE.Vector3();
+function applyAtmos(t) {
+  const A = sKeys(ATMOS, t);
+  const el = A.sunEl * DEG, az = A.sunAz * DEG;
+  _sd.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el)).normalize();
+  U.uSunDir.value.copy(_sd);
+  U.uSunColor.value.setRGB(...A.sunC); sun.color.setRGB(...A.sunC); sun.intensity = A.sunI;
+  U.uAmbient.value.setRGB(...A.amb).multiplyScalar(0.8 + 0.4 * A.hemiI);
+  hemi.intensity = A.hemiI; hemi.color.setRGB(...A.zen).lerp(new THREE.Color(1, 1, 1), 0.45); hemi.groundColor.setRGB(...A.fogC).multiplyScalar(0.45);
+  scene.fog.color.setRGB(...A.fogC); scene.fog.density = A.fogD;
+  skyMat.uniforms.uHor.value.setRGB(...A.fogC); skyMat.uniforms.uZen.value.setRGB(...A.zen);
+  U.uSkyRefl.value.setRGB(...A.fogC).lerp(new THREE.Color(...A.zen), 0.4);
+  U.uHFog.value.set(A.hfog, A.hfall, 0, 0);
+  renderer.toneMappingExposure = A.exp;
+  U.uSnow.value = A.snow; U.uAutumn.value = A.aut; U.uIce.value = A.ice; U.uFire.value = A.fire; U.uDestroy.value = A.destroy; U.uScorch.value = A.scorch;
+  U.uTerr.value = A.terr; U.uGrid.value = A.grid; U.uSovStrip.value = A.sov;
+  FX.uSnowFall.value = A.snowfall; FX.uCloudHigh.value = A.cloudH; FX.uCloudLow.value = A.cloudL; FX.uSmokeI.value = A.smoke; FX.uFlashI.value = A.flash;
+  grade.uniforms.uSat.value = A.sat; grade.uniforms.uContrast.value = A.con; grade.uniforms.uGain.value.set(...A.gain); grade.uniforms.uVig.value = A.vig;
+  return A;
+}
+
+/* ---------- 航空機 ---------- */
+function updateFlights(t, camDist) {
+  const s = clamp(camDist * 0.006, 0.05, 1.8); let k = 0;
+  for (const F of FLIGHTS) {
+    if (t < F.t0 - 0.1 || t > F.t1 + F.dur) continue;
+    const dx = F.to[0] - F.from[0], dz = F.to[1] - F.from[1], L = Math.hypot(dx, dz), ux = dx / L, uz = dz / L, rot = Math.atan2(ux, uz);
+    const first = Math.max(0, Math.floor((t - F.dur - F.t0) / F.interval)), last = Math.floor((t - F.t0) / F.interval);
+    for (let i = first; i <= last && k < 250; i++) {
+      const td = F.t0 + i * F.interval; if (td > F.t1) break;
+      const u = (t - td) / F.dur; if (u < 0 || u > 1) continue;
+      const lost = F.loss && i % F.loss === 1 && u > 0.72;
+      const lat = (((i * 37) % 11) / 10 - 0.5) * F.spread;
+      for (let v = 0; v < F.vic; v++) {
+        const ox = (v === 0 ? 0 : v === 1 ? -1 : 1) * 0.9 * s * 2, oz = (v === 0 ? 0 : -1.1) * s * 2;
+        let x = F.from[0] + dx * u - uz * lat, z = F.from[1] + dz * u + ux * lat;
+        x += -uz * ox + ux * oz; z += ux * ox + uz * oz;
+        let y = F.alt + Math.sin(u * Math.PI) * 1.2;
+        let sc = s * smooth(0, 0.05, u) * (1 - smooth(0.95, 1, u));
+        if (lost) { const d = (u - 0.72) / 0.28; y -= d * d * F.alt; sc *= 1 - smooth(0.7, 1, d); }
+        _m4.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(lost ? 0.5 : 0, rot, lost ? 0.8 : 0)), _s.set(sc, sc, sc)); planes.setMatrixAt(k++, _m4);
+      }
+    }
+  }
+  planes.count = k; planes.instanceMatrix.needsUpdate = true;
+}
+
+/* ---------- カメラ ---------- */
+const formById = id => FORMS.find(f => f.id === id);
+const camFollow = CAM_KEYS.map(k => k[7] ? formById(k[7]) : null);
+const followPos = (f, t) => { const p = f.track.at(t); return [p[0], p[1]]; };
+let camTrack;
+function initCamera() { // 追尾キーは、その時刻の部隊位置 + オフセットを基準点にする
+  let prevYaw = CAM_KEYS[0][5];
+  camTrack = new HTrack(CAM_KEYS.map(([t, x, z, d, p, y, fv], i) => {
+    while (y - prevYaw > 180) y -= 360; while (y - prevYaw < -180) y += 360; prevYaw = y;
+    return { t, v: [x, z, Math.log(d), p, y, fv] };
+  }));
+  CAM_KEYS.forEach((k, i) => { const f = camFollow[i]; if (f) k.base = followPos(f, k[0]); });
+}
+const camState = { target: new THREE.Vector3(), dist: 100 };
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function cinemaCam(t, outPos, outTgt) {
+  let [x, z, ld, p0, y0, fov] = camTrack.at(t);
+  let i = 0; while (i < CAM_KEYS.length - 2 && t > CAM_KEYS[i + 1][0]) i++;
+  const u = smooth(CAM_KEYS[i][0], CAM_KEYS[i + 1][0], t);
+  const dlt = k => { const f = camFollow[k]; if (!f || !CAM_KEYS[k].base) return [0, 0]; const p = followPos(f, clamp(t, f.t0, f.t1)); return [p[0] - CAM_KEYS[k].base[0], p[1] - CAM_KEYS[k].base[1]]; };
+  const d0 = dlt(i), d1 = dlt(i + 1); x += lerp(d0[0], d1[0], u); z += lerp(d0[1], d1[1], u);
+  const d = Math.exp(ld), dr = reduceMotion ? 0 : 1;
+  const p = clamp(p0 + 0.6 * Math.sin(t * 0.21 + 1) * dr, 4, 88) * DEG, y = (y0 + 0.8 * Math.sin(t * 0.13) * dr) * DEG;
+  outTgt.set(x, Hw(x, z), z);
+  outPos.set(x + d * Math.cos(p) * Math.sin(y), outTgt.y + d * Math.sin(p), z + d * Math.cos(p) * Math.cos(y));
+  const minY = Hw(outPos.x, outPos.z) + 0.04 + d * 0.02; if (outPos.y < minY) outPos.y = minY;
+  return fov;
+}
+
+/* =====================================================================
+   ラベル（HTML オーバーレイ）
+   ===================================================================== */
+const labelLayer = document.getElementById('labels');
+const labels = [];
+function addLabel(o) {
+  const el = document.createElement('div'); el.className = 'lb ' + o.cls; el.innerHTML = o.html; if (o.color) el.style.setProperty('--c', o.color);
+  el.style.opacity = 0; labelLayer.appendChild(el); o.el = el; o.w = 0; o.h = 0; o.prio ??= 1; labels.push(o); return o;
+}
+function buildLabels() {
+  for (const p of PLACES) addLabel({ cls: 'lb-' + p.k, html: p.text + (p.sub ? `<small>${p.sub}</small>` : ''), prio: p.k === 'city' ? 5 : p.k === 'river' ? 2 : 1,
+    pos: () => [p.p[0], Hw(p.p[0], p.p[1]) + 0.2, p.p[1]], alpha: (t, d) => win(d, p.min, p.max, p.min * 0.4, p.max * 0.2) * (p.t0 ? smooth(p.t0, p.t0 + 2, t) : 1) });
+  for (const l of LANDMARKS) addLabel({ cls: 'lb-pin', pin: 1, html: `<div class="pin-box">${l.text}${l.sub ? `<small>${l.sub}</small>` : ''}</div><div class="pin-line"></div>`, prio: 3,
+    pos: () => [l.p[0], Hw(l.p[0], l.p[1]) + (l.lift ?? 0.05), l.p[1]], alpha: (t, d) => (1 - smooth((l.max ?? 26) * 0.8, l.max ?? 26, d)) * smooth(0.25, 0.5, d) * win(t, 32, 262) });
+  for (const e of EVENT_PINS) addLabel({ cls: 'lb-pin lb-event' + (e.axis ? ' axis' : ''), pin: 1, html: `<div class="pin-box">${e.text}<small>${e.sub}</small></div><div class="pin-line"></div>`, prio: 8,
+    pos: () => [e.p[0], Hw(e.p[0], e.p[1]) + 0.1, e.p[1]], alpha: t => win(t, e.t0, e.t1, 0.8, 1.2) });
+  for (const b of BIG_LABELS) addLabel({ cls: 'lb-big', html: b.text, prio: 6, pos: () => [b.p[0], 3, b.p[1]], alpha: (t, d) => win(t, b.t0, b.t1, 2, 2) * win(d, b.min, b.max, 10, 40) });
+  for (const f of FORMS) addLabel({ cls: 'lb-unit', color: FACTION[f.f], html: `<b>${f.name}</b>${f.sub ? `<span>${f.sub}</span>` : ''}`, prio: 4,
+    pos: () => { const p = f.pos || [0, 0]; return [p[0], Hw(p[0], p[1]) + camState.dist * 0.035, p[1]]; }, alpha: (t, d) => (f.alpha || 0) * smooth(f.spread * 0.8, f.spread * 2.2, d) * (1 - smooth(260, 420, d)) });
+  for (const a of arrows) if (a.label) addLabel({ cls: 'lb-arrow', color: LCOL[a.f], html: a.label, prio: 7, pos: () => a.labelPos(), alpha: (t, d) => (a.alpha || 0) * smooth(0.25, 0.5, a.p || 0) * smooth(a.width * 1.2, a.width * 4, d) * (1 - smooth(a.width * 90, a.width * 150, d)) });
+}
+const _pv = new THREE.Vector3();
+function updateLabels(t, d, show, dt) {
+  const kf = 1 - Math.exp(-dt * 10);
+  const W = labelLayer.clientWidth, Hh = labelLayer.clientHeight, placed = [];
+  const order = labels.slice().sort((a, b) => b.prio - a.prio);
+  for (const L of order) {
+    let a = show ? L.alpha(t, d) : 0;
+    if (a > 0.01) {
+      const p = L.pos(); _pv.set(p[0], p[1], p[2]).project(camera);
+      if (_pv.z > 1 || Math.abs(_pv.x) > 1.2 || Math.abs(_pv.y) > 1.2) a = 0;
+      else {
+        if (!L.w) { L.w = L.el.offsetWidth; L.h = L.el.offsetHeight; }
+        const sx = (_pv.x * 0.5 + 0.5) * W, sy = (-_pv.y * 0.5 + 0.5) * Hh;
+        const x = sx - L.w / 2, y = L.pin ? sy - L.h : sy - L.h / 2;
+        const box = [x, y, x + L.w, y + L.h];
+        if (placed.some(b => box[0] < b[2] - 4 && box[2] > b[0] + 4 && box[1] < b[3] - 2 && box[3] > b[1] + 2)) a *= 0; else placed.push(box);
+        L.el.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`;
+      }
+    }
+    L.cur = lerp(L.cur ?? 0, a, kf); if (L.cur < 0.01 && a === 0) L.cur = 0;
+    L.el.style.opacity = L.cur.toFixed(3); L.el.style.visibility = L.cur > 0 ? 'visible' : 'hidden';
+  }
+}
+
+/* =====================================================================
+   UI・サウンド・メインループ
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const app = $('app');
+const state = { t: 0, playing: false, speed: 1, labels: true, sound: true, started: false, blend: 0, lastInput: performance.now() };
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const scrub = $('scrub'); scrub.max = T_END; $('tEnd').textContent = fmt(T_END);
+CHAPTERS.forEach((c, i) => { if (!i) return; const d = document.createElement('div'); d.className = 'tick'; d.style.left = (c.t / T_END * 100) + '%'; d.innerHTML = `<span>${c.title}</span>`; $('ticks').appendChild(d); });
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('on'), 2200); }
+function setPlaying(p) { state.playing = p; if (p && state.t >= T_END - 0.05) state.t = 0; $('icoPlay').innerHTML = p ? '<path d="M3 2h4v12H3zM9 2h4v12H9z"/>' : '<path d="M4 2l10 6-10 6z"/>'; $('btnPlay').setAttribute('aria-label', p ? '一時停止' : '再生'); audio.resume(p); }
+function seek(t) { state.t = clamp(t, 0, T_END); terrCache.t = -999; state.jump = true; }
+function chapterIndex(t) { let i = 0; while (i < CHAPTERS.length - 1 && t >= CHAPTERS[i + 1].t) i++; return i; }
+function jumpChapter(i) { i = clamp(i, 0, CHAPTERS.length - 1); seek(CHAPTERS[i].t + (i ? 0.01 : 0)); toast(`${CHAPTERS[i].num}　${CHAPTERS[i].title}`); }
+
+/* ---------- 生成サウンド（ドローン・風・遠雷のような砲声） ---------- */
+const audio = (() => {
+  let ctx, master, drone = [], windG, windF, noiseBuf, lastBoom = 0;
+  function init() {
+    if (ctx) return; const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = 0; const comp = ctx.createDynamicsCompressor(); master.connect(comp).connect(ctx.destination);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(master);
+    for (const f of [73.42, 110, 87.31, 146.83]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (Math.random() - 0.5) * 12; g.gain.value = 0.028; o.connect(g).connect(lp); o.start(); drone.push(o); }
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 160; lfo.connect(lg).connect(lp.frequency); lfo.start();
+    const src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; windF = ctx.createBiquadFilter(); windF.type = 'bandpass'; windF.frequency.value = 600; windF.Q.value = 0.6;
+    windG = ctx.createGain(); windG.gain.value = 0.02; src.connect(windF).connect(windG).connect(master); src.start();
+  }
+  function boom(vol) {
+    if (!ctx) return; const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 90 + Math.random() * 160;
+    const g = ctx.createGain(), n = ctx.currentTime; g.gain.setValueAtTime(0, n); g.gain.linearRampToValueAtTime(vol, n + 0.02); g.gain.exponentialRampToValueAtTime(0.0008, n + 1.2 + Math.random());
+    s.connect(f).connect(g).connect(master); s.start(n, Math.random()); s.stop(n + 2.5);
+  }
+  return {
+    start() { init(); ctx && ctx.resume(); this.resume(state.playing); },
+    resume(p) { if (!ctx) return; master.gain.setTargetAtTime(state.sound && p ? 0.8 : 0, ctx.currentTime, 0.4); },
+    update(t, A) {
+      if (!ctx || !state.playing || !state.sound) return;
+      windG.gain.setTargetAtTime(0.02 + 0.06 * A.snow + 0.03 * A.snowfall, ctx.currentTime, 1); windF.frequency.setTargetAtTime(500 + 500 * A.snowfall, ctx.currentTime, 1);
+      const base = win(t, 62, 244) * 1.2 + win(t, 88, 240) * 1.0 + win(t, 104, 122) * 2 + win(t, 140, 166) * 1.5 + win(t, 176, 240) * 1 + win(t, 216, 232) * 2.5 + win(t, 13, 20) * 1.5;
+      const now = performance.now(); if (base > 0.05 && now - lastBoom > 1000 / (base * 2) * (0.4 + Math.random())) { lastBoom = now; boom(0.12 + Math.random() * 0.25 * Math.min(1, base)); }
+    },
+  };
+})();
+
+/* ---------- 位置図・方位・縮尺 ---------- */
+const loc = $('locator'), lctx = loc.getContext('2d'); let LOCR = { x0: -10, z0: -9, s: 22 };
+const lp = (x, z) => [(x - LOCR.x0) / LOCR.s * loc.width, (z - LOCR.z0) / LOCR.s * loc.height];
+
+function drawLocator() {
+  const W = loc.width; lctx.clearRect(0, 0, W, W);
+  const line = (pts, c, w) => { lctx.beginPath(); pts.forEach((p, i) => { const [a, b] = lp(p[0], p[1]); i ? lctx.lineTo(a, b) : lctx.moveTo(a, b); }); lctx.strokeStyle = c; lctx.lineWidth = w; lctx.stroke(); };
+  for (const [p, style, a, id] of terrCache.polys) {
+    lctx.globalAlpha = a * 0.5; lctx.fillStyle = id === 'pocket' || id === 'pocketS' ? '#7a3a33' : style.includes('255)') && style !== 'rgb(255,0,0)' ? '#8a6a2a' : '#34507c';
+    lctx.beginPath(); p.forEach((q, i) => { const [a2, b] = lp(q[0], q[1]); i ? lctx.lineTo(a2, b) : lctx.moveTo(a2, b); }); lctx.closePath(); lctx.fill();
+  }
+  LOCR = state.t < 31 ? { x0: -14, z0: -24, s: 64 } : { x0: -8, z0: -8, s: 20 };
+  lctx.globalAlpha = 1; for (const r of RIVERS) line(r.sm, '#8fb6d8', 2); for (const r of ROADS) line(r.sm, 'rgba(235,229,214,.5)', 1.5);
+  for (const f of FORMS) if ((f.alpha || 0) > 0.2 && f.pos) { const [a2, b2] = lp(f.pos[0], f.pos[1]); lctx.fillStyle = FACTION[f.f]; lctx.fillRect(a2 - 3, b2 - 3, 6, 6); }
+  const [cx, cz] = lp(0, 0); lctx.fillStyle = '#ebe5d6'; lctx.fillRect(cx - 2, cz - 2, 4, 4);
+  const tg = camState.target, [tx, tz] = lp(tg.x, tg.z), f = camera.getWorldDirection(new THREE.Vector3()), ang = Math.atan2(f.x, f.z);
+  const r = clamp(camState.dist / LOCR.s * W * 0.9, 8, 120);
+  lctx.beginPath(); lctx.moveTo(tx, tz); lctx.arc(tx, tz, r, Math.PI / 2 - ang - 0.4, Math.PI / 2 - ang + 0.4); lctx.closePath();
+  lctx.fillStyle = 'rgba(194,166,106,.28)'; lctx.fill(); lctx.strokeStyle = '#c2a66a'; lctx.lineWidth = 2; lctx.stroke();
+  const fwd = Math.atan2(f.x, -f.z); $('compassRot').setAttribute('transform', `rotate(${(-fwd / DEG).toFixed(1)})`);
+  // 縮尺
+  const a = camState.target.clone().project(camera), right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+  const b = camState.target.clone().addScaledVector(right, 1).project(camera), pxPerKm = Math.abs(b.x - a.x) * 0.5 * canvas.clientWidth;
+  const nice = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100].find(k => k * pxPerKm > 50) || 100;
+  $('scaleText').textContent = nice < 1 ? `${nice * 1000} m` : `${nice} km`; $('scaleBar').style.width = Math.round(nice * pxPerKm) + 'px';
+}
+
+/* ---------- HUD ---------- */
+let lastCap = -1, lastCh = -1, lastEv = -1;
+function updateHUD(t) {
+  const ci = CAPTIONS.findIndex(c => t >= c[0] && t < c[1]);
+  if (ci !== lastCap) { lastCap = ci; if (ci >= 0) $('captionText').textContent = CAPTIONS[ci][2]; $('caption').classList.toggle('on', ci >= 0); }
+  const ch = chapterIndex(t), C = CHAPTERS[ch];
+  const cardOn = ch > 0 && ch < CHAPTERS.length - 1 && t > C.t + 0.3 && t < C.t + 5.2;
+  if (ch !== lastCh) { lastCh = ch; $('ccNum').textContent = C.num; $('ccTitle').textContent = C.title; $('ccDates').textContent = C.dates; $('dChapter').textContent = `${C.num}　${C.title}`; }
+  $('chapterCard').classList.toggle('on', cardOn);
+  $('titleCard').classList.toggle('on', t > 1.0 && t < 8.5);
+  $('statsCard').classList.toggle('on', t > 259 && t < 278);
+  const on = t >= 0.5 && t < 258; $('dateblock').classList.toggle('on', on);
+  if (on) {
+    let i = 0; while (i < DATE_T.length - 2 && t > DATE_T[i + 1][0]) i++;
+    const [ta, da] = DATE_T[i], [tb, db] = DATE_T[i + 1], ms = t <= ta ? da : lerp(da, db, clamp((t - ta) / (tb - ta), 0, 1));
+    const d = new Date(ms);
+    const m10 = new Date(Math.floor(ms / 600000) * 600000);
+    $('dYear').textContent = t >= 30 ? `${d.getUTCFullYear()}　${m10.getUTCHours()}:${String(m10.getUTCMinutes()).padStart(2, '0')}` : d.getUTCFullYear(); $('dMonth').textContent = d.getUTCMonth() + 1; $('dDay').textContent = d.getUTCDate();
+  }
+  const ei = EVENTS.findIndex(e => t >= e[0] && t < e[1]);
+  if (ei !== lastEv) { lastEv = ei; const el = $('eventChip'); if (ei >= 0) { el.textContent = EVENTS[ei][2]; el.classList.toggle('axis', !!EVENTS[ei][3]); } el.classList.toggle('on', ei >= 0); }
+  $('tCur').textContent = fmt(t); if (document.activeElement !== scrub) scrub.value = t; $('trackFill').style.width = (t / T_END * 100) + '%';
+  grade.uniforms.uFade.value = 1 - smooth(0, 1.2, t) * (1 - smooth(279, 282, t) * 0.85);
+}
+
+/* ---------- メインループ ---------- */
+const tmpP = new THREE.Vector3(), tmpT = new THREE.Vector3();
+let lastFrame = performance.now(), slowTime = 0, locTick = 0;
+function frame(now) {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  if (state.playing) { state.t += dt * state.speed; if (state.t >= T_END) { state.t = T_END; setPlaying(false); } }
+  const t = state.t; U.uTime.value = now / 1000; U.uStory.value = t; grade.uniforms.uT.value = (now / 1000) % 100;
+  const A = state.freezeAtmos ? state.lastA : (state.lastA = applyAtmos(t));
+  // カメラ
+  const fov = cinemaCam(t, tmpP, tmpT);
+  camera.position.copy(tmpP); camera.lookAt(tmpT); camera.fov = fov; camState.target.copy(tmpT);
+  camState.dist = camera.position.distanceTo(camState.target);
+  camera.near = clamp(camState.dist * 0.004, 0.01, 2); camera.updateProjectionMatrix();
+  sky.position.copy(camera.position);
+  // 影
+  const S = clamp(camState.dist * 0.75, 2, 200);
+  sun.target.position.copy(camState.target); sun.position.copy(camState.target).addScaledVector(U.uSunDir.value, S * 3);
+  const sc = sun.shadow.camera; sc.left = -S; sc.right = S; sc.top = S; sc.bottom = -S; sc.near = 0.1; sc.far = S * 7; sc.updateProjectionMatrix(); sun.shadow.normalBias = S * 0.0025;
+  // 世界の状態
+  updateTerritory(t);
+  updateFronts(t, camState.dist);
+  for (const a of arrows) a.update(t);
+  updateUnits(FORMS, t, camState.dist);
+  updateFlights(t, camState.dist);
+  const box = clamp(camState.dist * 0.25, 1.2, 30); snowPts.material.uniforms.uBox.value = box; snowPts.material.uniforms.uCam.value.copy(camera.position); snowPts.material.uniforms.uPR.value = PR;
+  composer.render();
+  updateLabels(t, camState.dist, state.labels, state.jump ? 1 : dt); state.jump = false;
+  updateHUD(t);
+  if (++locTick % 4 === 0) drawLocator();
+  audio.update(t, A);
+  // 自動品質調整
+  if (dt > 0.045 && state.playing) slowTime += dt; else slowTime = Math.max(0, slowTime - dt * 0.5);
+  if (slowTime > 4 && QKEY !== 'low') { const nk = QKEY === 'high' ? 'std' : 'low'; applyQuality(nk); $('quality').value = nk; toast('動作が重いため画質を下げました'); slowTime = 0; }
+  if (state.playing && performance.now() - state.lastInput > 2800) $('controls').classList.add('idle');
+  requestAnimationFrame(frame);
+}
+
+function bindUI() {
+  $('btnPlay').onclick = () => setPlaying(!state.playing);
+  $('btnPrev').onclick = () => { const i = chapterIndex(state.t); jumpChapter(state.t - CHAPTERS[i].t > 2 ? i : i - 1); };
+  $('btnNext').onclick = () => jumpChapter(chapterIndex(state.t) + 1);
+  scrub.oninput = () => seek(+scrub.value);
+  $('speed').onchange = e => { state.speed = +e.target.value; };
+  $('quality').value = QKEY; $('quality').onchange = e => { applyQuality(e.target.value); slowTime = 0; };
+  $('btnLabels').onclick = () => { state.labels = !state.labels; $('btnLabels').setAttribute('aria-pressed', state.labels); };
+  $('btnSound').onclick = () => { state.sound = !state.sound; $('btnSound').setAttribute('aria-pressed', state.sound); audio.start(); };
+  $('btnFull').onclick = () => { const f = document.fullscreenElement; (f ? document.exitFullscreen() : app.requestFullscreen?.())?.catch?.(() => toast('全画面表示はこの環境では使えません')); };
+  const wake = () => { state.lastInput = performance.now(); $('controls').classList.remove('idle'); };
+  app.addEventListener('pointermove', wake); app.addEventListener('pointerdown', wake);
+  window.addEventListener('keydown', e => {
+    if (!state.started || e.target.tagName === 'SELECT') return; wake();
+    const k = e.key;
+    if (k === ' ') { e.preventDefault(); setPlaying(!state.playing); }
+    else if (k === 'ArrowRight') seek(state.t + 5); else if (k === 'ArrowLeft') seek(state.t - 5);
+    else if (k >= '1' && k <= '8') jumpChapter(+k - 1);
+    else if (k === 'l' || k === 'L') $('btnLabels').click();
+    else if (k === 'h' || k === 'H') app.classList.toggle('hide-ui');
+    else if (k === 'f' || k === 'F') $('btnFull').click();
+  });
+  $('btnStart').onclick = () => { state.started = true; $('start').classList.add('gone'); audio.start(); seek(0); setPlaying(true); canvas.focus(); };
+}
+
+async function main() {
+  const fill = $('loadFill'), txt = $('loadText');
+  const progress = p => { fill.style.width = (p * 100).toFixed(0) + '%'; };
+  applyQuality(QKEY);
+  await buildTerrain(progress);
+  txt.textContent = '市街と部隊を配置しています…';
+  buildWater(); buildingsList = buildCity(); buildFX(); buildSnow(); buildPlanes(); buildUnits(FORMS);
+  arrows = ARROWS.map(d => new Arrow(d));
+  for (const tr of TERR) if (tr.ribbon) { const rb = new Ribbon(tr.n, !!tr.closed, 0.02); rb.mat.uniforms.uA.value.copy(FCOL[tr.colA]); rb.mat.uniforms.uB.value.copy(FCOL.fr); ribbons[tr.id] = rb; }
+  initCamera();
+  buildLabels(); bindUI();
+  progress(1); txt.textContent = '準備ができました';
+  $('btnStart').disabled = false; $('btnStart').focus();
+  requestAnimationFrame(frame);
+  window.__demo = { seek, setPlaying, state, scene, sun, U, terrainMat, bloom, composer };
+}
+window.addEventListener('error', e => { const el = $('err'); el.style.display = 'block'; el.textContent = '表示エラー: ' + (e.message || e); });
+main().catch(e => { console.error(e); const el = $('err'); el.style.display = 'block'; el.textContent = 'WebGL の初期化に失敗しました: ' + e.message; });
+</script>
+</body>
+</html>
