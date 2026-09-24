@@ -7,7 +7,7 @@
 
 const IMAGE_FILES = {
   footFairy: 'img/foot_fairy.png', // 各面でいちばん弱い妖精
-  player: 'img/player.png',        // ゲーム中の自機
+  player: 'img/player.png',        // ゲーム中の霊夢
   midboss1: 'img/midboss1.png',    // 1面の中ボス
 };
 

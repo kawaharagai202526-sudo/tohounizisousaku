@@ -164,7 +164,12 @@ class FantasySeal {
 
 // ------------------------------------------------------------
 //  ボム：恋符「マスタースパーク」
+//  紅魔郷のマスタースパークにならい、魔理沙から上へ扇状に広がる極太の光線。
+//  根元の幅は約64px、画面の上端では画面幅の7割ほどを覆う。
 // ------------------------------------------------------------
+const MS_BASE_HW = 32;   // 根元の半幅
+const MS_SPREAD = 0.26;  // 上へ1px進むごとに増える半幅
+
 class MasterSpark {
   constructor(p) {
     this.p = p;
@@ -173,54 +178,70 @@ class MasterSpark {
     this.slow = true;
     this.duration = 210;
   }
-  width() {
+  // 出力（0〜1）。出始めと終わりは細くなる
+  power() {
     const f = this.frame;
-    if (f < 20) return 110 * Ease.outCubic(f / 20);
-    if (f > this.duration - 30) return 110 * Math.max(0, (this.duration - f) / 30);
-    return 110 + Math.sin(f * 0.8) * 6;
+    if (f < 20) return Ease.outCubic(f / 20);
+    if (f > this.duration - 30) return Math.max(0, (this.duration - f) / 30);
+    return 1 + Math.sin(f * 0.8) * 0.04;
+  }
+  // 根元から上に d 離れた位置での半幅
+  halfWidth(d) { return this.power() * (MS_BASE_HW + Math.max(0, d) * MS_SPREAD); }
+  // (x, y) が光線の中か（margin は相手の大きさ）
+  inBeam(x, y, margin) {
+    const ox = this.p.x, oy = this.p.y - 16;
+    if (y > oy + margin) return false;
+    return Math.abs(x - ox) < this.halfWidth(oy - y) + margin;
   }
   update(g) {
     this.frame++;
-    const w = this.width();
-    const x = this.p.x, y = this.p.y - 16;
     if (this.frame === 1) { g.bullets.cancelAll(true); g.clearLasers(); }
-    g.bullets.cancelIn(b => Math.abs(b.x - x) < w / 2 + 12 && b.y < y + 20);
+    g.bullets.cancelIn(b => this.inBeam(b.x, b.y, 12));
     if (this.frame % 2 === 0 && this.frame > 10) {
       for (const e of g.enemies) {
-        if (e.alive && Math.abs(e.x - x) < w / 2 + e.r && e.y < y + 10) g.damageEnemy(e, 3.4, true);
+        if (e.alive && this.inBeam(e.x, e.y, e.r)) g.damageEnemy(e, 3.4, true);
       }
       const b = g.boss;
-      if (b && b.alive && Math.abs(b.x - x) < w / 2 + b.r && b.y < y + 10) g.damageEnemy(b, 3.4, true);
+      if (b && b.alive && this.inBeam(b.x, b.y, b.r)) g.damageEnemy(b, 3.4, true);
     }
     g.shake = Math.max(g.shake, 3);
     if (this.frame >= this.duration) this.done = true;
   }
   draw(ctx) {
-    const w = this.width();
-    if (w <= 0.5) return;
+    const k = this.power();
+    if (k <= 0.01) return;
     const x = this.p.x, y = this.p.y - 16;
-    ctx.globalCompositeOperation = 'lighter';
+    const top = -24, d = y - top;
     const hue = (this.frame * 6) % 360;
-    const g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
-    g.addColorStop(0, `hsla(${hue},100%,60%,0)`);
-    g.addColorStop(0.18, `hsla(${hue},100%,65%,0.55)`);
-    g.addColorStop(0.35, `hsla(${(hue + 60) % 360},100%,80%,0.8)`);
-    g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
-    g.addColorStop(0.65, `hsla(${(hue + 120) % 360},100%,80%,0.8)`);
-    g.addColorStop(0.82, `hsla(${(hue + 180) % 360},100%,65%,0.55)`);
-    g.addColorStop(1, `hsla(${(hue + 180) % 360},100%,60%,0)`);
-    ctx.fillStyle = g;
-    ctx.fillRect(x - w / 2, -20, w, y + 20);
-    const og = ctx.createRadialGradient(x, y, 0, x, y, w * 0.7);
-    og.addColorStop(0, 'rgba(255,255,255,0.9)');
+    ctx.globalCompositeOperation = 'lighter';
+    // 外側ほど色が濃く、中心ほど白い扇形を重ねる
+    const layers = [
+      [1.0, `hsla(${hue},100%,60%,0.3)`],
+      [0.8, `hsla(${(hue + 90) % 360},100%,65%,0.32)`],
+      [0.58, `hsla(${(hue + 180) % 360},100%,75%,0.38)`],
+      [0.36, 'rgba(255,255,255,0.5)'],
+      [0.16, 'rgba(255,255,255,0.8)'],
+    ];
+    const hb0 = this.halfWidth(0), ht0 = this.halfWidth(d);
+    for (const [s, color] of layers) {
+      const hb = hb0 * s, ht = ht0 * s;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(x - hb, y); ctx.lineTo(x - ht, top); ctx.lineTo(x + ht, top); ctx.lineTo(x + hb, y);
+      ctx.closePath();
+      ctx.fill();
+    }
+    const r = hb0 * 1.7;
+    const og = ctx.createRadialGradient(x, y, 0, x, y, r);
+    og.addColorStop(0, 'rgba(255,255,255,0.95)');
     og.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = og;
-    ctx.beginPath(); ctx.arc(x, y, w * 0.7, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    for (let i = 0; i < 12; i++) {
-      const sy = (y - ((this.frame * 14 + i * 53) % (y + 40)));
-      const sx = x + Math.sin(i * 12.9 + this.frame * 0.2) * w * 0.4;
-      ctx.fillRect(sx - 1, sy, 2, 10);
+    for (let i = 0; i < 18; i++) {
+      const sy = y - ((this.frame * 14 + i * 53) % d);
+      const sx = x + Math.sin(i * 12.9 + this.frame * 0.2) * this.halfWidth(y - sy) * 0.85;
+      ctx.fillRect(sx - 1, sy, 2, 12);
     }
     ctx.globalCompositeOperation = 'source-over';
   }
@@ -466,10 +487,14 @@ class Player {
     if (blink) ctx.globalAlpha = 0.35;
     ctx.save();
     ctx.translate(this.x, this.y + Math.sin(this.frame * 0.1) * 0.6);
-    // 画像の自機（高さ30px）。移動方向に少し傾ける
-    ctx.transform(1, 0, -this.tilt * 0.12, 1, 0, 0);
-    if (!drawImageSprite(ctx, 'player', 30, 0.3, 0.52)) {
-      ctx.translate(0, 2);
+    if (this.id === 'reimu' && Images.get('player')) {
+      // 霊夢は画像の自機（高さ30px）。移動方向に少し傾ける
+      ctx.transform(1, 0, -this.tilt * 0.12, 1, 0, 0);
+      drawImageSprite(ctx, 'player', 30, 0.3, 0.52);
+    } else {
+      // 図形で描く自機（小さめに縮小）
+      ctx.scale(0.65, 0.65);
+      ctx.translate(0, 3);
       drawPlayerBack(ctx, this.id, this.frame, this.tilt);
     }
     ctx.restore();

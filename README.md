@@ -69,7 +69,7 @@ js/characters.js  キャラクターの絵（すべてキャンバスで描画�
 js/backgrounds.js ステージ背景・スペルカード背景
 js/bullets.js     敵弾・レーザー・弾幕ヘルパー（fire / fireRing / fireFan）
 js/effects.js     エフェクトとアイテム
-js/player.js      自機・ショット・ボム
+js/player.js      自機・ショット・ボム（マスタースパークは紅魔郷風の扇形）
 js/enemies.js     ザコ敵とボス
 js/dialogue.js    会話
 js/hud.js         画面右のパネルとフィールド内の表示
@@ -101,7 +101,7 @@ js/main.js        起動とメインループ
 - 弾の色：`red` `orange` `yellow` `green` `cyan` `blue` `purple` `pink` `white` `dark`
 - 難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)` で指定できます
 - 見た目は `img/` のPNGを同じ名前で置き換えると変えられます（背景は透明にしてください）
-  - `player.png`：ゲーム中の自機（霊夢・魔理沙共通）
+  - `player.png`：ゲーム中の霊夢
   - `foot_fairy.png`：各面でいちばん弱い妖精
   - `midboss1.png`：1面の中ボス
 - 曲は `js/music.js` にMML（`o5 e4. d8 c4 o4 a4 |` のような書き方）とコード進行で追加できます
