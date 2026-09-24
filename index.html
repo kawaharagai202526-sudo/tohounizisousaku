@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>東方星降夜</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,500;1,600;1,700&family=Shippori+Mincho:wght@400;500;600;700;800&display=swap">
+<style>
+  :root {
+    color-scheme: dark;
+    --night: #07051a;
+    --night-2: #1a1240;
+    --ink: #ece6ff;
+    --ink-dim: #a8a0cc;
+    --gold: #d6ba78;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: radial-gradient(ellipse at 50% 30%, var(--night-2), var(--night) 70%);
+    color: var(--ink);
+    font-family: "Shippori Mincho", "Yu Mincho", "Hiragino Mincho ProN", serif;
+    display: flex;
+    flex-direction: column;
+    padding-inline: 16px;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  #wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-block: 8px;
+  }
+  #game {
+    display: block;
+    max-width: 100%;
+    background: #000;
+    box-shadow: 0 0 0 1px rgba(214, 186, 120, 0.35), 0 12px 40px rgba(0, 0, 0, 0.6);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline: none;
+  }
+  #game:focus-visible { box-shadow: 0 0 0 2px var(--gold); }
+  #start {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: fit-content;
+    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px 34px;
+    background: rgba(10, 6, 30, 0.88);
+    border: 1px solid var(--gold);
+    color: var(--ink);
+    font: inherit;
+    cursor: pointer;
+  }
+  #start .ja { font-size: 20px; font-weight: 700; letter-spacing: 0.08em; }
+  #start .en { font-family: "Cormorant Garamond", Georgia, serif; font-style: italic; font-size: 15px; color: var(--ink-dim); }
+  #start:hover, #start:focus-visible { background: rgba(40, 24, 90, 0.92); outline: none; }
+  #start[hidden] { display: none; }
+  #hint {
+    display: none;
+    margin: 0;
+    padding-block: 6px 10px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--ink-dim);
+  }
+  @media (orientation: portrait) and (max-width: 720px) {
+    #hint { display: block; }
+  }
+</style>
+</head>
+<body>
+<main id="wrap">
+  <canvas id="game" tabindex="0" aria-label="東方星降夜のゲーム画面"></canvas>
+  <button id="start" type="button">
+    <span class="ja">クリックしてはじめる</span>
+    <span class="en">Click to start (sound on)</span>
+  </button>
+</main>
+<p id="hint">横向きにすると大きな画面で遊べます。ドラッグで移動、右側のボタンでボム・低速。</p>
+<script src="js/util.js"></script>
+<script src="js/input.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/music.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/backgrounds.js"></script>
+<script src="js/bullets.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemies.js"></script>
+<script src="js/dialogue.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/game.js"></script>
+<script src="js/story.js"></script>
+<script src="js/stage1.js"></script>
+<script src="js/stage2.js"></script>
+<script src="js/stage3.js"></script>
+<script src="js/menus.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
