@@ -74,6 +74,14 @@ class Enemy {
     switch (this.kind) {
       case 'bigfairy': drawFairy(ctx, this.color, this.frame, true); break;
       case 'kedama': drawKedama(ctx, this.color, this.frame); break;
+      case 'foot':
+        ctx.rotate(Math.sin(this.frame * 0.12) * 0.12);
+        if (!drawImageSprite(ctx, 'footFairy', 30, 0.35, 0.5)) drawFairy(ctx, this.color, this.frame, false);
+        break;
+      case 'midboss1':
+        ctx.translate(0, Math.sin(this.frame * 0.05) * 2);
+        if (!drawImageSprite(ctx, 'midboss1', 76)) drawFairy(ctx, this.color, this.frame, true);
+        break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }
     if (this.flash > 0) {

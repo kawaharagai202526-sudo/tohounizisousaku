@@ -20,7 +20,7 @@ function* starShower(frames, count, colors = ['yellow', 'cyan', 'pink', 'white']
 function* sideSweep(side, n, o = {}) {
   for (let i = 0; i < n; i++) {
     spawnEnemy({
-      x: side < 0 ? -12 : FIELD_W + 12, y: (o.y ?? 40) + i * 5, hp: o.hp ?? 8, color: o.color || 'blue',
+      x: side < 0 ? -12 : FIELD_W + 12, y: (o.y ?? 40) + i * 5, hp: o.hp ?? 8, kind: 'foot', color: o.color || 'purple',
       drops: i % 2 ? { point: 1 } : { power: 1 },
       score: 800,
       script: function* (e) {
@@ -219,9 +219,9 @@ STAGES.push({
     yield* sideSweep(1, 6, { y: 60 });
     yield* waitClear(240);
 
-    // 大妖精（ザコ）の中ボス的な攻撃
+    // 中ボス（見た目は img/midboss1.png）
     spawnEnemy({
-      x: FIELD_W / 2, y: -20, kind: 'bigfairy', color: 'purple', hp: 450, r: 18, score: 30000,
+      x: FIELD_W / 2, y: -40, kind: 'midboss1', color: 'green', hp: 450, r: 22, score: 30000,
       drops: { power: 6, point: 6, bomb: DIFF <= 1 ? 1 : 0 },
       script: function* (e) {
         yield* e.moveTo(FIELD_W / 2, 120, 60);

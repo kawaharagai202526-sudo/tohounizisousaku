@@ -3,7 +3,7 @@
 東方Projectの二次創作弾幕シューティングゲームです。ブラウザだけで動きます。
 
 > 本作品は上海アリス幻樂団「東方Project」の二次創作です。公式とは関係ありません。
-> 画像・音楽・効果音はすべてこのリポジトリ内のコードで生成しており、原作のデータは一切使っていません。
+> 音楽・効果音と、`img/` 以外の絵はすべてこのリポジトリ内のコードで生成しています。
 
 ## あそびかた
 
@@ -58,7 +58,9 @@ node tools/build-single.js
 
 ```
 index.html        ページ本体（スクリプトを順番に読み込む）
+img/              差し替え用の画像（自機・足の妖精・1面の中ボス）
 js/util.js        定数・乱数・コルーチン（TaskRunner）などの共通処理
+js/images.js      img/ の画像の読み込み
 js/input.js       キーボード・タッチ・ゲームパッド入力
 js/audio.js       効果音シンセ、BGMシーケンサ、MMLパーサ
 js/music.js       BGMデータ（MMLのメロディ＋コード進行）
@@ -98,6 +100,10 @@ js/main.js        起動とメインループ
 - 弾の種類：`small` `ball` `large` `dot` `rice` `kunai` `amulet` `star` `bigstar` `ice`
 - 弾の色：`red` `orange` `yellow` `green` `cyan` `blue` `purple` `pink` `white` `dark`
 - 難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)` で指定できます
+- 見た目は `img/` のPNGを同じ名前で置き換えると変えられます（背景は透明にしてください）
+  - `player.png`：ゲーム中の自機（霊夢・魔理沙共通）
+  - `foot_fairy.png`：各面でいちばん弱い妖精
+  - `midboss1.png`：1面の中ボス
 - 曲は `js/music.js` にMML（`o5 e4. d8 c4 o4 a4 |` のような書き方）とコード進行で追加できます
 
 ## ライセンス・ガイドライン

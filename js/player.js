@@ -465,8 +465,13 @@ class Player {
     }
     if (blink) ctx.globalAlpha = 0.35;
     ctx.save();
-    ctx.translate(this.x, this.y + 2);
-    drawPlayerBack(ctx, this.id, this.frame, this.tilt);
+    ctx.translate(this.x, this.y + Math.sin(this.frame * 0.1) * 0.6);
+    // 画像の自機（高さ30px）。移動方向に少し傾ける
+    ctx.transform(1, 0, -this.tilt * 0.12, 1, 0, 0);
+    if (!drawImageSprite(ctx, 'player', 30, 0.3, 0.52)) {
+      ctx.translate(0, 2);
+      drawPlayerBack(ctx, this.id, this.frame, this.tilt);
+    }
     ctx.restore();
     ctx.globalAlpha = 1;
   }

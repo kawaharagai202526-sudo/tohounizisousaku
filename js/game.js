@@ -284,7 +284,7 @@ class GameScene {
     this.score += e.score;
     dropItems(e.x, e.y, e.drops);
     const col = { blue: 'rgba(120,160,255,0.8)', red: 'rgba(255,120,120,0.8)', green: 'rgba(120,255,150,0.8)', yellow: 'rgba(255,230,120,0.8)', purple: 'rgba(210,140,255,0.8)' }[e.color] || 'rgba(255,255,255,0.8)';
-    Fx.explosion(e.x, e.y, col, e.kind === 'bigfairy' ? 1.8 : 1);
+    Fx.explosion(e.x, e.y, col, e.r >= 18 ? 1.8 : 1);
     Sound.se('kill');
     if (e.onDeath) e.onDeath(e);
   }
