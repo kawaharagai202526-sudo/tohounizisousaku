@@ -605,7 +605,8 @@ function applyQuality(key) {
 /* =====================================================================
    地形（広域タイル + 市街の高解像度タイル）、勢力図テクスチャ、水面
    ===================================================================== */
-const regionCanvas = document.createElement('canvas'); regionCanvas.width = 64; regionCanvas.height = 64;
+const OPT = Object.assign({ hatch: 0.35, regionTex: [64, 64], ribbonMax: 1.7, ribbonFadeFar: [40, 70], unitMax: 6, ribbonHover: 0.02, camSwoop: 2.5, planeMax: 4, unitLabelMax: [260, 420] }, typeof SCENE_OPT !== 'undefined' ? SCENE_OPT : {});
+const regionCanvas = document.createElement('canvas'); regionCanvas.width = OPT.regionTex[0]; regionCanvas.height = OPT.regionTex[1];
 const cityCanvas = document.createElement('canvas'); cityCanvas.width = 64; cityCanvas.height = 64;
 const regionTex = new THREE.CanvasTexture(regionCanvas), cityTex = new THREE.CanvasTexture(cityCanvas);
 for (const t of [regionTex, cityTex]) { t.flipY = false; t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; }
@@ -686,7 +687,7 @@ float tn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f); return mix(mix(t
   float inC = step(0.0, cuv.x)*step(cuv.x, 1.0)*step(0.0, cuv.y)*step(cuv.y, 1.0);
   vec4 tc = texture2D(uCityTex, clamp(cuv, 0.0, 1.0));
   float axis = mix(tr.r, tc.r, inC), pocket = mix(tr.g, tc.g, inC), allied = tr.b*(1.0-inC), sov = tc.b*inC*uSovStrip;
-  float hatch = smoothstep(0.35, 0.5, abs(fract((p.x + p.y)*0.35) - 0.5));
+  float hatch = smoothstep(0.35, 0.5, abs(fract((p.x + p.y)*${OPT.hatch.toFixed(5)}) - 0.5));
   vec3 tA = mix(c*0.62 + vec3(0.05,0.10,0.22), c*0.5 + vec3(0.20,0.12,0.02), allied);
   c = mix(c, tA, clamp(axis, 0., 1.)*uTerr*0.8);
   c = mix(c, c*0.7 + vec3(0.16,0.03,0.02), pocket*hatch*uTerr*0.45);
@@ -958,8 +959,8 @@ function buildFX() {
   // 閃光（爆発・対空砲火）: [ax, az, bx, bz, 開始, 終了, 強さ, サイズ, 高さ, 周期, 煙]
   for (const [ax, az, bx, bz, t0, t1, k, size, lift, life, sm] of FIRELINES) {
     const ay = Hw(ax, az), by = Hw(bx, bz), L = Math.max(Math.hypot(bx - ax, bz - az), 0.05);
-    for (let i = 0; i < Math.max(3, Math.round(L * 30 * k)); i++) flash.push([[ax, ay, az, size], [t0, t1, life * (0.7 + r() * 0.6), r() * 20], [r() * 100, bx, bz, 0], [lift ? L * 0.5 : Math.max(0.03, L * 0.08), by, lift / 0.15, 0]]);
-    if (sm) for (let e = 0; e < Math.max(2, Math.round(L * 5 * k)); e++) { const u = r(), x = lerp(ax, bx, u), z = lerp(az, bz, u), y = lerp(ay, by, u) + lift * (0.6 + r() * 0.6);
+    for (let i = 0; i < clamp(Math.round(L * 30 * k), 3, 260); i++) flash.push([[ax, ay, az, size], [t0, t1, life * (0.7 + r() * 0.6), r() * 20], [r() * 100, bx, bz, 0], [lift ? L * 0.5 : Math.max(0.03, L * 0.08), by, lift / 0.15, 0]]);
+    if (sm) for (let e = 0; e < clamp(Math.round(L * 5 * k), 2, 36); e++) { const u = r(), x = lerp(ax, bx, u), z = lerp(az, bz, u), y = lerp(ay, by, u) + lift * (0.6 + r() * 0.6);
       for (let q = 0; q < 3; q++) smoke.push([[x, y, z, size * 1.6], [t0 + r() * 2, t1, 5 + r() * 3, q / 3 * 6 + r() * 2], [r(), lift ? 0.2 : 0.8, 0.6, 0.7], [lift ? 0.15 : 1, 0, 0, 0]]); }
   }
   smokeFX = makeBillboards(smoke.length ? smoke : [[[0, -99, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]], SMOKE_BODY, PUFF_FRAG, false); smokeFX.renderOrder = 5;
@@ -1144,7 +1145,7 @@ class Arrow {
 function makeRibbonMaterial() {
   const m = new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uA: { value: FCOL.gb.clone() }, uB: { value: FCOL.fr.clone() }, uAlpha: { value: 1 }, uW: { value: 1 }, uReveal: { value: 1 }, uMode: { value: 0 }, uSeam: { value: 0 }, uGlow: { value: 1 } }]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uA: { value: new THREE.Color(1, 0.3, 0.2) }, uB: { value: new THREE.Color(0.3, 0.5, 1) }, uAlpha: { value: 1 }, uW: { value: 1 }, uReveal: { value: 1 }, uMode: { value: 0 }, uSeam: { value: 0 }, uGlow: { value: 1 } }]),
     vertexShader: `attribute vec3 aOff; attribute float aU; attribute float aVis; uniform float uW; varying float vV; varying float vU; varying float vVis;
 #include <fog_pars_vertex>
     void main(){ vec3 p = position + vec3(aOff.x, 0.0, aOff.y) * uW * 0.5; vV = aOff.z; vU = aU; vVis = aVis;
@@ -1194,10 +1195,11 @@ class Ribbon {
 /* ---------- 部隊（小さな戦車・歩兵ブロックの編隊） ---------- */
 let unitMeshes = {};
 function mergeBoxes(parts) { const pos = []; for (const p of parts) pos.push(...p.toNonIndexed().attributes.position.array); const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); return g; }
-const GEO_OF = k => ['ship', 'bb', 'cv', 'dd'].includes(k) ? k : k === 'air' ? 'air' : 'box';
+const GEO_OF = k => ['ship', 'bb', 'cv', 'dd'].includes(k) ? k : k === 'air' ? 'air' : k === 'armor' ? 'tank' : 'box';
 function unitGeometry(type) {
   const B = (w, h, d, x = 0, y = 0, z = 0) => new THREE.BoxGeometry(w, h, d).translate(x, y, z);
   if (type === 'box') return mergeBoxes([B(1, 0.32, 0.42, 0, 0.16, 0)]);
+  if (type === 'tank') return mergeBoxes([B(0.62, 0.22, 1.0, 0, 0.11, 0), B(0.4, 0.16, 0.46, 0, 0.3, -0.05), B(0.07, 0.07, 0.55, 0, 0.3, 0.4)]);
   if (type === 'cv') return mergeBoxes([B(0.13, 0.07, 0.86, 0, 0.035, 0), B(0.2, 0.02, 1.0, 0, 0.08, 0.0), B(0.035, 0.08, 0.1, 0.085, 0.13, 0.08)]); // 空母：飛行甲板と艦橋
   if (type === 'bb') return mergeBoxes([B(0.16, 0.07, 1.0, 0, 0.035, 0), B(0.1, 0.07, 0.34, 0, 0.1, 0.02), B(0.05, 0.14, 0.06, 0, 0.17, 0.08), B(0.07, 0.04, 0.12, 0, 0.09, 0.34), B(0.07, 0.04, 0.12, 0, 0.09, -0.3)]); // 戦艦
   if (type === 'dd' || type === 'ship') return mergeBoxes([B(0.1, 0.06, 1.0, 0, 0.03, 0), B(0.06, 0.07, 0.3, 0, 0.09, 0.05), B(0.035, 0.05, 0.05, 0, 0.14, -0.12)]);
@@ -1208,7 +1210,7 @@ function buildUnits(forms) {
   const counts = {}; for (const f of forms) { const g = GEO_OF(f.kind); counts[g] = (counts[g] || 0) + f.n; }
   for (const g in counts) {
     const mat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.1 });
-    mat.onBeforeCompile = s => { fogUniforms(s); s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor * ' + (g === 'box' || g === 'air' ? '0.55' : '0.12') + ';'); };
+    mat.onBeforeCompile = s => { fogUniforms(s); s.fragmentShader = s.fragmentShader.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += vColor * ' + (g === 'box' || g === 'air' || g === 'tank' ? '0.55' : '0.12') + ';'); };
     const m = new THREE.InstancedMesh(unitGeometry(g), mat, counts[g]); m.castShadow = true; m.frustumCulled = false; m.userData.k = 0; unitMeshes[g] = m; scene.add(m);
   }
   const r = rng(1122);
@@ -1227,7 +1229,7 @@ function buildUnits(forms) {
 const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
 const GREY = new THREE.Color(0.3, 0.3, 0.3);
 function updateUnits(forms, t, camDist) {
-  const us = clamp(camDist * 0.016, 0.028, 6);
+  const us = clamp(camDist * 0.016, 0.028, OPT.unitMax);
   for (const f of forms) {
     const [x, z] = f.track.at(t); const x2 = f.track.at(t + 0.35);
     let hd = f.face ?? 0; const mx = x2[0] - x, mz = x2[1] - z; if (Math.hypot(mx, mz) > 0.004 * Math.max(1, f.spread * 0.1)) hd = Math.atan2(mx, -mz) / DEG; else if (f.heading != null && f.face == null) hd = f.heading;
@@ -1238,7 +1240,7 @@ function updateUnits(forms, t, camDist) {
     f.alpha = a * (1 - sc * 0.9) * (1 - sur) * (1 - smooth(0.8, 1, sink));
     const th = Math.PI - hd * DEG, ch = Math.cos(th), sh = Math.sin(th);
     const W = f.spread * (f.line ? 1 : 0.7), D = f.spread * (f.line ? 1 : 0.7);
-    const g = GEO_OF(f.kind), isShip = g !== 'box' && g !== 'air';
+    const g = GEO_OF(f.kind), isShip = g !== 'box' && g !== 'air' && g !== 'tank';
     const base = g === 'air' ? us * 0.9 : isShip ? Math.max((f.len || 0.2) * 1.3, us * 3.4) : us;
     for (const s of f.slots) {
       let ox = s.ox * W, oz = s.oz * D, rotX = 0;
@@ -1438,7 +1440,7 @@ const CAM_KEYS = [
    ディレクター：時刻 t から全要素を決定（シーク・一時停止に対応）
    ===================================================================== */
 let arrows = [], ribbons = {}, cityRibbon, buildingsList;
-const DAY = 86400000, parseD = s => Date.parse(s + ':00Z');
+const DAY = 86400000, parseD = s => Date.parse(s.length > 10 ? s + ':00Z' : s + 'T12:00:00Z');
 const DATE_T = DATE_KEYS.map(([t, d]) => [t, parseD(d)]);
 
 function cityFrontDist(z, t) {
@@ -1485,17 +1487,17 @@ function updateTerritory(t, force) {
 }
 
 function updateFronts(t, camDist) {
-  const regW = clamp(camDist * 0.006, 0.012, 1.7), regFade = 1 - smooth(40, 70, camDist);
+  const regW = clamp(camDist * 0.006, 0.012, OPT.ribbonMax), regFade = 1 - smooth(OPT.ribbonFadeFar[0], OPT.ribbonFadeFar[1], camDist);
   for (const tr of TERR) {
     const rb = ribbons[tr.id]; if (!rb) continue;
-    const f = terrCache.fronts[tr.id], a = trackAlpha(tr, t) * (tr.id.startsWith('pocket') ? smooth(3, 8, camDist) : regFade);
+    const f = terrCache.fronts[tr.id], a = trackAlpha(tr, t) * regFade;
     rb.mesh.visible = !!f && a > 0.01; if (!rb.mesh.visible) continue;
     let pts = f; if (tr.closed) { let A = 0; for (let i = 0; i < f.length; i++) { const p = f[i], q = f[(i + 1) % f.length]; A += p[0] * q[1] - q[0] * p[1]; } if (A < 0) pts = f.slice().reverse(); }
     rb.set(pts, tr.id === 'axis' || tr.id === 'outer' ? (x, z) => 1 - smooth(-10, -7, x) * (1 - smooth(4, 7, x)) * smooth(-17, -14, z) * (1 - smooth(15, 18, z)) : null);
-    rb.mat.uniforms.uAlpha.value = a; rb.mat.uniforms.uW.value = tr.id.startsWith('pocket') ? clamp(camDist * 0.006, 0.05, 1.6) : regW;
+    rb.mat.uniforms.uAlpha.value = a; rb.mat.uniforms.uW.value = regW;
     if (tr.reveal) {
       rb.mat.uniforms.uMode.value = 1; rb.mat.uniforms.uReveal.value = smooth(tr.reveal[0], tr.reveal[1], t);
-      let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = Math.hypot(p[0] + 60, p[1] - 8); if (d < bd) { bd = d; bi = i; } }); rb.mat.uniforms.uSeam.value = bi / pts.length;
+      let bi = 0, bd = 1e9; pts.forEach((p, i) => { const sp = tr.seam || [-60, 8], d = Math.hypot(p[0] - sp[0], p[1] - sp[1]); if (d < bd) { bd = d; bi = i; } }); rb.mat.uniforms.uSeam.value = bi / pts.length;
     }
   }
 }
@@ -1530,7 +1532,7 @@ function polyAt(pts, u, out) { // 折れ線上の位置と進行方向
 }
 const _pa = [0, 0, 0, 0], _pcol = new THREE.Color();
 function updateFlights(t, camDist) {
-  const s = clamp(camDist * 0.0075, 0.02, 4); let k = 0;
+  const s = clamp(camDist * 0.0075, 0.02, OPT.planeMax); let k = 0;
   for (const F of FLIGHTS) {
     if (t < F.t0 - 0.1 || t > F.t1 + F.dur) continue;
     const first = Math.max(0, Math.floor((t - F.dur - F.t0) / F.interval)), last = Math.floor((t - F.t0) / F.interval);
@@ -1563,7 +1565,7 @@ function initCamera() { // 追尾キーは、その時刻の部隊位置 + オ�
   // 遠く離れた場面へ移るときは、途中で高く引いてから寄る（オーバーシュートも防ぐ）
   for (let i = 0; i < CAM_KEYS.length - 1; i++) {
     const A = CAM_KEYS[i], B = CAM_KEYS[i + 1], D = Math.hypot(B[1] - A[1], B[2] - A[2]);
-    if (D > 2.5 * (A[3] + B[3]) && !A.mid && !B.mid) {
+    if (D > OPT.camSwoop * (A[3] + B[3]) && !A.mid && !B.mid) {
       A.hold = B.hold = true;
       let yb = B[5]; while (yb - A[5] > 180) yb -= 360; while (yb - A[5] < -180) yb += 360;
       const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2, (A[2] + B[2]) / 2, Math.max(A[3], B[3], D * 0.55), 52, (A[5] + yb) / 2, 40]; M.mid = true;
@@ -1612,7 +1614,7 @@ function buildLabels() {
     pos: () => [e.p[0], Hw(e.p[0], e.p[1]) + 0.1, e.p[1]], alpha: t => win(t, e.t0, e.t1, 0.8, 1.2) });
   for (const b of BIG_LABELS) addLabel({ cls: 'lb-big', html: b.text, prio: 6, pos: () => [b.p[0], 3, b.p[1]], alpha: (t, d) => win(t, b.t0, b.t1, 2, 2) * win(d, b.min, b.max, 10, 40) });
   for (const f of FORMS) addLabel({ cls: 'lb-unit', color: FACTION[f.f], html: `<b>${f.name}</b>${f.sub ? `<span>${f.sub}</span>` : ''}`, prio: 4,
-    pos: () => { const p = f.pos || [0, 0]; return [p[0], (GEO_OF(f.kind) === 'air' ? (f.alt ?? 3) : Hw(p[0], p[1])) + camState.dist * 0.035, p[1]]; }, alpha: (t, d) => (f.alpha || 0) * smooth(Math.max(f.spread, 0.3) * 0.8, Math.max(f.spread, 0.3) * 2.2, d) * (1 - smooth(260, 420, d)) });
+    pos: () => { const p = f.pos || [0, 0]; return [p[0], (GEO_OF(f.kind) === 'air' ? (f.alt ?? 3) : Hw(p[0], p[1])) + camState.dist * 0.035, p[1]]; }, alpha: (t, d) => (f.alpha || 0) * smooth(Math.max(f.spread, 0.3) * 0.8, Math.max(f.spread, 0.3) * 2.2, d) * (1 - smooth(OPT.unitLabelMax[0], OPT.unitLabelMax[1], d)) });
   for (const a of arrows) if (a.label) addLabel({ cls: 'lb-arrow', color: LCOL[a.f], html: a.label, prio: 7, pos: () => a.labelPos(), alpha: (t, d) => (a.alpha || 0) * smooth(0.25, 0.5, a.p || 0) * smooth(a.width * 1.2, a.width * 4, d) * (1 - smooth(a.width * 90, a.width * 150, d)) });
 }
 const _pv = new THREE.Vector3();
@@ -1806,13 +1808,13 @@ async function main() {
   txt.textContent = '市街と部隊を配置しています…';
   buildOcean(); buildScenery(); buildSnow(); buildPlanes(); buildUnits(FORMS); buildFX();
   arrows = ARROWS.map(d => new Arrow(d));
-  for (const tr of TERR) if (tr.ribbon) { const rb = new Ribbon(tr.n, !!tr.closed, 0.02); rb.mat.uniforms.uA.value.copy(FCOL[tr.colA]); rb.mat.uniforms.uB.value.copy(FCOL.fr); ribbons[tr.id] = rb; }
+  for (const tr of TERR) if (tr.ribbon) { const rb = new Ribbon(tr.n, !!tr.closed, OPT.ribbonHover); rb.mat.uniforms.uA.value.copy(FCOL[tr.colA]); rb.mat.uniforms.uB.value.copy(FCOL[tr.colB || 'fr']); ribbons[tr.id] = rb; }
   initCamera();
   buildLabels(); bindUI();
   progress(1); txt.textContent = '準備ができました';
   $('btnStart').disabled = false; $('btnStart').focus();
   requestAnimationFrame(frame);
-  window.__demo = { seek, setPlaying, state, scene, sun, U, terrainMat, bloom, composer, FORMS, camState, camera };
+  window.__demo = { seek, setPlaying, state, scene, sun, U, terrainMat, bloom, composer, FORMS, camState, camera, regionCanvas, terrCache };
 }
 window.addEventListener('error', e => { const el = $('err'); el.style.display = 'block'; el.textContent = '表示エラー: ' + (e.message || e); });
 main().catch(e => { console.error(e); const el = $('err'); el.style.display = 'block'; el.textContent = 'WebGL の初期化に失敗しました: ' + e.message; });
