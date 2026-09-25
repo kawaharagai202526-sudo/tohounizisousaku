@@ -137,6 +137,7 @@ select.cbtn{padding-right:6px}
 .lb-event .pin-box small{color:#ffe1d8}
 .lb-event.axis .pin-box{background:#3d5f93}
 .lb-big{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:.5em;color:#ffb3a8;text-shadow:0 0 4px #000,0 0 18px rgba(0,0,0,.9)}
+#app.render .controls,#app.render .toast{display:none}#app.render{cursor:none}
 @media (prefers-reduced-motion:reduce){.caption,.card,.bar,.controls{transition:none}}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -199,6 +200,7 @@ select.cbtn{padding-right:6px}
     <select class="cbtn" id="quality" aria-label="画質"><option value="high">高画質</option><option value="std">標準</option><option value="low">軽量</option></select>
     <button class="cbtn" id="btnLabels" aria-pressed="true" aria-label="ラベル表示">ラベル</button>
     <button class="cbtn" id="btnSound" aria-pressed="true" aria-label="サウンド">音</button>
+    <button class="cbtn" id="btnRec" aria-label="動画として録画" title="このタブを録画して動画ファイルに保存（PC版 Chrome / Edge）">録画</button>
     <button class="cbtn" id="btnFull" aria-label="全画面"><svg viewBox="0 0 16 16"><path d="M1 1h5v2H3v3H1zM10 1h5v5h-2V3h-3zM1 10h2v3h3v2H1zM13 10h2v5h-5v-2h3z"/></svg></button>
   </div>
 
@@ -464,7 +466,7 @@ function fogUniforms(s) { s.uniforms.uHFog = U.uHFog; s.uniforms.uTime = U.uTime
 
 const canvas = document.getElementById('stage');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
-const QUALITY = { high: { pr: 1.75, shadow: 2048, msaa: 4, bloom: true }, std: { pr: 1.25, shadow: 1024, msaa: 2, bloom: true }, low: { pr: 0.85, shadow: 0, msaa: 0, bloom: false } };
+const QUALITY = { high: { pr: 1.75, shadow: 2048, msaa: 4, bloom: true }, std: { pr: 1.25, shadow: 1024, msaa: 2, bloom: true }, low: { pr: 0.85, shadow: 0, msaa: 0, bloom: false }, video: { pr: 1, shadow: 0, msaa: 0, bloom: true } };
 let QKEY = 'std'; try { QKEY = localStorage.getItem('stalingrad-q') || (matchMedia('(max-width: 760px)').matches ? 'low' : 'std'); } catch (e) {}
 if (!QUALITY[QKEY]) QKEY = 'std';
 let PR = Math.min(window.devicePixelRatio || 1, QUALITY[QKEY].pr);
@@ -1659,11 +1661,13 @@ const audio = (() => {
     update(t, A) {
       if (!ctx || !state.playing || !state.sound) return;
       windG.gain.setTargetAtTime(0.02 + 0.06 * A.snow + 0.03 * A.snowfall, ctx.currentTime, 1); windF.frequency.setTargetAtTime(500 + 500 * A.snowfall, ctx.currentTime, 1);
-      const base = win(t, 62, 244) * 1.2 + win(t, 88, 240) * 1.0 + win(t, 104, 122) * 2 + win(t, 140, 166) * 1.5 + win(t, 176, 240) * 1 + win(t, 216, 232) * 2.5 + win(t, 13, 20) * 1.5;
+      const base = audioLevel(t, A);
       const now = performance.now(); if (base > 0.05 && now - lastBoom > 1000 / (base * 2) * (0.4 + Math.random())) { lastBoom = now; boom(0.12 + Math.random() * 0.25 * Math.min(1, base)); }
     },
   };
 })();
+
+function audioLevel(t, A) { return win(t, 62, 244) * 1.2 + win(t, 88, 240) * 1.0 + win(t, 104, 122) * 2 + win(t, 140, 166) * 1.5 + win(t, 176, 240) * 1 + win(t, 216, 232) * 2.5 + win(t, 13, 20) * 1.5; }
 
 /* ---------- 位置図・方位・縮尺 ---------- */
 const loc = $('locator'), lctx = loc.getContext('2d'); let LOCR = { x0: -10, z0: -9, s: 22 };
@@ -1721,9 +1725,10 @@ function updateHUD(t) {
 const tmpP = new THREE.Vector3(), tmpT = new THREE.Vector3();
 let lastFrame = performance.now(), slowTime = 0, locTick = 0;
 function frame(now) {
-  const dt = Math.min(0.1, (now - lastFrame) / 1000); lastFrame = now;
+  const manual = typeof now === 'object', dt = manual ? now.dt : Math.min(0.1, (now - lastFrame) / 1000), clock = manual ? now.t : now / 1000;
+  if (manual) state.t = now.t; else lastFrame = now;
   if (state.playing) { state.t += dt * state.speed; if (state.t >= T_END) { state.t = T_END; setPlaying(false); } }
-  const t = state.t; U.uTime.value = now / 1000; U.uStory.value = t; grade.uniforms.uT.value = (now / 1000) % 100;
+  const t = state.t; U.uTime.value = clock; U.uStory.value = t; grade.uniforms.uT.value = clock % 100;
   const A = state.freezeAtmos ? state.lastA : (state.lastA = applyAtmos(t));
   // カメラ
   const fov = cinemaCam(t, tmpP, tmpT);
@@ -1746,15 +1751,41 @@ function frame(now) {
   updateLabels(t, camState.dist, state.labels, state.jump ? 1 : dt); state.jump = false;
   updateHUD(t);
   if (++locTick % 4 === 0) drawLocator();
-  audio.update(t, A);
+  if (!manual) audio.update(t, A);
   // 自動品質調整
   if (dt > 0.045 && state.playing) slowTime += dt; else slowTime = Math.max(0, slowTime - dt * 0.5);
   if (slowTime > 4 && QKEY !== 'low') { const nk = QKEY === 'high' ? 'std' : 'low'; applyQuality(nk); $('quality').value = nk; toast('動作が重いため画質を下げました'); slowTime = 0; }
   if (state.playing && performance.now() - state.lastInput > 2800) $('controls').classList.add('idle');
-  requestAnimationFrame(frame);
+  if (!manual) requestAnimationFrame(frame);
+}
+
+
+/* ---------- 録画（このタブを画面収録して動画ファイルに保存） ---------- */
+async function recordVideo() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) { toast('このブラウザでは録画できません（PC版の Chrome / Edge で、保存したファイルを開いてください）'); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: true, preferCurrentTab: true, selfBrowserSurface: 'include' }); }
+  catch (e) { toast('録画を開始できませんでした（共有する画面で「このタブ」を選んでください）'); return; }
+  const types = ['video/mp4;codecs=avc1.640028,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'];
+  const mime = types.find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8e6 }), chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => {
+    stream.getTracks().forEach(tr => tr.stop()); app.classList.remove('render'); setPlaying(false);
+    const blob = new Blob(chunks, { type: mime || 'video/webm' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = document.title.replace(/[（(].*$/, '').trim() + (mime.includes('mp4') ? '.mp4' : '.webm');
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    toast('録画を保存しました');
+  };
+  stream.getVideoTracks()[0].addEventListener('ended', () => rec.state !== 'inactive' && rec.stop());
+  state.sound = true; audio.start(); seek(0); app.classList.add('render');
+  await new Promise(r => setTimeout(r, 600));
+  rec.start(1000); setPlaying(true);
+  const watch = setInterval(() => { if (state.t >= T_END - 0.05 || rec.state === 'inactive') { clearInterval(watch); if (rec.state !== 'inactive') setTimeout(() => rec.stop(), 800); } }, 200);
 }
 
 function bindUI() {
+  $('btnRec').onclick = () => recordVideo();
   $('btnPlay').onclick = () => setPlaying(!state.playing);
   $('btnPrev').onclick = () => { const i = chapterIndex(state.t); jumpChapter(state.t - CHAPTERS[i].t > 2 ? i : i - 1); };
   $('btnNext').onclick = () => jumpChapter(chapterIndex(state.t) + 1);
@@ -1773,6 +1804,7 @@ function bindUI() {
     else if (k === 'ArrowRight') seek(state.t + 5); else if (k === 'ArrowLeft') seek(state.t - 5);
     else if (k >= '1' && k <= '8') jumpChapter(+k - 1);
     else if (k === 'l' || k === 'L') $('btnLabels').click();
+    else if (k === 'Escape' && app.classList.contains('render')) app.classList.remove('render');
     else if (k === 'h' || k === 'H') app.classList.toggle('hide-ui');
     else if (k === 'f' || k === 'F') $('btnFull').click();
   });
@@ -1792,9 +1824,49 @@ async function main() {
   buildLabels(); bindUI();
   progress(1); txt.textContent = '準備ができました';
   $('btnStart').disabled = false; $('btnStart').focus();
-  requestAnimationFrame(frame);
+  if (RENDER) enterRenderMode(); else requestAnimationFrame(frame);
   window.__demo = { seek, setPlaying, state, scene, sun, U, terrainMat, bloom, composer };
 }
+
+/* =====================================================================
+   動画書き出し用：#render で開くと 1 フレームずつ描画できる。音声はオフラインで合成
+   ===================================================================== */
+const RENDER = /render/.test(location.hash);
+async function renderAudio(sr = 22050) {
+  const len = Math.ceil(T_END * sr), ctx = new OfflineAudioContext(1, len, sr), r = rng(4242);
+  const master = ctx.createGain(), comp = ctx.createDynamicsCompressor(); master.connect(comp).connect(ctx.destination);
+  master.gain.setValueAtTime(0, 0); master.gain.linearRampToValueAtTime(0.8, 2); master.gain.setValueAtTime(0.8, Math.max(2, T_END - 3)); master.gain.linearRampToValueAtTime(0, T_END);
+  const nb = ctx.createBuffer(1, sr * 2, sr), nd = nb.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 0.7; lp.connect(master);
+  for (const f of [73.42, 110, 87.31, 146.83]) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = (r() - 0.5) * 12; g.gain.value = 0.028; o.connect(g).connect(lp); o.start(0); }
+  const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 160; lfo.connect(lg).connect(lp.frequency); lfo.start(0);
+  const ws = ctx.createBufferSource(); ws.buffer = nb; ws.loop = true; const wf = ctx.createBiquadFilter(); wf.type = 'bandpass'; wf.Q.value = 0.6; const wg = ctx.createGain();
+  ws.connect(wf).connect(wg).connect(master); ws.start(0);
+  for (let t = 0; t <= T_END; t += 1) { const A = sKeys(ATMOS, t); wg.gain.linearRampToValueAtTime(0.02 + 0.06 * (A.snow || 0) + 0.03 * (A.snowfall || 0), t); wf.frequency.linearRampToValueAtTime(500 + 500 * (A.snowfall || 0), t); }
+  let t = 0;
+  while (t < T_END - 1) {
+    const lv = audioLevel(t, sKeys(ATMOS, t));
+    if (lv > 0.05) {
+      const s = ctx.createBufferSource(); s.buffer = nb; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 90 + r() * 160; const g = ctx.createGain(), v = 0.12 + r() * 0.25 * Math.min(1, lv);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0008, t + 1.2 + r());
+      s.connect(f).connect(g).connect(master); s.start(t, r() * 1.5); s.stop(t + 2.5);
+      t += 1 / (lv * 2) * (0.4 + r());
+    } else t += 0.25;
+  }
+  const buf = await ctx.startRendering(), ch = buf.getChannelData(0), out = new DataView(new ArrayBuffer(44 + ch.length * 2));
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) out.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); out.setUint32(4, 36 + ch.length * 2, true); w(8, 'WAVE'); w(12, 'fmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true); out.setUint16(22, 1, true);
+  out.setUint32(24, sr, true); out.setUint32(28, sr * 2, true); out.setUint16(32, 2, true); out.setUint16(34, 16, true); w(36, 'data'); out.setUint32(40, ch.length * 2, true);
+  for (let i = 0; i < ch.length; i++) out.setInt16(44 + i * 2, clamp(ch[i], -1, 1) * 32767, true);
+  const bytes = new Uint8Array(out.buffer); let bin = ''; for (let i = 0; i < bytes.length; i += 32768) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+  return btoa(bin);
+}
+function enterRenderMode() {
+  app.classList.add('render'); $('start').remove(); state.started = true; state.labels = true;
+  const q = (location.hash.match(/render-(\w+)/) || [])[1]; if (q && QUALITY[q]) applyQuality(q);
+  window.__render = { T_END, frame: (t, dt) => { frame({ t, dt }); return true; }, audio: sr => renderAudio(sr) };
+}
+
 window.addEventListener('error', e => { const el = $('err'); el.style.display = 'block'; el.textContent = '表示エラー: ' + (e.message || e); });
 main().catch(e => { console.error(e); const el = $('err'); el.style.display = 'block'; el.textContent = 'WebGL の初期化に失敗しました: ' + e.message; });
 </script>
