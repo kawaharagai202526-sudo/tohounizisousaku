@@ -110,6 +110,25 @@ function* zigzag(n, color = 'blue', bcolor = 'cyan', type = 'rice') {
   }
 }
 
+// 緑の手（2面以降の道中のザコ）。降りてきて、5本の指に合わせて5方向の弾を撃つ
+function handEnemy(x, o = {}) {
+  return spawnEnemy({
+    x, y: -20, kind: 'hand', hp: o.hp ?? 24, r: 14, color: 'green', score: 2000, drops: { power: 2, point: 1 },
+    script: function* (e) {
+      yield* e.moveTo(x, o.stopY ?? 100, 50);
+      for (let k = 0; k < (o.times ?? dv(1, 2, 2, 3)); k++) {
+        fireFan({ x: e.x, y: e.y + 8, n: 5, spread: dv(0.8, 0.9, 1.0, 1.1), angle: e.aim(), speed: dv(1.8, 2.1, 2.5, 2.9), type: 'kunai', color: 'red' });
+        if (DIFF >= 2) {
+          yield 8;
+          fireFan({ x: e.x, y: e.y + 8, n: 5, spread: 1.0, angle: e.aim(), speed: 1.6, type: 'kunai', color: 'red' });
+        }
+        yield 50;
+      }
+      e.setMove(0, -Math.PI / 2, 0.06);
+    },
+  });
+}
+
 function* waitClear(timeout = 1200) {
   yield* waitUntil(() => G.enemies.length === 0, timeout);
 }

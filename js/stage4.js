@@ -392,7 +392,9 @@ STAGES.push({
     [96, 288].forEach(x => sniperFairy(x, 90));
     yield 150;
     sniperFairy(192, 70);
-    yield 120;
+    yield 60;
+    [100, 284].forEach(x => handEnemy(x, { stopY: 130 }));
+    yield 60;
     for (let i = 0; i < 4; i++) { wallCrystal(i % 2 ? 1 : -1, i * 10); yield 50; }
     yield 100;
     g.tasks.add(swarmStream(-1, 14, { y: 80, color: 'green' }));
@@ -432,6 +434,7 @@ STAGES.push({
       yield 110;
     }
     [80, 304].forEach(x => sniperFairy(x, 100));
+    [150, 234].forEach(x => handEnemy(x, { stopY: 150 }));
     yield 160;
     fairyLine(6, 50);
     yield* waitClear(900);

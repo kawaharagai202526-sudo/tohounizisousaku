@@ -98,6 +98,10 @@ class Enemy {
       }
       case 'crystal': drawCrystal(ctx, this.frame, this.side || 1); break;
       case 'butterfly': drawBlueButterfly(ctx, this.frame, this.phase, this.angle); break;
+      case 'hand':
+        ctx.rotate(Math.sin(this.frame * 0.08 + this.phase) * 0.15);
+        if (!drawImageSprite(ctx, 'hand', 34)) drawFairy(ctx, 'green', this.frame, false);
+        break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }
     if (this.flash > 0) {

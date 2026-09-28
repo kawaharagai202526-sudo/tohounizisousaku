@@ -14,6 +14,7 @@ const CHARA_INFO = {
   // 提供画像のキャラクター（未定の名前・二つ名は「？？？」）
   // image：カットイン・立ち絵用の原画、dot：ゲーム中のドット絵
   boss3: { name: '？？？', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
+  midboss3: { name: '？？？', title: '？？？', color: '#f4a8d8', image: 'midboss3', dot: 'midboss3Dot' },
   boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
 };
 

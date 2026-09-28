@@ -10,7 +10,10 @@ const IMAGE_FILES = {
   player: 'img/player.png',        // ゲーム中の霊夢
   midboss1: 'img/midboss1.png',    // 1面の中ボス
   boss3: 'img/boss3.png',          // 3面ボス（カットイン用の原画）
-  boss3Dot: 'img/boss3_dot.png',   // 3面ボス（ゲーム中のドット絵）
+  boss3Dot: 'img/boss3_dot.png',   // 3面ボス（ゲーム中のドット絵・全身）
+  midboss3: 'img/midboss3.png',    // 3面中ボス（原画）
+  midboss3Dot: 'img/midboss3_dot.png', // 3面中ボス（ゲーム中のドット絵）
+  hand: 'img/hand.png',            // 2面以降の道中のザコ（緑の手）
   boss4: 'img/boss4.png',          // 4面ボス（カットイン用の原画）
   boss4Dot: 'img/boss4_dot.png',   // 4面ボス（ゲーム中のドット絵）
 };

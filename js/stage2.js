@@ -207,7 +207,9 @@ STAGES.push({
     g.tasks.add(freezerWave(-1, 6));
     yield 120;
     g.tasks.add(freezerWave(1, 6));
-    yield 200;
+    yield 120;
+    [110, 274].forEach(x => handEnemy(x));
+    yield 120;
     g.tasks.add(starShower(300, dv(16, 26, 40, 56), ['cyan', 'blue', 'white', 'yellow']));
     g.tasks.add(kedamaRain(300, dv(10, 14, 18, 22), 'blue'));
     yield 320;
@@ -246,6 +248,7 @@ STAGES.push({
     g.tasks.add(starShower(420, dv(20, 32, 46, 64), ['cyan', 'blue', 'white', 'yellow'], true));
     yield 60;
     yield* zigzag(14, 'green', 'green', 'ice');
+    [70, 192, 314].forEach((x, i) => handEnemy(x, { stopY: 80 + i * 15 }));
     yield 60;
     iceFairyV(7, 'purple');
     yield 120;

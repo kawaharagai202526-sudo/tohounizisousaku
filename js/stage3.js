@@ -1,31 +1,40 @@
 'use strict';
 // ============================================================
-//  3面：星降る大樹 ― 中ボス：スターサファイア／ボス：？？？
+//  3面：星降る大樹 ― 中ボス：？？？（コウモリ羽の子）／ボス：？？？（羊の角の子）
 // ============================================================
 
-const STAR_MID_PHASES = [
+// ------------------------------------------------------------
+//  3面中ボス（提供画像のコウモリ羽の子。名前は未定）
+//  紅魔郷の小悪魔を参考に、大玉の壁と赤クナイのまとまりを撃つ。スペルカードは無し
+// ------------------------------------------------------------
+const MIDBOSS3_PHASES = [
   {
     type: 'non', hp: 1300, time: 28,
     *script(b) {
       yield 30;
-      for (let loop = 0; ; loop++) {
-        const n = dv(12, 16, 22, 28);
-        const off = rand(TAU);
-        for (let i = 0; i < n; i++) {
-          fire({
-            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 3, accel: -0.08, minSpeed: 0, type: 'star', color: 'yellow',
-            script: function* (bl) {
-              yield 40;
-              bl.angle = aimAt(bl.x, bl.y) + rand(-0.3, 0.3);
-              bl.accel = 0.04;
-              bl.maxSpeed = dv(1.6, 2, 2.4, 2.8);
-              bl.setColor('white');
-            },
-          });
+      for (let wave = 0; ; wave++) {
+        // 大玉の壁。自機の方向がすき間になり、近づかれるほどすき間は狭い
+        const n = dv(8, 10, 12, 14);
+        const off = b.aim() + Math.PI / n;
+        for (let r = 0; r < 2; r++) {
+          fireRing({ x: b.x, y: b.y, n, angle: off, speed: 1.5 + r * 0.4, type: 'large', color: wave % 2 ? 'purple' : 'pink' });
         }
+        yield 24;
+        // 2波目からは赤クナイのまとまり（細長い1本の弾のように飛ぶ）
+        if (wave >= 1) {
+          const m = dv(3, 4, 5, 6);
+          for (let i = 0; i < m; i++) {
+            const a = b.aim() + (i - (m - 1) / 2) * 0.42;
+            for (let k = 0; k < dv(3, 4, 5, 5); k++) {
+              fire({ x: b.x, y: b.y, angle: a, speed: 2.0 + k * 0.22, type: 'kunai', color: 'red', silent: k > 0 });
+            }
+          }
+        }
+        yield 30;
+        // 動き回り、ときどき下のほうまで詰め寄ってくる
+        const low = wave % 3 === 2;
+        b.move(clamp(G.player.x + rand(-80, 80), 60, FIELD_W - 60), low ? rand(150, dv(170, 190, 210, 220)) : rand(70, 120), 50);
         yield 50;
-        b.wander(50, 70);
-        yield dv(50, 40, 30, 24);
       }
     },
   },
@@ -210,15 +219,17 @@ STAGES.push({
     [96, 288].forEach(x => laserFairy(x, 90));
     yield 120;
     laserFairy(192, 70);
+    yield 60;
+    [140, 244].forEach(x => handEnemy(x, { stopY: 120 }));
     yield 150;
     g.tasks.add(starShower(360, dv(24, 36, 54, 74), ['yellow', 'white', 'pink', 'cyan'], true));
     yield* zigzag(14, 'yellow', 'yellow', 'star');
     yield* waitClear(300);
 
-    // 中ボス：スターサファイア（顔見せ）
-    const mid = g.spawnBoss('star', { circleColor: '140,160,255', x: FIELD_W / 2, y: -50 });
+    // 中ボス（コウモリ羽の子）
+    const mid = g.spawnBoss('midboss3', { circleColor: '255,150,210', x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
-    yield* g.fight(mid, STAR_MID_PHASES);
+    yield* g.fight(mid, MIDBOSS3_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 5, point: 8, bomb: 1 });
     yield* g.bossDown(mid, true);
     yield 60;
@@ -247,7 +258,9 @@ STAGES.push({
     g.tasks.add(swirlWave(1, 10));
     yield 240;
     [80, 192, 304].forEach(x => laserFairy(x, 80));
-    yield 120;
+    yield 60;
+    [130, 254].forEach(x => handEnemy(x, { stopY: 140 }));
+    yield 60;
     [120, 264].forEach(x => ringFairy(x, { color: 'blue', bcolor: 'yellow', type: 'star', stopY: 120, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 120;
