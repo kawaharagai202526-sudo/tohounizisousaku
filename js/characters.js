@@ -11,10 +11,10 @@ const CHARA_INFO = {
   daiyousei: { name: '大妖精', title: '湖に棲む妖精', color: '#7ae08a' },
   cirno: { name: 'チルノ', title: '湖上の氷精', color: '#7ad0ff' },
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
-  // 提供画像のキャラクター（名前は未定なので「？？？」）
+  // 提供画像のキャラクター（未定の名前・二つ名は「？？？」）
   // image：カットイン・立ち絵用の原画、dot：ゲーム中のドット絵
   boss3: { name: '？？？', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
-  boss4: { name: '？？？', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
+  boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
 };
 
 const CHARA = {
@@ -599,8 +599,7 @@ function drawPortrait(ctx, id, x, y, scale, face = 'normal', t = 0, flip = false
   ctx.translate(x, y);
   const image = CHARA_INFO[id] && CHARA_INFO[id].image;
   if (image) {
-    // 画像のキャラクターは原画をそのまま使う（ドット絵にはしない）
-    if (flip) ctx.scale(-1, 1);
+    // 画像のキャラクターは原画をそのまま使う（ドット絵にせず、左右反転もしない）
     drawImageSprite(ctx, image, scale * 56, 0.5, 0.55);
   } else {
     ctx.scale(flip ? -scale : scale, scale);

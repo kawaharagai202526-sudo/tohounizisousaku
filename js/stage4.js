@@ -1,6 +1,6 @@
 'use strict';
 // ============================================================
-//  4面：星屑の洞窟 ― 中ボス：スターサファイア／ボス：？？？
+//  4面：星屑の洞窟 ― 中ボス：スターサファイア／ボス：瑠璃
 //  道中は紺珠伝（狙いを定めた弾・レーザー）と
 //  妖々夢（弱い妖精の大群）を参考にしている
 // ============================================================
@@ -70,7 +70,7 @@ const STAR_MID4_PHASES = [
 ];
 
 // ------------------------------------------------------------
-//  4面ボス（提供画像のキャラクター。名前は未定）
+//  4面ボス：瑠璃（提供画像のキャラクター）
 //  鹿の角・瑠璃色の蝶の羽・本から、蝶・頁・枝分かれする角の弾幕
 //  スペルカード名は仮のもの
 // ------------------------------------------------------------
@@ -298,6 +298,39 @@ function wallCrystal(side, wait = 0) {
   });
 }
 
+// 瑠璃の青い蝶：弾は撃たないが、ぶつかると被弾する。毛玉と同じ大きさで一撃で倒せる
+function blueButterfly(x, y, angle, speed, o = {}) {
+  const ph = rand(TAU);
+  return spawnEnemy({
+    x, y, kind: 'butterfly', hp: 0.4, r: 10, score: 200, speed, angle,
+    drops: rng.next() < 0.12 ? { point: 1 } : {},
+    script: function* (e) {
+      // ひらひらと進行方向を揺らしながら飛ぶ
+      for (;;) {
+        e.angle = angle + Math.sin(e.frame * (o.freq ?? 0.1) + ph) * (o.amp ?? 0.7);
+        yield;
+      }
+    },
+  });
+}
+
+// 上から蝶が舞い降りてくる
+function* butterflyRain(frames, count) {
+  const interval = Math.max(1, Math.floor(frames / count));
+  for (let i = 0; i < count; i++) {
+    blueButterfly(rand(16, FIELD_W - 16), -12, Math.PI / 2 + rand(-0.3, 0.3), rand(1.0, 1.6));
+    yield interval;
+  }
+}
+
+// 横から蝶の群れが波打ちながら横切る
+function* butterflyStream(side, n, y = 120) {
+  for (let i = 0; i < n; i++) {
+    blueButterfly(side < 0 ? -12 : FIELD_W + 12, y + rand(-30, 30), side < 0 ? 0.2 : Math.PI - 0.2, 1.8, { amp: 0.5, freq: 0.08 });
+    yield 8;
+  }
+}
+
 // 横一列に並んだ妖精が真下へ弾を流し、弾の間が通り道になる
 function fairyLine(n = 7, y = 60) {
   for (let i = 0; i < n; i++) {
@@ -353,7 +386,9 @@ STAGES.push({
     g.tasks.add(swarmStream(-1, 18));
     yield 50;
     g.tasks.add(swarmStream(1, 18));
-    yield 260;
+    yield 120;
+    g.tasks.add(butterflyRain(300, dv(24, 34, 44, 54)));
+    yield 200;
     [96, 288].forEach(x => sniperFairy(x, 90));
     yield 150;
     sniperFairy(192, 70);
@@ -362,7 +397,9 @@ STAGES.push({
     yield 100;
     g.tasks.add(swarmStream(-1, 14, { y: 80, color: 'green' }));
     g.tasks.add(swarmStream(1, 14, { y: 80, color: 'green' }));
-    yield 200;
+    yield 120;
+    g.tasks.add(butterflyStream(-1, dv(10, 14, 18, 22), 200));
+    yield 120;
     fairyLine(7, 60);
     yield 320;
     yield* waitClear(300);
@@ -383,6 +420,12 @@ STAGES.push({
     g.tasks.add(starShower(420, dv(20, 30, 44, 60), ['cyan', 'blue', 'white', 'purple'], true));
     for (let i = 0; i < 6; i++) { wallCrystal(i % 2 ? 1 : -1); yield 45; }
     yield* waitClear(500);
+    // 青い蝶の大群
+    g.tasks.add(butterflyRain(480, dv(40, 60, 80, 100)));
+    g.tasks.add(butterflyStream(-1, dv(12, 16, 20, 24), 150));
+    yield 160;
+    g.tasks.add(butterflyStream(1, dv(12, 16, 20, 24), 230));
+    yield 280;
     for (let w = 0; w < 3; w++) {
       g.tasks.add(swarmStream(-1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
       g.tasks.add(swarmStream(1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
@@ -394,13 +437,12 @@ STAGES.push({
     yield* waitClear(900);
     yield 120;
 
-    // ボス（会話はあとで追加する）
+    // ボス：瑠璃（ボス曲は会話の途中で始まる）
     const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
-    Sound.playBgm('boss4');
-    g.showBgmTitle('boss4');
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
-    yield 30;
+    yield* g.talk(STORY.stage4[g.charId].before);
     yield* g.fight(boss, BOSS4_PHASES);
     yield* g.bossDown(boss);
+    yield* g.talk(STORY.stage4[g.charId].after);
   },
 });

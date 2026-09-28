@@ -298,8 +298,10 @@ function drawBossTitle(ctx, g) {
   ctx.globalAlpha = Math.max(0, a);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.font = `600 13px ${FONT_JP}`;
-  strokeText(ctx, info.title, FIELD_W - 18, 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+  if (info.title !== '？？？') {
+    ctx.font = `600 13px ${FONT_JP}`;
+    strokeText(ctx, info.title, FIELD_W - 18, 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+  }
   ctx.font = `800 26px ${FONT_JP}`;
   strokeText(ctx, info.name, FIELD_W - 18, 260, info.color, 'rgba(0,0,0,0.9)', 4);
   ctx.globalAlpha = 1;

@@ -27,6 +27,7 @@ class Enemy {
     this.noBody = !!o.noBody;
     this.onDeath = o.onDeath || null;
     this.side = o.side ?? 1;
+    this.phase = frand(TAU);
     this.tasks = new TaskRunner();
     if (o.script) this.tasks.add(o.script(this));
   }
@@ -96,6 +97,7 @@ class Enemy {
         break;
       }
       case 'crystal': drawCrystal(ctx, this.frame, this.side || 1); break;
+      case 'butterfly': drawBlueButterfly(ctx, this.frame, this.phase, this.angle); break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }
     if (this.flash > 0) {
@@ -106,6 +108,36 @@ class Enemy {
     }
     ctx.restore();
   }
+}
+
+// 瑠璃の青い蝶（4面）。毛玉と同じくらいの大きさで、羽ばたきながら進む
+function drawBlueButterfly(ctx, t, phase, angle) {
+  const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.25 + phase));
+  ctx.save();
+  ctx.rotate(angle - Math.PI / 2 + Math.PI);
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+  g.addColorStop(0, 'rgba(80,150,255,0.35)');
+  g.addColorStop(1, 'rgba(80,150,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  for (const s of [-1, 1]) {
+    ctx.save();
+    ctx.scale(s * flap, 1);
+    ctx.fillStyle = '#16307e';
+    ell(ctx, 5, -3.5, 6, 4.6, -0.5); ctx.fill();
+    ctx.fillStyle = '#3f86ff';
+    ell(ctx, 5, -3.5, 4.4, 3.2, -0.5); ctx.fill();
+    ctx.fillStyle = '#16307e';
+    ell(ctx, 3.8, 3.6, 4.2, 3.4, 0.5); ctx.fill();
+    ctx.fillStyle = '#6cc0ff';
+    ell(ctx, 3.8, 3.6, 2.8, 2.2, 0.5); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#0a1230';
+  ell(ctx, 0, 0, 1.3, 4.8); ctx.fill();
+  ctx.restore();
 }
 
 // 洞窟の壁に生えた水晶（4面）

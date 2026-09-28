@@ -1513,10 +1513,10 @@ const CHARA_INFO = {
   daiyousei: { name: '大妖精', title: '湖に棲む妖精', color: '#7ae08a' },
   cirno: { name: 'チルノ', title: '湖上の氷精', color: '#7ad0ff' },
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
-  // 提供画像のキャラクター（名前は未定なので「？？？」）
+  // 提供画像のキャラクター（未定の名前・二つ名は「？？？」）
   // image：カットイン・立ち絵用の原画、dot：ゲーム中のドット絵
   boss3: { name: '？？？', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
-  boss4: { name: '？？？', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
+  boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
 };
 
 const CHARA = {
@@ -2101,8 +2101,7 @@ function drawPortrait(ctx, id, x, y, scale, face = 'normal', t = 0, flip = false
   ctx.translate(x, y);
   const image = CHARA_INFO[id] && CHARA_INFO[id].image;
   if (image) {
-    // 画像のキャラクターは原画をそのまま使う（ドット絵にはしない）
-    if (flip) ctx.scale(-1, 1);
+    // 画像のキャラクターは原画をそのまま使う（ドット絵にせず、左右反転もしない）
     drawImageSprite(ctx, image, scale * 56, 0.5, 0.55);
   } else {
     ctx.scale(flip ? -scale : scale, scale);
@@ -3796,6 +3795,7 @@ class Enemy {
     this.noBody = !!o.noBody;
     this.onDeath = o.onDeath || null;
     this.side = o.side ?? 1;
+    this.phase = frand(TAU);
     this.tasks = new TaskRunner();
     if (o.script) this.tasks.add(o.script(this));
   }
@@ -3865,6 +3865,7 @@ class Enemy {
         break;
       }
       case 'crystal': drawCrystal(ctx, this.frame, this.side || 1); break;
+      case 'butterfly': drawBlueButterfly(ctx, this.frame, this.phase, this.angle); break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }
     if (this.flash > 0) {
@@ -3875,6 +3876,36 @@ class Enemy {
     }
     ctx.restore();
   }
+}
+
+// 瑠璃の青い蝶（4面）。毛玉と同じくらいの大きさで、羽ばたきながら進む
+function drawBlueButterfly(ctx, t, phase, angle) {
+  const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.25 + phase));
+  ctx.save();
+  ctx.rotate(angle - Math.PI / 2 + Math.PI);
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
+  g.addColorStop(0, 'rgba(80,150,255,0.35)');
+  g.addColorStop(1, 'rgba(80,150,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  for (const s of [-1, 1]) {
+    ctx.save();
+    ctx.scale(s * flap, 1);
+    ctx.fillStyle = '#16307e';
+    ell(ctx, 5, -3.5, 6, 4.6, -0.5); ctx.fill();
+    ctx.fillStyle = '#3f86ff';
+    ell(ctx, 5, -3.5, 4.4, 3.2, -0.5); ctx.fill();
+    ctx.fillStyle = '#16307e';
+    ell(ctx, 3.8, 3.6, 4.2, 3.4, 0.5); ctx.fill();
+    ctx.fillStyle = '#6cc0ff';
+    ell(ctx, 3.8, 3.6, 2.8, 2.2, 0.5); ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#0a1230';
+  ell(ctx, 0, 0, 1.3, 4.8); ctx.fill();
+  ctx.restore();
 }
 
 // 洞窟の壁に生えた水晶（4面）
@@ -4426,8 +4457,10 @@ function drawBossTitle(ctx, g) {
   ctx.globalAlpha = Math.max(0, a);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.font = `600 13px ${FONT_JP}`;
-  strokeText(ctx, info.title, FIELD_W - 18, 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+  if (info.title !== '？？？') {
+    ctx.font = `600 13px ${FONT_JP}`;
+    strokeText(ctx, info.title, FIELD_W - 18, 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+  }
   ctx.font = `800 26px ${FONT_JP}`;
   strokeText(ctx, info.name, FIELD_W - 18, 260, info.color, 'rgba(0,0,0,0.9)', 4);
   ctx.globalAlpha = 1;
@@ -5252,6 +5285,40 @@ const STORY = {
         ['marisa', 'normal', '力を使い果たしたんだな。\nま、これで星降りもおしまいだ。'],
         ['star', 'normal', 'そのかけら、持っていってもいいわよ。\nもう、ただの石ころだもの。'],
         ['marisa', 'happy', 'いいのか？　へへ、ありがたく研究させてもらうぜ。'],
+      ],
+    },
+  },
+  stage4: {
+    reimu: {
+      before: [
+        { title: 'boss4' },
+        ['boss4', 'normal', '……あの、その目、ものすごく怖いのですが'],
+        ['reimu', 'angry', '妖精が暴れてるところには、必ずあんたの蝶が飛んでるのよ。怪しすぎるわ'],
+        ['boss4', 'normal', 'この子たちは騒がしい夢に集まる性質なのです。原因ではなく、結果なんです！'],
+        ['reimu', 'smug', '難しい話はいいわ。疑わしきは退治、それが博麗の流儀よ'],
+        ['boss4', 'normal', 'そんな流儀、聞いたことがありません！'],
+        { bgm: 'boss4' },
+        ['reimu', 'smug', '今作ったのよ。覚悟しなさい'],
+      ],
+      after: [
+        ['boss4', 'normal', '無実の妖怪を祓って、何か言うことはないのですか……？'],
+        ['reimu', 'normal', '紛らわしい蝶を飛ばしてるのが悪いのよ'],
+      ],
+    },
+    marisa: {
+      before: [
+        ['marisa', 'surprised', 'うわっ、しつこい妖精だな！ ……おっと、その青い蝶、妖精が暴れてるとこで何度も見かけたぜ'],
+        { title: 'boss4' },
+        ['boss4', 'normal', 'それは誤解です。この子たちは騒がしい夢に集まるだけで、妖精を暴れさせてはいません'],
+        ['marisa', 'smug', '本当かぁ？ 後ろの妖精どもを見てると、どうも信じられないんだよな'],
+        ['boss4', 'normal', '本当です。むしろ私も、騒ぎの原因を探しているところなんです'],
+        { bgm: 'boss4' },
+        ['marisa', 'happy', 'なら、弾幕で確かめさせてもらうぜ。嘘をついてる奴の弾は曲がってるもんだ'],
+        ['boss4', 'normal', 'そんな話、初めて聞きました……'],
+      ],
+      after: [
+        ['boss4', 'normal', '私は……無実です……'],
+        ['marisa', 'happy', '知ってたぜ。ちょっと遊びたかっただけだ'],
       ],
     },
   },
@@ -6117,7 +6184,7 @@ STAGES.push({
 <script>
 'use strict';
 // ============================================================
-//  4面：星屑の洞窟 ― 中ボス：スターサファイア／ボス：？？？
+//  4面：星屑の洞窟 ― 中ボス：スターサファイア／ボス：瑠璃
 //  道中は紺珠伝（狙いを定めた弾・レーザー）と
 //  妖々夢（弱い妖精の大群）を参考にしている
 // ============================================================
@@ -6187,7 +6254,7 @@ const STAR_MID4_PHASES = [
 ];
 
 // ------------------------------------------------------------
-//  4面ボス（提供画像のキャラクター。名前は未定）
+//  4面ボス：瑠璃（提供画像のキャラクター）
 //  鹿の角・瑠璃色の蝶の羽・本から、蝶・頁・枝分かれする角の弾幕
 //  スペルカード名は仮のもの
 // ------------------------------------------------------------
@@ -6415,6 +6482,39 @@ function wallCrystal(side, wait = 0) {
   });
 }
 
+// 瑠璃の青い蝶：弾は撃たないが、ぶつかると被弾する。毛玉と同じ大きさで一撃で倒せる
+function blueButterfly(x, y, angle, speed, o = {}) {
+  const ph = rand(TAU);
+  return spawnEnemy({
+    x, y, kind: 'butterfly', hp: 0.4, r: 10, score: 200, speed, angle,
+    drops: rng.next() < 0.12 ? { point: 1 } : {},
+    script: function* (e) {
+      // ひらひらと進行方向を揺らしながら飛ぶ
+      for (;;) {
+        e.angle = angle + Math.sin(e.frame * (o.freq ?? 0.1) + ph) * (o.amp ?? 0.7);
+        yield;
+      }
+    },
+  });
+}
+
+// 上から蝶が舞い降りてくる
+function* butterflyRain(frames, count) {
+  const interval = Math.max(1, Math.floor(frames / count));
+  for (let i = 0; i < count; i++) {
+    blueButterfly(rand(16, FIELD_W - 16), -12, Math.PI / 2 + rand(-0.3, 0.3), rand(1.0, 1.6));
+    yield interval;
+  }
+}
+
+// 横から蝶の群れが波打ちながら横切る
+function* butterflyStream(side, n, y = 120) {
+  for (let i = 0; i < n; i++) {
+    blueButterfly(side < 0 ? -12 : FIELD_W + 12, y + rand(-30, 30), side < 0 ? 0.2 : Math.PI - 0.2, 1.8, { amp: 0.5, freq: 0.08 });
+    yield 8;
+  }
+}
+
 // 横一列に並んだ妖精が真下へ弾を流し、弾の間が通り道になる
 function fairyLine(n = 7, y = 60) {
   for (let i = 0; i < n; i++) {
@@ -6470,7 +6570,9 @@ STAGES.push({
     g.tasks.add(swarmStream(-1, 18));
     yield 50;
     g.tasks.add(swarmStream(1, 18));
-    yield 260;
+    yield 120;
+    g.tasks.add(butterflyRain(300, dv(24, 34, 44, 54)));
+    yield 200;
     [96, 288].forEach(x => sniperFairy(x, 90));
     yield 150;
     sniperFairy(192, 70);
@@ -6479,7 +6581,9 @@ STAGES.push({
     yield 100;
     g.tasks.add(swarmStream(-1, 14, { y: 80, color: 'green' }));
     g.tasks.add(swarmStream(1, 14, { y: 80, color: 'green' }));
-    yield 200;
+    yield 120;
+    g.tasks.add(butterflyStream(-1, dv(10, 14, 18, 22), 200));
+    yield 120;
     fairyLine(7, 60);
     yield 320;
     yield* waitClear(300);
@@ -6500,6 +6604,12 @@ STAGES.push({
     g.tasks.add(starShower(420, dv(20, 30, 44, 60), ['cyan', 'blue', 'white', 'purple'], true));
     for (let i = 0; i < 6; i++) { wallCrystal(i % 2 ? 1 : -1); yield 45; }
     yield* waitClear(500);
+    // 青い蝶の大群
+    g.tasks.add(butterflyRain(480, dv(40, 60, 80, 100)));
+    g.tasks.add(butterflyStream(-1, dv(12, 16, 20, 24), 150));
+    yield 160;
+    g.tasks.add(butterflyStream(1, dv(12, 16, 20, 24), 230));
+    yield 280;
     for (let w = 0; w < 3; w++) {
       g.tasks.add(swarmStream(-1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
       g.tasks.add(swarmStream(1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
@@ -6511,14 +6621,13 @@ STAGES.push({
     yield* waitClear(900);
     yield 120;
 
-    // ボス（会話はあとで追加する）
+    // ボス：瑠璃（ボス曲は会話の途中で始まる）
     const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
-    Sound.playBgm('boss4');
-    g.showBgmTitle('boss4');
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
-    yield 30;
+    yield* g.talk(STORY.stage4[g.charId].before);
     yield* g.fight(boss, BOSS4_PHASES);
     yield* g.bossDown(boss);
+    yield* g.talk(STORY.stage4[g.charId].after);
   },
 });
 
