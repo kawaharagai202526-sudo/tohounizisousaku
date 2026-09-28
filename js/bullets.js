@@ -5,8 +5,11 @@
 
 // 全体の難しさの調整（Easy / Normal / Hard / Lunatic）
 // 敵弾の移動速度と、リング弾（全方位弾）の数にこの倍率を掛ける
-const BULLET_SPEED_SCALE = [0.78, 0.86, 0.93, 1.0];
-const RING_DENSITY_SCALE = [0.72, 0.8, 0.9, 1.0];
+// さらにステージごとの倍率（STAGES の speedScale / densityScale）も掛かる
+const BULLET_SPEED_SCALE = [0.78, 0.86, 1.0, 1.12];
+const RING_DENSITY_SCALE = [0.72, 0.8, 1.05, 1.25];
+function bulletSpeedK() { return BULLET_SPEED_SCALE[DIFF] * ((G && G.stage && G.stage.speedScale) || 1); }
+function ringDensityK() { return RING_DENSITY_SCALE[DIFF] * ((G && G.stage && G.stage.densityScale) || 1); }
 
 class Bullet {
   init(o) {
@@ -63,7 +66,7 @@ class Bullet {
     this.sprite = getBulletSprite(type, this.color);
   }
 
-  update() {
+  update(k) {
     this.frame++;
     if (this.script) {
       if (this.wait > 0) this.wait--;
@@ -82,7 +85,6 @@ class Bullet {
     }
     this.vx = Math.cos(this.angle) * this.speed + this.evx;
     this.vy = Math.sin(this.angle) * this.speed + this.evy;
-    const k = BULLET_SPEED_SCALE[DIFF];
     this.x += this.vx * k;
     this.y += this.vy * k;
     if (this.rotates) {
@@ -107,7 +109,8 @@ class BulletManager {
   }
   update() {
     const list = this.list;
-    for (let i = 0; i < list.length; i++) if (list[i].alive) list[i].update();
+    const k = bulletSpeedK();
+    for (let i = 0; i < list.length; i++) if (list[i].alive) list[i].update(k);
     let j = 0;
     for (let i = 0; i < list.length; i++) {
       const b = list[i];
@@ -243,13 +246,19 @@ function fire(o) {
 }
 function fireRing(o) {
   const out = [];
-  const n = Math.max(3, Math.round(o.n * RING_DENSITY_SCALE[DIFF])), base = o.angle ?? 0;
+  const n = Math.max(3, Math.round(o.n * ringDensityK())), base = o.angle ?? 0;
   for (let i = 0; i < n; i++) out.push(fire({ ...o, angle: base + (i * TAU) / n }));
   return out;
 }
 function fireFan(o) {
   const out = [];
-  const n = o.n, sp = o.spread ?? 0.5, base = o.angle ?? Math.PI / 2;
+  let n = o.n, sp = o.spread ?? 0.5;
+  const base = o.angle ?? Math.PI / 2;
+  // Lunatic は扇の両端に1発ずつ足す（弾どうしの間隔はそのまま）
+  if (DIFF >= 3 && n >= 3) {
+    sp = (sp * (n + 1)) / (n - 1);
+    n += 2;
+  }
   for (let i = 0; i < n; i++) {
     const a = n === 1 ? base : base - sp / 2 + (sp * i) / (n - 1);
     out.push(fire({ ...o, angle: a }));

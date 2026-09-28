@@ -28,7 +28,7 @@ function starObject(x, color, maxFall) {
     angle: Math.PI / 2 + rand(-0.2, 0.2),
     script: function* (e) {
       for (;;) {
-        e.speed = Math.min(e.speed + 0.025, maxFall * BULLET_SPEED_SCALE[DIFF]);
+        e.speed = Math.min(e.speed + 0.025, maxFall * bulletSpeedK());
         yield;
       }
     },

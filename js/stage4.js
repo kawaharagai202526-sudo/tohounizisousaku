@@ -380,6 +380,10 @@ STAGES.push({
   nameEn: 'The Grotto of Stardust',
   bg: CaveBG,
   bgm: 'stage4',
+  // 4面は全難易度で他の面より難しい（弾速・全方位弾の数・ボスの体力）
+  speedScale: 1.08,
+  densityScale: 1.2,
+  hpScale: 1.1,
   *script(g) {
     yield 160;
     // 前半：妖精の大群 → 狙撃妖精 → 水晶のレーザー
@@ -387,7 +391,7 @@ STAGES.push({
     yield 50;
     g.tasks.add(swarmStream(1, 18));
     yield 120;
-    g.tasks.add(butterflyRain(300, dv(24, 34, 44, 54)));
+    g.tasks.add(butterflyRain(300, dv(30, 42, 56, 70)));
     yield 200;
     [96, 288].forEach(x => sniperFairy(x, 90));
     yield 150;
@@ -423,7 +427,7 @@ STAGES.push({
     for (let i = 0; i < 6; i++) { wallCrystal(i % 2 ? 1 : -1); yield 45; }
     yield* waitClear(500);
     // 青い蝶の大群
-    g.tasks.add(butterflyRain(480, dv(40, 60, 80, 100)));
+    g.tasks.add(butterflyRain(480, dv(50, 74, 98, 124)));
     g.tasks.add(butterflyStream(-1, dv(12, 16, 20, 24), 150));
     yield 160;
     g.tasks.add(butterflyStream(1, dv(12, 16, 20, 24), 230));

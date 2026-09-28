@@ -13,7 +13,7 @@ const CHARA_INFO = {
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
   // 提供画像のキャラクター（未定の名前・二つ名は「？？？」）
   // image：カットイン・立ち絵用の原画、dot：ゲーム中のドット絵
-  boss3: { name: '？？？', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
+  boss3: { name: '羊宮 ラム', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
   midboss3: { name: '？？？', title: '？？？', color: '#f4a8d8', image: 'midboss3', dot: 'midboss3Dot' },
   boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
 };
@@ -50,6 +50,13 @@ const CHARA = {
     back: 'longStraight', dress: '#2a4cc4', top: '#2a4cc4', trim: '#ffffff', collar: '#ffffff', neck: '#f2d23a',
     sleeve: 'puff', legs: '#ffffff', shoes: '#1c2a6a', acc: 'starRibbon', wings: 'fairy',
   },
+};
+
+// キャラクター選択で使う、ゲーム中の自機（青い霊夢）に合わせた配色
+CHARA.reimuBlue = {
+  ...CHARA.reimu,
+  hair: '#3a3846', hairDark: '#26242e', hairHi: '#8a8ca0',
+  dress: '#5b7fd8', top: '#5b7fd8', accent: '#4a6cd0', eye: '#4a5cb8',
 };
 
 function ell(ctx, x, y, rx, ry, rot = 0) {
@@ -252,7 +259,7 @@ function drawArms(ctx, s, pose) {
       ctx.moveTo(side * 6.5, -4); ctx.lineTo(side * 9.5, -5);
       ctx.lineTo(side * 15, 8); ctx.lineTo(side * 7.5, 8); ctx.closePath();
       ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = '#d61f2c';
+      ctx.strokeStyle = s.accent || '#d61f2c';
       ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(side * 6.8, -3.6); ctx.lineTo(side * 9.6, -4.6); ctx.stroke();
       ctx.fillStyle = s.skin;
@@ -283,7 +290,7 @@ function drawChibi(ctx, id, o = {}) {
   if (s.wings === 'fairy') drawFairyWings(ctx, t, 'rgba(190,225,255,0.42)');
   if (s.wings === 'ice') drawIceWings(ctx, t);
   drawBackHair(ctx, s);
-  if (s.acc === 'reimuBow') drawBigBow(ctx, 0, -31, '#d61f2c', '#ffffff', 1);
+  if (s.acc === 'reimuBow') drawBigBow(ctx, 0, -31, s.accent || '#d61f2c', '#ffffff', 1);
   if (s.acc === 'bigBow') drawBigBow(ctx, 0, -30, '#3a6ef0', '#dff4ff', 0.95);
 
   // 脚
@@ -380,7 +387,7 @@ function drawChibi(ctx, id, o = {}) {
     if (s.tubes) {
       ctx.fillStyle = '#f6ecc4';
       ctx.fillRect(side * 11.2 - 1.6, -10, 3.2, 4.2);
-      ctx.fillStyle = '#d61f2c';
+      ctx.fillStyle = s.accent || '#d61f2c';
       ctx.fillRect(side * 11.2 - 1.6, -8.4, 3.2, 1);
       ctx.fillStyle = s.hair;
     }

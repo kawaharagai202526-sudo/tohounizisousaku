@@ -7,6 +7,7 @@ const STAGES = [];
 const EXTEND_POINTS = [50, 125, 250, 400, 600];
 const Settings = { lives: Store.get('lives', 3) };
 const PRACTICE_POWER = [100, 250, 400, 400]; // プラクティス開始時の霊力
+const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'bigfairy']);
 
 // スペルカード取得履歴
 const SpellHistory = {
@@ -288,6 +289,11 @@ class GameScene {
     Fx.explosion(e.x, e.y, col, e.r >= 18 ? 1.8 : 1);
     Sound.se('kill');
     if (e.onDeath) e.onDeath(e);
+    // Lunatic はザコを倒すと撃ち返し弾が飛んでくる（ボム中は無し）
+    if (DIFF >= 3 && REVENGE_KINDS.has(e.kind) && !this.player.bomb && this.player.state === 'normal') {
+      if (e.kind === 'bigfairy') fireRing({ x: e.x, y: e.y, n: 12, angle: rand(TAU), speed: 1.5, type: 'small', color: 'white' });
+      else fire({ x: e.x, y: e.y, angle: aimAt(e.x, e.y), speed: 1.9, type: 'dot', color: 'white' });
+    }
   }
 
   areaDamage(x, y, r, dmg, isBomb) {
@@ -473,7 +479,7 @@ class GameScene {
 
   *runPhase(boss, ph, index, total) {
     const spell = ph.type === 'spell';
-    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.75, 0.9, 1, 1.05));
+    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.75, 0.9, 1.05, 1.15) * (this.stage.hpScale || 1));
     boss.phase = ph;
     boss.timer = Math.round((ph.time ?? 30) * 60);
     const totalTime = boss.timer;

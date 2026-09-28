@@ -297,6 +297,9 @@ class DifficultyScene {
 // ------------------------------------------------------------
 //  キャラクター選択
 // ------------------------------------------------------------
+// キャラクター選択での色（霊夢はゲーム中の自機に合わせて青）
+const SELECT_COLOR = { reimu: '#7c9cff', marisa: '#ffd860' };
+
 class CharacterScene {
   constructor(mode, diff) {
     this.mode = mode;
@@ -335,11 +338,11 @@ class CharacterScene {
       const x = 20 + i * 310, y = 90, w = 290, h = 360;
       ctx.fillStyle = on ? 'rgba(50,34,110,0.8)' : 'rgba(16,12,40,0.6)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = on ? CHARA_INFO[id].color : 'rgba(255,255,255,0.15)';
+      ctx.strokeStyle = on ? SELECT_COLOR[id] : 'rgba(255,255,255,0.15)';
       ctx.lineWidth = on ? 2 : 1;
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       ctx.globalAlpha = on ? 1 : 0.5;
-      drawPortrait(ctx, id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
+      drawPortrait(ctx, id === 'reimu' ? 'reimuBlue' : id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
       ctx.globalAlpha = 1;
       const tx = x + 132;
       ctx.textAlign = 'left';
@@ -348,7 +351,7 @@ class CharacterScene {
       ctx.fillStyle = '#d0c8f0';
       ctx.fillText(CHARA_INFO[id].title, tx, y + 36);
       ctx.font = `800 22px ${FONT_JP}`;
-      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? CHARA_INFO[id].color : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? SELECT_COLOR[id] : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
       const pt = PLAYER_TYPES[id];
       ctx.font = `12px ${FONT_JP}`;
       ctx.fillStyle = on ? '#f0eaff' : '#9890b8';
