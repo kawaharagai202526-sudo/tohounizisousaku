@@ -362,9 +362,11 @@ const Input = {
   },
 
   onPointerDown(e) {
+    // マウスでは操作できない（キーボード・ゲームパッド・タッチのみ）
+    if (e.pointerType === 'mouse') return;
     e.preventDefault();
     this.firstInput();
-    if (e.pointerType !== 'mouse') this.isTouch = true;
+    this.isTouch = true;
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
     const p = this.toLogical(e);
     this.tapQueue.push(p);
