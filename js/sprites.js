@@ -103,6 +103,24 @@ const BTYPES = {
       c.fillStyle = col.core; starPath(c, 8, 3.4); c.fill();
     },
   },
+  // 蝶弾（進行方向を向く）
+  butterfly: {
+    size: 24, hitR: 3.0, rotate: true,
+    draw: (c, col) => {
+      for (const side of [-1, 1]) {
+        c.fillStyle = hexA(col.rim, 0.45);
+        c.beginPath(); c.ellipse(2, side * 6, 6.5, 4.8, side * 0.55, 0, TAU); c.fill();
+        c.fillStyle = col.rim;
+        c.beginPath(); c.ellipse(2, side * 5.5, 5, 3.6, side * 0.55, 0, TAU); c.fill();
+        c.beginPath(); c.ellipse(-4, side * 4, 3.8, 2.6, -side * 0.5, 0, TAU); c.fill();
+        c.fillStyle = hexA(col.core, 0.85);
+        c.beginPath(); c.ellipse(2.5, side * 5, 2.2, 1.5, side * 0.55, 0, TAU); c.fill();
+      }
+      c.strokeStyle = col.core;
+      c.lineWidth = 1.6;
+      c.beginPath(); c.moveTo(-6, 0); c.lineTo(6, 0); c.stroke();
+    },
+  },
   ice: {
     size: 22, hitR: 2.6, rotate: true,
     draw: (c, col) => {

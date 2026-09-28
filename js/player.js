@@ -11,7 +11,7 @@ const PLAYER_TYPES = {
     desc: '誘導弾で敵を自動で狙う、扱いやすいタイプ。\nボムは画面中の敵を追いかける光の玉。',
   },
   marisa: {
-    speed: 5.0, focusSpeed: 2.2, hitR: 2.4, deathbomb: 9,
+    speed: 5.0, focusSpeed: 2.2, hitR: 2.4, deathbomb: 12,
     shotDesc: ['高速移動：マジックミサイル', '低速移動：イリュージョンレーザー'],
     bombName: '恋符「マスタースパーク」',
     desc: '攻撃力と移動速度に優れたパワータイプ。\nボムは前方を焼き払う極太レーザー。',

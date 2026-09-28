@@ -171,8 +171,8 @@ const SONGS = {
   },
 
   boss3: {
-    title: 'スターサファイア 〜 Starlight Wish',
-    comment: 'スターサファイアのテーマ。\n星の光の妖精。今回の異変の犯人です。\n流れ星に願いを込めた、ラストバトルの曲。',
+    title: '眠れる羊と片羽の蝶',
+    comment: '3面ボスのテーマ（曲名は仮）。\n羊の角と片方だけの蝶の羽を持つ少女。\n夢と眠りの気配がする、少し切ない曲です。',
     bpm: 156,
     lead: 'trumpet', leadVol: 0.15,
     double: { inst: 'lead', vol: 0.05, shift: -12 },
@@ -197,6 +197,62 @@ const SONGS = {
     backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
     drums: 'drive',
   },
+
+  stage4: {
+    title: '星屑の眠る洞窟',
+    comment: '4面のテーマ。\n暗い洞窟の奥で、落ちた星のかけらが水晶のように光っています。\n鈴の音で水晶のきらめきを表しました。',
+    bpm: 150,
+    lead: 'lead', leadVol: 0.12,
+    double: { inst: 'bell', vol: 0.035, shift: 0 },
+    chords: ['F#m', 'D', 'E', 'C#m', 'F#m', 'D', 'Bm', 'C#', 'D', 'E', 'A', 'F#m', 'Bm', 'E', 'D', 'C#'],
+    melody: `
+      o5 c+4 f+8 g+8 a4 g+8 f+8 |
+      o5 a4. f+8 d4 f+4 |
+      o5 e8 f+8 g+8 b8 o6 e4 d8 c+8 |
+      o5 b4 g+4 e4 c+4 |
+      o5 c+4 f+8 g+8 a4 o6 c+4 |
+      o6 d4. c+8 o5 a4 f+4 |
+      o5 f+8 g+8 a8 b8 o6 d4 c+8 o5 b8 |
+      o5 e+2 g+4 o6 c+4 |
+      o6 d4 o5 a8 f+8 a4 o6 d4 |
+      o6 e4 o5 b8 g+8 b4 o6 e4 |
+      o6 c+4. d8 e4 c+4 |
+      o5 a2. f+4 |
+      o5 f+4 b8 o6 c+8 d4 f+4 |
+      o6 e4. d8 c+4 o5 b4 |
+      o5 a4 f+8 a8 o6 d4 c+8 o5 b8 |
+      o5 g+4 e+4 c+4 g+4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
+    drums: 'drive',
+  },
+
+  boss4: {
+    title: '瑠璃蝶の書架',
+    comment: '4面ボスのテーマ（曲名は仮）。\n鹿の角と瑠璃色の蝶の羽、一冊の本を持つ少女。\n最後の戦いらしく、いちばん激しく。',
+    bpm: 164,
+    lead: 'trumpet', leadVol: 0.15,
+    double: { inst: 'lead', vol: 0.05, shift: -12 },
+    chords: ['Fm', 'Db', 'Eb', 'C', 'Fm', 'Db', 'Bbm', 'C7', 'Db', 'Eb', 'Ab', 'Fm', 'Bbm', 'Eb', 'Db', 'C'],
+    melody: `
+      o5 c8 f8 a-8 o6 c8 o5 b-4 a-8 g8 |
+      o5 f4. a-8 o6 d-4 c4 |
+      o5 b-4 g8 e-8 g4 b-4 |
+      o5 e4 g4 o6 c4 o5 b-4 |
+      o5 c8 f8 a-8 o6 c8 d-4 c8 o5 b-8 |
+      o5 a-4. f8 d-4 f4 |
+      o5 d-8 f8 b-8 o6 d-8 c4 o5 b-4 |
+      o5 g2 b-4 e4 |
+      o5 f4 a-8 o6 d-8 f4 e-8 d-8 |
+      o6 e-4 o5 b-8 g8 b-4 o6 e-4 |
+      o6 c4. d-8 e-4 c4 |
+      o5 a-2. f4 |
+      o5 b-4. o6 c8 d-4 f4 |
+      o6 e-4 d-8 c8 o5 b-4 g4 |
+      o5 a-4 f8 a-8 o6 d-4 c8 o5 b-8 |
+      o5 g4 e4 c4 e4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
+    drums: 'drive',
+  },
 };
 
-const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3'];
+const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4'];

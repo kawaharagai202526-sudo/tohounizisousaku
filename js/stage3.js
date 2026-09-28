@@ -1,15 +1,7 @@
 'use strict';
 // ============================================================
-//  3面：星降る大樹 ― 中ボス／ボス：スターサファイア
+//  3面：星降る大樹 ― 中ボス：スターサファイア／ボス：？？？
 // ============================================================
-
-// 星座のかたち（座標は -1〜1、edges は結ぶ星の番号）
-const CONSTELLATIONS = [
-  { name: '北斗七星', pts: [[-1, -0.3], [-0.6, -0.36], [-0.25, -0.2], [0.05, 0], [0.2, 0.45], [0.78, 0.55], [0.88, 0.05]], edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]] },
-  { name: 'カシオペヤ', pts: [[-1, -0.4], [-0.5, 0.4], [0, -0.1], [0.5, 0.4], [1, -0.4]], edges: [[0, 1], [1, 2], [2, 3], [3, 4]] },
-  { name: 'オリオン', pts: [[-0.5, -1], [0.5, -0.9], [-0.22, 0], [0, 0.05], [0.22, 0.1], [-0.55, 0.95], [0.5, 1]], edges: [[0, 2], [1, 4], [2, 3], [3, 4], [2, 5], [4, 6]] },
-  { name: '夏の大三角', pts: [[-0.85, -0.5], [0.85, -0.7], [0.1, 0.85]], edges: [[0, 1], [1, 2], [2, 0]] },
-];
 
 const STAR_MID_PHASES = [
   {
@@ -39,141 +31,133 @@ const STAR_MID_PHASES = [
   },
 ];
 
-const STAR_PHASES = [
+// ------------------------------------------------------------
+//  3面ボス（提供画像のキャラクター。名前は未定）
+//  羊の角と片方だけの蝶の羽から、「眠り」と「夢」をテーマにした弾幕
+//  スペルカード名は仮のもの
+// ------------------------------------------------------------
+
+// 羊毛のかたまり：中心の玉のまわりに小玉を並べ、同じ動きで飛ばす
+function fireWool(x, y, o) {
+  const out = [fire({ ...o, x, y, type: 'ball', color: o.color || 'white' })];
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * TAU;
+    out.push(fire({ ...o, x: x + Math.cos(a) * 8, y: y + Math.sin(a) * 8, type: 'small', color: o.rim || 'pink', silent: true }));
+  }
+  return out;
+}
+
+const BOSS3_PHASES = [
   {
-    type: 'non', hp: 1200, time: 30,
+    type: 'non', hp: 1000, time: 30,
     *script(b) {
       yield 30;
-      for (let loop = 0; ; loop++) {
-        const n = dv(16, 24, 30, 38);
-        const dir = loop % 2 ? 1 : -1;
-        const off = rand(TAU);
-        fireRing({ x: b.x, y: b.y, n, angle: off, speed: 1.9, angVel: dir * 0.004, type: 'star', color: loop % 2 ? 'yellow' : 'blue' });
-        yield 18;
-        fireRing({ x: b.x, y: b.y, n, angle: off + Math.PI / n, speed: 1.35, angVel: -dir * 0.004, type: 'star', color: loop % 2 ? 'blue' : 'yellow' });
-        if (loop % 3 === 2) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.5, angle: b.aim(), speed: 2.4, type: 'bigstar', color: 'white' });
+      for (;;) {
+        const a = b.aim();
+        const n = dv(3, 3, 5, 7);
+        for (let i = 0; i < n; i++) fireWool(b.x, b.y, { angle: a + (i - (n - 1) / 2) * 0.34, speed: 1.6 });
+        yield 30;
+        fireRing({ x: b.x, y: b.y, n: dv(12, 16, 22, 28), angle: rand(TAU), speed: 1.3, type: 'small', color: 'pink' });
         yield 40;
-        if (loop % 2) b.wander(60, 60);
+        b.wander(60, 60);
+        yield 20;
       }
     },
   },
   {
-    type: 'spell', name: '星符「メテオシャワー」', hp: 1400, time: 40,
+    type: 'spell', name: '夢符「カウンティングシープ」', hp: 1200, time: 40,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      let count = 0;
+      for (let f = 0; ; f++) {
+        // 羊（羊毛のかたまり）が左右から交互に跳んでくる
+        if (f % dv(56, 44, 34, 26) === 0) {
+          const side = count % 2 ? 1 : -1;
+          count++;
+          fireWool(side < 0 ? -8 : FIELD_W + 8, rand(200, 300), {
+            angle: side < 0 ? 0 : Math.PI, speed: dv(1.6, 1.9, 2.2, 2.4), evy: -dv(2.6, 2.8, 3, 3.2), ay: 0.045, margin: 60, delay: 0,
+          });
+          Fx.text(b.x, b.y + 34, `ひつじが${count}匹`, '#fff0f8', 10, 50);
+        }
+        if (DIFF >= 1 && f % 70 === 35) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 1.8, type: 'rice', color: 'purple' });
+        yield;
+      }
+    },
+  },
+  {
+    type: 'non', hp: 1100, time: 30,
+    *script(b) {
+      yield 30;
+      for (;;) {
+        // 指さした方向にレーザー、そのあと指先から扇状に弾
+        const a = b.aim();
+        const n = dv(1, 1, 3, 3);
+        for (let k = 0; k < n; k++) fireLaser({ x: b.x - 14, y: b.y + 4, angle: a + (k - (n - 1) / 2) * 0.35, width: 12, warn: 50, dur: 30, color: 'pink' });
+        Sound.se('charge');
+        yield 55;
+        for (let k = 0; k < dv(2, 3, 3, 4); k++) {
+          fireFan({ x: b.x - 14, y: b.y + 4, n: dv(5, 7, 9, 11), spread: 1.2, angle: a, speed: 1.6 + k * 0.4, type: 'rice', color: 'pink' });
+          yield 6;
+        }
+        yield 30;
+        b.wander(60, 70);
+        yield 40;
+      }
+    },
+  },
+  {
+    type: 'spell', name: '蝶符「片羽の胡蝶」', hp: 1300, time: 45,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
-      for (let f = 0; ; f++) {
-        if (f % dv(40, 28, 20, 15) === 0) {
+      for (let loop = 0; ; loop++) {
+        // 片方の羽だけで羽ばたくように、左右交互に扇状の蝶弾
+        const side = loop % 2 ? 1 : -1;
+        const n = dv(10, 14, 18, 22);
+        for (let i = 0; i < n; i++) {
+          const a = Math.PI / 2 - side * (-0.4 + (i / (n - 1)) * 2.2);
           fire({
-            x: rand(20, FIELD_W - 20), y: -24, angle: Math.PI / 2 + rand(-0.45, 0.45), speed: rand(2.6, 3.6), delay: 0, margin: 60,
-            type: 'large', color: pick(['yellow', 'orange']),
-            script: function* (m) {
-              for (;;) {
-                yield dv(7, 6, 5, 4);
-                fire({ x: m.x, y: m.y, angle: rand(TAU), speed: rand(0.3, 0.9), type: 'star', color: pick(['yellow', 'white']), silent: true, delay: 4 });
-              }
-            },
+            x: b.x + side * 14, y: b.y, angle: a, speed: 1.2 + (i % 3) * 0.35, angVel: side * 0.008,
+            type: 'butterfly', color: side > 0 ? 'purple' : 'pink', silent: i > 0,
+            script: function* (bl) { yield 80; bl.angVel = 0; },
           });
+          yield 2;
         }
-        if (f % 90 === 45) fireRing({ x: b.x, y: b.y, n: dv(10, 16, 20, 26), angle: b.aim(), speed: 1.7, type: 'star', color: 'blue' });
-        if (f % 150 === 149) b.wander(60, 50);
-        yield;
+        yield 20;
+        if (DIFF >= 1) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2, type: 'ball', color: 'white' });
+        yield dv(50, 40, 30, 24);
+        if (loop % 2) b.wander(50, 50);
       }
     },
   },
   {
-    type: 'non', hp: 1300, time: 30,
-    *script(b) {
-      yield 30;
-      for (let loop = 0; ; loop++) {
-        const a = b.aim();
-        const n = dv(3, 5, 5, 7);
-        const gap = dv(0.55, 0.42, 0.34, 0.28);
-        for (let k = 0; k < n; k++) {
-          fireLaser({ x: b.x, y: b.y, angle: a + (k - (n - 1) / 2) * gap, width: 16, warn: 45, dur: 40, color: 'blue' });
-        }
-        Sound.se('charge');
-        yield 30;
-        for (let r = 0; r < 3; r++) {
-          fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 22), angle: rand(TAU), speed: 1.6 + r * 0.25, type: 'star', color: 'yellow' });
-          yield 16;
-        }
-        yield 60;
-        b.wander(60, 70);
-        yield 50;
-      }
-    },
-  },
-  {
-    type: 'spell', name: '星座「コンステレーション・ドロー」', hp: 1600, time: 50,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 70, 40);
-      for (let loop = 0; ; loop++) {
-        const c = CONSTELLATIONS[loop % CONSTELLATIONS.length];
-        const cx = rand(120, FIELD_W - 120), cy = rand(150, 240), sc = rand(75, 105), rot = rand(-0.5, 0.5);
-        const cs = Math.cos(rot), sn = Math.sin(rot);
-        const nodes = c.pts.map(([px, py]) => {
-          const x = cx + (px * cs - py * sn) * sc, y = cy + (px * sn + py * cs) * sc;
-          return fire({ x, y, speed: 0, type: 'bigstar', color: 'yellow', delay: 20 });
-        });
-        Sound.se('kira');
-        yield 30;
-        for (const [i, j] of c.edges) {
-          const p = nodes[i], q = nodes[j];
-          fireLaser({ x: p.x, y: p.y, angle: angleTo(p.x, p.y, q.x, q.y), length: dist(p.x, p.y, q.x, q.y), width: 10, warn: 50, dur: 45, color: 'cyan' });
-        }
-        for (let f = 0; f < 100; f++) {
-          if (f % dv(40, 30, 24, 20) === 0) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.4, angle: b.aim(), speed: 2, type: 'star', color: 'white' });
-          yield;
-        }
-        for (const nd of nodes) {
-          if (!nd.alive) continue;
-          fireRing({ x: nd.x, y: nd.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: dv(1.2, 1.5, 1.8, 2.1), type: 'star', color: 'blue', silent: true });
-          nd.alive = false;
-        }
-        Sound.se('tan');
-        yield dv(70, 50, 40, 30);
-      }
-    },
-  },
-  {
-    type: 'non', hp: 1300, time: 30,
-    *script(b) {
-      yield 30;
-      let a = 0;
+    type: 'spell', name: '眠符「スリーピングウール」', hp: 1300, time: 40,
+    *script(b, g) {
+      yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let f = 0; ; f++) {
-        if (f % dv(4, 3, 3, 2) === 0) {
-          for (const arm of [0, Math.PI]) {
-            const curl = function* (bl) { yield 70; bl.angVel = 0; };
-            fire({ x: b.x, y: b.y, angle: a + arm, speed: 2.4, accel: -0.02, minSpeed: 1.2, angVel: 0.012, type: 'small', color: 'purple', silent: true, script: curl });
-            if (DIFF >= 1) fire({ x: b.x, y: b.y, angle: -a + arm + 0.5, speed: 2.4, accel: -0.02, minSpeed: 1.2, angVel: -0.012, type: 'small', color: 'blue', silent: true, script: curl });
+        // 上から羊毛がふわふわ降ってくる
+        if (f % dv(30, 24, 18, 14) === 0) {
+          fireWool(rand(20, FIELD_W - 20), -10, { angle: Math.PI / 2 + rand(-0.3, 0.3), speed: rand(0.9, 1.4), margin: 60, delay: 0 });
+        }
+        if (f % 20 === 0) fireRing({ x: b.x, y: b.y, n: dv(8, 10, 14, 18), angle: f * 0.05, speed: 1.4, type: 'small', color: 'purple', silent: true });
+        // ときどき画面の弾がみんな「眠る」（ゆっくりになる）
+        if (f % 240 === 200) {
+          Fx.text(b.x, b.y - 40, 'Zzz…', '#e0d0ff', 14, 60);
+          Sound.se('freeze');
+          for (const bl of g.bullets.list) {
+            bl.data = bl.data || {};
+            bl.data.sleepSpeed = bl.speed;
+            bl.speed *= 0.25;
           }
-          a += 0.19;
+          fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2, type: 'rice', color: 'pink' });
         }
-        if (f % 100 === 50) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.5, angle: b.aim(), speed: 2.2, type: 'bigstar', color: 'yellow' });
-        if (f % 20 === 0) Sound.se('tan');
-        yield;
-      }
-    },
-  },
-  {
-    type: 'spell', name: '星願「流れ星に願いを」', time: 40, survival: true, bonus: 5000000,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 110, 40);
-      let a = 0;
-      for (let f = 0; ; f++) {
-        const heat = Math.min(1, f / 1800);
-        if (f % Math.max(2, dv(6, 5, 4, 3) - Math.floor(heat * 2)) === 0) {
-          fire({
-            x: rand(0, FIELD_W), y: -10, speed: 0, ay: 0.03, evx: rand(-0.5, 0.5), maxFall: rand(1.3, 2.1) + DIFF * 0.25,
-            type: rng.next() < 0.15 ? 'bigstar' : 'star', color: pick(['yellow', 'white', 'cyan', 'pink']), silent: true, delay: 4,
-          });
+        if (f % 240 === 20) {
+          for (const bl of g.bullets.list) {
+            if (bl.data && bl.data.sleepSpeed !== undefined) {
+              bl.speed = bl.data.sleepSpeed;
+              delete bl.data.sleepSpeed;
+            }
+          }
         }
-        if (f % dv(12, 10, 8, 7) === 0) {
-          const n = dv(3, 4, 5, 6);
-          for (let k = 0; k < n; k++) fire({ x: b.x, y: b.y, angle: a + (k * TAU) / n, speed: 1.3, type: 'ball', color: 'blue', silent: k > 0 });
-          a += 0.17;
-        }
-        if (f % 120 === 60) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.45, angle: b.aim(), speed: 2.2, type: 'bigstar', color: 'yellow' });
         yield;
       }
     },
@@ -203,7 +187,7 @@ function* swirlWave(side, n) {
       script: function* (e) {
         e.setMove(3, side < 0 ? 0 : Math.PI, 0, side < 0 ? 0.03 : -0.03);
         yield 40;
-        fireFan({ x: e.x, y: e.y, n: dv(1, 3, 3, 5), spread: 0.3, angle: e.aim(), speed: dv(2.2, 2.6, 3, 3.4), type: 'star', color: 'yellow' });
+        fireFan({ x: e.x, y: e.y, n: dv(1, 1, 3, 5), spread: 0.3, angle: e.aim(), speed: dv(2, 2.3, 2.8, 3.2), type: 'star', color: 'yellow' });
         yield 60;
         e.angVel = 0;
       },
@@ -227,7 +211,7 @@ STAGES.push({
     yield 120;
     laserFairy(192, 70);
     yield 150;
-    g.tasks.add(starShower(360, dv(34, 50, 70, 90), ['yellow', 'white', 'pink', 'cyan'], true));
+    g.tasks.add(starShower(360, dv(24, 36, 54, 74), ['yellow', 'white', 'pink', 'cyan'], true));
     yield* zigzag(14, 'yellow', 'yellow', 'star');
     yield* waitClear(300);
 
@@ -258,7 +242,7 @@ STAGES.push({
       });
     }
     yield* waitClear(700);
-    g.tasks.add(starShower(480, dv(40, 60, 84, 110), ['yellow', 'white', 'pink', 'cyan'], true));
+    g.tasks.add(starShower(480, dv(28, 44, 64, 88), ['yellow', 'white', 'pink', 'cyan'], true));
     g.tasks.add(swirlWave(-1, 10));
     g.tasks.add(swirlWave(1, 10));
     yield 240;
@@ -268,11 +252,13 @@ STAGES.push({
     yield* waitClear(900);
     yield 120;
 
-    const boss = g.spawnBoss('star', { spellBg: 'star', circleColor: '140,160,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
-    yield* boss.moveTo(FIELD_W / 2, 100, 60);
-    yield* g.talk(STORY.stage3[g.charId].before);
-    yield* g.fight(boss, STAR_PHASES);
+    // ボス（会話はあとで追加する）
+    const boss = g.spawnBoss('boss3', { spellBg: 'dream', circleColor: '255,200,235', x: FIELD_W / 2, y: -50 });
+    Sound.playBgm('boss3');
+    g.showBgmTitle('boss3');
+    yield* boss.moveTo(FIELD_W / 2, 100, 70);
+    yield 30;
+    yield* g.fight(boss, BOSS3_PHASES);
     yield* g.bossDown(boss);
-    yield* g.talk(STORY.stage3[g.charId].after);
   },
 });

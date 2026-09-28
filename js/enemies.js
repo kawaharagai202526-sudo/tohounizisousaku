@@ -26,6 +26,7 @@ class Enemy {
     this.keep = !!o.keep;
     this.noBody = !!o.noBody;
     this.onDeath = o.onDeath || null;
+    this.side = o.side ?? 1;
     this.tasks = new TaskRunner();
     if (o.script) this.tasks.add(o.script(this));
   }
@@ -82,6 +83,19 @@ class Enemy {
         ctx.translate(0, Math.sin(this.frame * 0.05) * 2);
         if (!drawImageSprite(ctx, 'midboss1', 76)) drawFairy(ctx, this.color, this.frame, true);
         break;
+      case 'starobj': {
+        // 大きな星弾と同じ大きさで回転する。弾と見分けられるよう細い輪を付ける
+        const s = BTYPES.bigstar.size;
+        ctx.rotate(this.frame * 0.09);
+        ctx.drawImage(getBulletSprite('bigstar', this.color), -s / 2, -s / 2, s, s);
+        ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.25 * Math.sin(this.frame * 0.2)})`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.arc(0, 0, s / 2 + 1, 0, TAU); ctx.stroke();
+        ctx.setLineDash([]);
+        break;
+      }
+      case 'crystal': drawCrystal(ctx, this.frame, this.side || 1); break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }
     if (this.flash > 0) {
@@ -92,6 +106,33 @@ class Enemy {
     }
     ctx.restore();
   }
+}
+
+// 洞窟の壁に生えた水晶（4面）
+function drawCrystal(ctx, t, side) {
+  const glow = 0.5 + 0.3 * Math.sin(t * 0.1);
+  ctx.save();
+  ctx.scale(side, 1);
+  const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
+  g.addColorStop(0, `rgba(120,210,255,${glow * 0.6})`);
+  g.addColorStop(1, 'rgba(120,210,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(0, 0, 22, 0, TAU); ctx.fill();
+  const shards = [[-0.5, 16, 5], [0.1, 20, 6], [0.7, 14, 4.5], [-1.1, 11, 4]];
+  for (const [a, len, w] of shards) {
+    ctx.save();
+    ctx.rotate(a);
+    ctx.fillStyle = 'rgba(90,170,255,0.85)';
+    ctx.strokeStyle = 'rgba(220,245,255,0.9)';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-6, -w / 2); ctx.lineTo(len - 4, -w / 2); ctx.lineTo(len, 0); ctx.lineTo(len - 4, w / 2); ctx.lineTo(-6, w / 2);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = '#3a2e3a';
+  ctx.beginPath(); ctx.ellipse(-8, 0, 7, 10, 0, 0, TAU); ctx.fill();
+  ctx.restore();
 }
 
 function spawnEnemy(o) {
@@ -196,8 +237,21 @@ class Boss {
       ctx.beginPath(); ctx.arc(0, 0, 40, 0, TAU); ctx.fill();
     }
     ctx.rotate(this.tilt * 0.12);
-    ctx.scale(1.1, 1.1);
-    drawChibi(ctx, this.id, { t: this.frame, pose: this.pose || undefined, face: this.face || 'normal' });
+    const dot = CHARA_INFO[this.id].dot;
+    if (dot) {
+      // ドット絵のボス（拡大してもぼやけないように補間を切る）
+      const img = Images.get(dot);
+      if (img) {
+        ctx.translate(0, Math.sin(this.frame * 0.06) * 1.5);
+        const smooth = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        drawImageSprite(ctx, dot, img.naturalHeight, 0.5, 0.52);
+        ctx.imageSmoothingEnabled = smooth;
+      }
+    } else {
+      ctx.scale(1.1, 1.1);
+      drawChibi(ctx, this.id, { t: this.frame, pose: this.pose || undefined, face: this.face || 'normal' });
+    }
     if (this.flash > 0) {
       ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = 'rgba(255,255,255,0.18)';

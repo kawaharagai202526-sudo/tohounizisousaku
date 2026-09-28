@@ -52,7 +52,7 @@ const CIRNO_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let f = 0; ; f++) {
-        if (f % dv(10, 8, 6, 5) === 0) {
+        if (f % dv(12, 10, 7, 5) === 0) {
           const swing = Math.sin(f * 0.035) * 0.35;
           for (const side of [-1, 1]) {
             const out = side > 0 ? -0.15 + swing : Math.PI + 0.15 - swing;
@@ -97,7 +97,7 @@ const CIRNO_PHASES = [
         const frozen = [];
         for (let f = 0; f < 100; f++) {
           if (f % 2 === 0) {
-            for (let k = 0; k < dv(2, 3, 4, 5); k++) {
+            for (let k = 0; k < dv(1, 2, 3, 4); k++) {
               frozen.push(fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.5, 3.4), type: pick(['small', 'ball']), color: pick(colors), silent: k > 0 }));
             }
           }
@@ -131,7 +131,7 @@ const CIRNO_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let f = 0; ; f++) {
-        for (let k = 0; k < dv(1, 2, 2, 3); k++) {
+        for (let k = 0; k < dv(1, 1, 2, 3); k++) {
           const a = rand(TAU), r = rand(10, 60);
           fire({ x: b.x + Math.cos(a) * r, y: b.y + Math.sin(a) * r, angle: rand(TAU), speed: rand(0.8, dv(1.8, 2.2, 2.6, 3)), type: 'small', color: pick(['cyan', 'white', 'blue']), silent: true, delay: 12 });
         }
@@ -208,7 +208,7 @@ STAGES.push({
     yield 120;
     g.tasks.add(freezerWave(1, 6));
     yield 200;
-    g.tasks.add(starShower(300, dv(24, 36, 50, 66), ['cyan', 'blue', 'white', 'yellow']));
+    g.tasks.add(starShower(300, dv(16, 26, 40, 56), ['cyan', 'blue', 'white', 'yellow']));
     g.tasks.add(kedamaRain(300, dv(10, 14, 18, 22), 'blue'));
     yield 320;
     yield* waitClear(200);
@@ -243,7 +243,7 @@ STAGES.push({
       });
     }
     yield* waitClear(800);
-    g.tasks.add(starShower(420, dv(30, 44, 60, 80), ['cyan', 'blue', 'white', 'yellow'], true));
+    g.tasks.add(starShower(420, dv(20, 32, 46, 64), ['cyan', 'blue', 'white', 'yellow'], true));
     yield 60;
     yield* zigzag(14, 'green', 'green', 'ice');
     yield 60;

@@ -5,7 +5,8 @@
 
 const STAGES = [];
 const EXTEND_POINTS = [50, 125, 250, 400, 600];
-const Settings = { lives: Store.get('lives', 2) };
+const Settings = { lives: Store.get('lives', 3) };
+const PRACTICE_POWER = [100, 250, 400, 400]; // プラクティス開始時の霊力
 
 // スペルカード取得履歴
 const SpellHistory = {
@@ -38,7 +39,7 @@ class GameScene {
     this.lives = this.initialLives;
     this.bombs = 3;
     const startStage = opts.stage || 0;
-    this.power = this.practice ? [100, 250, 400][startStage] : 100;
+    this.power = this.practice ? PRACTICE_POWER[startStage] : 100;
     this.graze = 0;
     this.pointItems = 0;
     this.extendIdx = 0;
@@ -472,7 +473,7 @@ class GameScene {
 
   *runPhase(boss, ph, index, total) {
     const spell = ph.type === 'spell';
-    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.8, 1, 1.05, 1.1));
+    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.75, 0.9, 1, 1.05));
     boss.phase = ph;
     boss.timer = Math.round((ph.time ?? 30) * 60);
     const totalTime = boss.timer;

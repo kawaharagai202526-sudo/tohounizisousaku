@@ -3,6 +3,11 @@
 //  敵弾・レーザー
 // ============================================================
 
+// 全体の難しさの調整（Easy / Normal / Hard / Lunatic）
+// 敵弾の移動速度と、リング弾（全方位弾）の数にこの倍率を掛ける
+const BULLET_SPEED_SCALE = [0.78, 0.86, 0.93, 1.0];
+const RING_DENSITY_SCALE = [0.72, 0.8, 0.9, 1.0];
+
 class Bullet {
   init(o) {
     this.x = o.x;
@@ -77,8 +82,9 @@ class Bullet {
     }
     this.vx = Math.cos(this.angle) * this.speed + this.evx;
     this.vy = Math.sin(this.angle) * this.speed + this.evy;
-    this.x += this.vx;
-    this.y += this.vy;
+    const k = BULLET_SPEED_SCALE[DIFF];
+    this.x += this.vx * k;
+    this.y += this.vy * k;
     if (this.rotates) {
       if (this.vx || this.vy) this.rot = Math.atan2(this.vy, this.vx);
     } else if (this.spin) this.rot += this.spin;
@@ -237,7 +243,7 @@ function fire(o) {
 }
 function fireRing(o) {
   const out = [];
-  const n = o.n, base = o.angle ?? 0;
+  const n = Math.max(3, Math.round(o.n * RING_DENSITY_SCALE[DIFF])), base = o.angle ?? 0;
   for (let i = 0; i < n; i++) out.push(fire({ ...o, angle: base + (i * TAU) / n }));
   return out;
 }

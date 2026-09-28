@@ -4,16 +4,35 @@
 // ============================================================
 
 // 空から星が降ってくる（異変そのもの）
+// big のときは、ときどき大きな星（一撃で倒せる回転する敵）が混ざる
 function* starShower(frames, count, colors = ['yellow', 'cyan', 'pink', 'white'], big = false) {
   const interval = Math.max(1, Math.floor(frames / count));
   for (let i = 0; i < count; i++) {
-    fire({
-      x: rand(8, FIELD_W - 8), y: -12, speed: 0, ax: rand(-0.004, 0.004), ay: 0.025,
-      evx: rand(-0.4, 0.4), maxFall: rand(1.2, 1.6) + DIFF * 0.35,
-      type: big && rng.next() < 0.3 ? 'bigstar' : 'star', color: pick(colors), silent: true, delay: 4,
-    });
+    const x = rand(8, FIELD_W - 8), color = pick(colors), maxFall = rand(1.2, 1.6) + DIFF * 0.3;
+    if (big && rng.next() < 0.3) starObject(x, color, maxFall);
+    else {
+      fire({
+        x, y: -12, speed: 0, ax: rand(-0.004, 0.004), ay: 0.025, evx: rand(-0.4, 0.4), maxFall,
+        type: 'star', color, silent: true, delay: 4,
+      });
+    }
     yield interval;
   }
+}
+
+// 道中の大きな星。弾ではなく回転する敵で、体力がとても少なく一撃で倒せる
+function starObject(x, color, maxFall) {
+  return spawnEnemy({
+    x, y: -16, kind: 'starobj', color, hp: 0.4, r: 12, score: 300,
+    drops: rng.next() < 0.3 ? { point: 1 } : {},
+    angle: Math.PI / 2 + rand(-0.2, 0.2),
+    script: function* (e) {
+      for (;;) {
+        e.speed = Math.min(e.speed + 0.025, maxFall * BULLET_SPEED_SCALE[DIFF]);
+        yield;
+      }
+    },
+  });
 }
 
 // 横から弧を描いて横切る妖精の列
@@ -27,7 +46,7 @@ function* sideSweep(side, n, o = {}) {
         e.setMove(o.speed ?? 2.6, side < 0 ? (o.angle ?? 22) * DEG : (180 - (o.angle ?? 22)) * DEG, 0, side < 0 ? 0.0045 : -0.0045);
         yield 28 + i * 2;
         if (DIFF > 0 || i % 2 === 0) {
-          fireFan({ x: e.x, y: e.y, n: dv(1, 1, 3, 5), spread: 0.32, angle: e.aim(), speed: dv(2.2, 2.8, 3.2, 3.6), type: o.type || 'small', color: o.bcolor || 'blue' });
+          fireFan({ x: e.x, y: e.y, n: dv(1, 1, 3, 5), spread: 0.32, angle: e.aim(), speed: dv(2, 2.4, 2.9, 3.4), type: o.type || 'small', color: o.bcolor || 'blue' });
         }
         if (DIFF >= 2) {
           yield 30;
@@ -46,7 +65,7 @@ function ringFairy(x, o = {}) {
     script: function* (e) {
       yield* e.moveTo(x, o.stopY ?? 100, 50);
       for (let k = 0; k < (o.times ?? 3); k++) {
-        const n = o.n ?? dv(8, 12, 16, 22);
+        const n = o.n ?? dv(6, 10, 14, 20);
         fireRing({ x: e.x, y: e.y, n, angle: e.aim() + (k % 2) * (Math.PI / n), speed: (o.speed ?? 1.8) + k * 0.2, type: o.type || 'ball', color: o.bcolor || 'red' });
         yield o.gap ?? 35;
       }
@@ -82,7 +101,7 @@ function* zigzag(n, color = 'blue', bcolor = 'cyan', type = 'rice') {
       script: function* (e) {
         e.setMove(2.2, Math.PI / 2 - side * 0.5);
         yield 40;
-        fireFan({ x: e.x, y: e.y, n: dv(1, 3, 3, 5), spread: 0.35, angle: e.aim(), speed: dv(2.2, 2.6, 3, 3.4), type, color: bcolor });
+        fireFan({ x: e.x, y: e.y, n: dv(1, 1, 3, 5), spread: 0.35, angle: e.aim(), speed: dv(2, 2.3, 2.8, 3.2), type, color: bcolor });
         yield 30;
         e.angVel = side * 0.01;
       },
@@ -106,11 +125,11 @@ const RUMIA_PHASES = [
       yield 40;
       for (let loop = 0; ; loop++) {
         const a = b.aim();
-        for (let k = 0; k < dv(2, 3, 3, 4); k++) {
-          fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: dv(0.9, 1.1, 1.3, 1.5), angle: a, speed: 1.8 + k * 0.55, type: 'rice', color: 'blue' });
+        for (let k = 0; k < dv(1, 2, 3, 4); k++) {
+          fireFan({ x: b.x, y: b.y, n: dv(5, 5, 7, 9), spread: dv(0.9, 1.1, 1.3, 1.5), angle: a, speed: 1.8 + k * 0.55, type: 'rice', color: 'blue' });
         }
         yield 40;
-        const off = rand(TAU), n = dv(14, 22, 30, 38);
+        const off = rand(TAU), n = dv(12, 18, 26, 34);
         fireRing({ x: b.x, y: b.y, n, angle: off, speed: dv(1.5, 1.9, 2.3, 2.6), type: 'small', color: 'red' });
         yield 16;
         fireRing({ x: b.x, y: b.y, n, angle: off + Math.PI / n, speed: dv(1.2, 1.5, 1.8, 2.1), type: 'small', color: 'red' });
@@ -125,7 +144,7 @@ const RUMIA_PHASES = [
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let loop = 0; ; loop++) {
         const dir = loop % 2 ? 1 : -1;
-        const n = dv(14, 18, 22, 26);
+        const n = dv(12, 15, 20, 24);
         const aim = b.aim();
         for (let i = 0; i < n; i++) {
           const a = aim + dir * (-1.25 + (2.5 * i) / (n - 1));
@@ -134,7 +153,7 @@ const RUMIA_PHASES = [
           }
           yield 2;
         }
-        yield dv(44, 32, 24, 18);
+        yield dv(52, 40, 28, 20);
         if (loop % 2 === 1) {
           if (DIFF >= 2) fireRing({ x: b.x, y: b.y, n: dv(0, 0, 18, 26), angle: rand(TAU), speed: 1.4, type: 'small', color: 'white' });
           b.wander(50, 60);
@@ -155,7 +174,7 @@ const RUMIA_PHASES = [
           if (DIFF >= 2 && f % 2 === 0) fire({ x: b.x, y: b.y, angle: -a * 1.2 + (k * TAU) / arms, speed: 1.4, type: 'small', color: 'red', silent: true });
         }
         a += 0.13;
-        yield dv(9, 7, 6, 5);
+        yield dv(11, 9, 7, 5);
         if (f % 70 === 69) {
           fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.6, type: 'large', color: 'red' });
           b.wander(60, 50);
@@ -168,7 +187,7 @@ const RUMIA_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 110, 40);
       for (let loop = 0; ; loop++) {
-        const n = dv(22, 30, 38, 46);
+        const n = dv(16, 22, 30, 40);
         const dir = loop % 2 ? 1 : -1;
         const off = rand(TAU);
         Sound.se('kira');
@@ -185,7 +204,7 @@ const RUMIA_PHASES = [
           });
         }
         yield 30;
-        for (let k = 0; k < dv(1, 2, 3, 4); k++) {
+        for (let k = 0; k < dv(1, 1, 2, 3); k++) {
           fireFan({ x: b.x, y: b.y, n: 3, spread: 0.25, angle: b.aim(), speed: 3, type: 'rice', color: 'red' });
           yield 10;
         }
@@ -211,7 +230,7 @@ STAGES.push({
     yield 280;
     g.tasks.add(kedamaRain(300, dv(12, 16, 20, 24)));
     yield 120;
-    g.tasks.add(starShower(240, dv(14, 22, 30, 40)));
+    g.tasks.add(starShower(240, dv(10, 16, 24, 34)));
     yield 260;
     yield* zigzag(12);
     yield 120;
@@ -228,12 +247,12 @@ STAGES.push({
         let a = 0;
         const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'];
         for (let f = 0; f < 900; f++) {
-          if (f % dv(6, 5, 4, 3) === 0) {
-            const arms = dv(4, 5, 5, 6);
+          if (f % dv(9, 7, 5, 4) === 0) {
+            const arms = dv(3, 4, 5, 6);
             for (let k = 0; k < arms; k++) fire({ x: e.x, y: e.y, angle: a + (k * TAU) / arms, speed: 2, type: 'rice', color: colors[(f >> 3) % colors.length], silent: k > 0 });
             a += 0.21;
           }
-          if (f % 90 === 45) fireFan({ x: e.x, y: e.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: e.aim(), speed: 3, type: 'ball', color: 'white' });
+          if (f % 90 === 45) fireFan({ x: e.x, y: e.y, n: dv(3, 3, 5, 7), spread: 0.6, angle: e.aim(), speed: 2.6, type: 'ball', color: 'white' });
           yield;
         }
         e.setMove(0, -Math.PI / 2, 0.05);
@@ -241,7 +260,7 @@ STAGES.push({
     });
     yield* waitClear(1000);
     yield 60;
-    g.tasks.add(starShower(360, dv(20, 30, 45, 60), ['yellow', 'orange', 'white'], true));
+    g.tasks.add(starShower(360, dv(14, 22, 34, 48), ['yellow', 'orange', 'white'], true));
     g.tasks.add(kedamaRain(360, dv(10, 14, 18, 22)));
     yield 200;
     for (let i = 0; i < 4; i++) {
@@ -251,8 +270,8 @@ STAGES.push({
         script: function* (e) {
           e.setMove(1.6, side < 0 ? 0 : Math.PI);
           for (let f = 0; ; f++) {
-            if (f % dv(24, 18, 14, 10) === 0 && e.onScreen) {
-              fireFan({ x: e.x, y: e.y, n: dv(1, 2, 3, 3), spread: 0.3, angle: Math.PI / 2, speed: 2.2, type: 'rice', color: 'yellow' });
+            if (f % dv(30, 24, 16, 12) === 0 && e.onScreen) {
+              fireFan({ x: e.x, y: e.y, n: dv(1, 1, 2, 3), spread: 0.3, angle: Math.PI / 2, speed: 2.2, type: 'rice', color: 'yellow' });
             }
             yield;
           }
@@ -261,7 +280,7 @@ STAGES.push({
       yield 60;
     }
     yield 200;
-    [96, 288].forEach(x => ringFairy(x, { color: 'blue', bcolor: 'blue', type: 'small', times: 4, n: dv(10, 16, 22, 28) }));
+    [96, 288].forEach(x => ringFairy(x, { color: 'blue', bcolor: 'blue', type: 'small', times: 4, n: dv(8, 12, 18, 24) }));
     yield 60;
     [192].forEach(x => ringFairy(x, { stopY: 70, times: 4 }));
     yield* waitClear(900);

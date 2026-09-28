@@ -410,7 +410,7 @@ class StageSelectScene {
     ctx.fillText(st.nameEn, SCREEN_W / 2, 360);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = '#c8c0e8';
-    ctx.fillText(`開始時の霊力：${([100, 250, 400][this.sel] / 100).toFixed(2)}`, SCREEN_W / 2, 386);
+    ctx.fillText(`開始時の霊力：${(PRACTICE_POWER[this.sel] / 100).toFixed(2)}`, SCREEN_W / 2, 386);
     drawBackButton(ctx);
   }
 }

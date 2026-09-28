@@ -307,6 +307,145 @@ class SkyBG {
 }
 
 // ------------------------------------------------------------
+//  4面：洞窟
+// ------------------------------------------------------------
+class CaveBG {
+  constructor() {
+    this.t = 0;
+    this.scroll = 0;
+    const made = CaveBG.makeTile();
+    this.tile = made.canvas;
+    this.crystals = made.crystals;
+    this.dust = [];
+    for (let i = 0; i < 40; i++) this.dust.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), s: frand(0.2, 0.7) });
+  }
+  static wallW(y, h, side) {
+    const k = (y / h) * TAU;
+    return side < 0
+      ? 46 + Math.sin(k * 2) * 16 + Math.sin(k * 5 + 1) * 7
+      : 46 + Math.sin(k * 3 + 2) * 18 + Math.sin(k * 7) * 5;
+  }
+  static makeTile() {
+    const w = FIELD_W, h = 768;
+    const c = makeCanvas(w, h);
+    const x = c.getContext('2d');
+    const r = new RNG(2024);
+    x.fillStyle = '#17121e';
+    x.fillRect(0, 0, w, h);
+    // 岩肌の床
+    for (let i = 0; i < 260; i++) {
+      const px = r.next() * w, py = r.next() * h, rad = 6 + r.next() * 22, shade = r.next();
+      for (const oy of [-h, 0, h]) {
+        x.fillStyle = `rgb(${28 + shade * 16},${22 + shade * 12},${34 + shade * 16})`;
+        x.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = (k / 6) * TAU + shade;
+          const rr = rad * (0.7 + ((k * 7 + i) % 5) * 0.08);
+          const vx = px + Math.cos(a) * rr, vy = py + oy + Math.sin(a) * rr * 0.8;
+          if (k === 0) x.moveTo(vx, vy); else x.lineTo(vx, vy);
+        }
+        x.closePath();
+        x.fill();
+        x.strokeStyle = 'rgba(120,100,140,0.12)';
+        x.stroke();
+      }
+    }
+    // 水たまり
+    for (let i = 0; i < 6; i++) {
+      const px = 90 + r.next() * (w - 180), py = r.next() * h, rw = 20 + r.next() * 30;
+      for (const oy of [-h, 0, h]) {
+        x.fillStyle = 'rgba(30,50,90,0.55)';
+        x.beginPath(); x.ellipse(px, py + oy, rw, rw * 0.45, 0, 0, TAU); x.fill();
+        x.strokeStyle = 'rgba(140,180,255,0.18)';
+        x.beginPath(); x.ellipse(px - rw * 0.2, py + oy - 2, rw * 0.5, rw * 0.15, 0, 0, TAU); x.stroke();
+      }
+    }
+    // 左右の壁
+    for (const side of [-1, 1]) {
+      x.fillStyle = '#0a080e';
+      x.beginPath();
+      x.moveTo(side < 0 ? 0 : w, 0);
+      for (let y = 0; y <= h; y += 6) {
+        const ww = CaveBG.wallW(y, h, side);
+        x.lineTo(side < 0 ? ww : w - ww, y);
+      }
+      x.lineTo(side < 0 ? 0 : w, h);
+      x.closePath();
+      x.fill();
+      x.strokeStyle = 'rgba(150,120,170,0.35)';
+      x.lineWidth = 2;
+      x.beginPath();
+      for (let y = 0; y <= h; y += 6) {
+        const ww = CaveBG.wallW(y, h, side);
+        if (y === 0) x.moveTo(side < 0 ? ww : w - ww, y); else x.lineTo(side < 0 ? ww : w - ww, y);
+      }
+      x.stroke();
+    }
+    // 水晶
+    const crystals = [];
+    for (let i = 0; i < 22; i++) {
+      const py = r.next() * h;
+      const side = r.next() < 0.5 ? -1 : 1;
+      const px = side < 0 ? CaveBG.wallW(py, h, -1) + 4 : w - CaveBG.wallW(py, h, 1) - 4;
+      const hue = r.next() < 0.7 ? '120,200,255' : '190,150,255';
+      crystals.push({ x: px, y: py, hue, p: r.next() * TAU });
+      for (const oy of [-h, 0, h]) {
+        for (let k = 0; k < 3; k++) {
+          const a = (side < 0 ? 0 : Math.PI) + (k - 1) * 0.5 + (r.next() - 0.5) * 0.3;
+          const len = 8 + r.next() * 10;
+          x.save();
+          x.translate(px, py + oy);
+          x.rotate(a);
+          x.fillStyle = `rgba(${hue},0.75)`;
+          x.beginPath(); x.moveTo(0, -3); x.lineTo(len - 3, -3); x.lineTo(len, 0); x.lineTo(len - 3, 3); x.lineTo(0, 3); x.closePath();
+          x.fill();
+          x.restore();
+        }
+      }
+    }
+    return { canvas: c, crystals };
+  }
+  update() {
+    this.t++;
+    this.scroll += 1.0;
+    for (const d of this.dust) {
+      d.p += 0.02;
+      d.y += d.s;
+      d.x += Math.sin(d.p) * 0.2;
+      if (d.y > FIELD_H) { d.y = 0; d.x = frand(FIELD_W); }
+    }
+  }
+  draw(ctx) {
+    drawScrollingTile(ctx, this.tile, this.scroll);
+    const h = this.tile.height, off = this.scroll % h;
+    ctx.globalCompositeOperation = 'lighter';
+    for (const c of this.crystals) {
+      const a = 0.25 + 0.2 * Math.sin(this.t * 0.05 + c.p);
+      for (const y of [c.y + off, c.y + off - h]) {
+        if (y < -30 || y > FIELD_H + 30) continue;
+        const g = ctx.createRadialGradient(c.x, y, 0, c.x, y, 26);
+        g.addColorStop(0, `rgba(${c.hue},${a})`);
+        g.addColorStop(1, `rgba(${c.hue},0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(c.x, y, 26, 0, TAU); ctx.fill();
+      }
+    }
+    for (const d of this.dust) {
+      ctx.fillStyle = `rgba(200,220,255,${0.15 + 0.15 * Math.sin(d.p * 3)})`;
+      ctx.fillRect(d.x, d.y, 1.5, 1.5);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    // 洞窟の暗さ：自機のまわりだけ少し明るい
+    const p = G && G.player ? G.player : { x: FIELD_W / 2, y: FIELD_H - 48 };
+    const v = ctx.createRadialGradient(p.x, p.y, 60, p.x, p.y, 420);
+    v.addColorStop(0, 'rgba(0,0,0,0)');
+    v.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = v;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+  }
+}
+
+// ------------------------------------------------------------
 //  スペルカード背景
 // ------------------------------------------------------------
 function drawSpellBG(ctx, kind, t) {
@@ -403,6 +542,71 @@ function drawSpellBG(ctx, kind, t) {
       ctx.fillStyle = 'rgba(160,180,255,0.07)';
       starPath(ctx, 190, 70, 6);
       ctx.fill();
+      break;
+    }
+    case 'dream': {
+      // 3面ボス：羊毛の雲と片羽の蝶が漂う夢
+      const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+      g.addColorStop(0, '#1c1036');
+      g.addColorStop(0.6, '#3a2152');
+      g.addColorStop(1, '#4c2a4c');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      for (let i = 0; i < 7; i++) {
+        const cx = (i * 83 + 40) % FIELD_W;
+        const cy = FIELD_H + 80 - ((t * 0.4 + i * 97) % (FIELD_H + 160));
+        ctx.fillStyle = 'rgba(255,238,250,0.07)';
+        for (let k = 0; k < 5; k++) {
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(k * 1.3) * 20, cy + Math.sin(k * 1.7) * 10, 16 + (k % 3) * 6, 0, TAU);
+          ctx.fill();
+        }
+      }
+      for (let i = 0; i < 5; i++) {
+        const x = ((i * 131 + t * 0.3) % (FIELD_W + 40)) - 20;
+        const y = 60 + i * 80 + Math.sin(t * 0.02 + i) * 20;
+        const flap = 0.4 + 0.6 * Math.abs(Math.sin(t * 0.08 + i));
+        ctx.fillStyle = 'rgba(230,180,255,0.13)';
+        ctx.beginPath(); ctx.ellipse(x + 8 * flap, y - 5, 12 * flap, 8, 0.5, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(x + 6 * flap, y + 6, 8 * flap, 5, -0.5, 0, TAU); ctx.fill();
+      }
+      for (let i = 0; i < 30; i++) {
+        ctx.fillStyle = `rgba(255,255,255,${0.15 + 0.15 * Math.sin(t * 0.05 + i)})`;
+        ctx.fillRect((i * 57.3) % FIELD_W, (i * 91.7) % FIELD_H, 1.6, 1.6);
+      }
+      break;
+    }
+    case 'lapis': {
+      // 4面ボス：瑠璃色の夜、舞う頁と蝶
+      const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+      g.addColorStop(0, '#020a2c');
+      g.addColorStop(1, '#0c1e5e');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      ctx.save();
+      ctx.translate(192, 190);
+      for (let i = 0; i < 18; i++) {
+        const a = t * 0.004 * (i % 2 ? 1 : -1) + (i * TAU) / 18;
+        const rr = 70 + (i % 4) * 45;
+        ctx.save();
+        ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr);
+        ctx.rotate(a + t * 0.01);
+        ctx.fillStyle = 'rgba(190,210,255,0.07)';
+        ctx.strokeStyle = 'rgba(190,210,255,0.16)';
+        ctx.fillRect(-11, -15, 22, 30);
+        ctx.strokeRect(-11, -15, 22, 30);
+        ctx.restore();
+      }
+      ctx.restore();
+      for (let i = 0; i < 6; i++) {
+        const x = ((i * 97 + t * 0.5) % (FIELD_W + 60)) - 30;
+        const y = FIELD_H - ((t * 0.6 + i * 83) % (FIELD_H + 40));
+        const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.1 + i * 2));
+        ctx.fillStyle = 'rgba(80,150,255,0.18)';
+        for (const s of [-1, 1]) {
+          ctx.beginPath(); ctx.ellipse(x + s * 7 * flap, y - 3, 8 * flap, 6, s * 0.4, 0, TAU); ctx.fill();
+        }
+      }
       break;
     }
     default: {

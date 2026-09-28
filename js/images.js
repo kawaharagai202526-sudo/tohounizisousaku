@@ -9,6 +9,10 @@ const IMAGE_FILES = {
   footFairy: 'img/foot_fairy.png', // 各面でいちばん弱い妖精
   player: 'img/player.png',        // ゲーム中の霊夢
   midboss1: 'img/midboss1.png',    // 1面の中ボス
+  boss3: 'img/boss3.png',          // 3面ボス（カットイン用の原画）
+  boss3Dot: 'img/boss3_dot.png',   // 3面ボス（ゲーム中のドット絵）
+  boss4: 'img/boss4.png',          // 4面ボス（カットイン用の原画）
+  boss4Dot: 'img/boss4_dot.png',   // 4面ボス（ゲーム中のドット絵）
 };
 
 const Images = {

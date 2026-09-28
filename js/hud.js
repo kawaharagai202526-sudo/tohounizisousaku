@@ -270,7 +270,7 @@ function drawCutin(ctx, g) {
   drawPortrait(ctx, c.id, x + 100, 250, 4.2, 'smug', f);
   ctx.restore();
 }
-const CHARA_CUTIN_COLOR = { rumia: '120,20,60', cirno: '60,140,255', star: '90,90,230', daiyousei: '60,200,110' };
+const CHARA_CUTIN_COLOR = { rumia: '120,20,60', cirno: '60,140,255', star: '90,90,230', daiyousei: '60,200,110', boss3: '200,150,190', boss4: '40,80,220' };
 
 function drawStageTitle(ctx, g) {
   const st = g.stageTitle;
