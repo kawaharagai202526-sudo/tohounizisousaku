@@ -71,14 +71,15 @@ const Input = {
   },
 
   onPointerDown(e) {
-    // マウスでは操作できない（キーボード・ゲームパッド・タッチのみ）
+    this.firstInput();
+    const p = this.toLogical(e);
+    // メニューの選択や会話送りなどのクリック（タップ）はマウスでも受け付ける
+    this.tapQueue.push(p);
+    // 自機の操作（ドラッグで移動・画面のボム／低速／ポーズボタン）はマウスでは不可
     if (e.pointerType === 'mouse') return;
     e.preventDefault();
-    this.firstInput();
     this.isTouch = true;
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
-    const p = this.toLogical(e);
-    this.tapQueue.push(p);
     const btn = this.touchButtons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
     if (btn) {
       if (btn.toggle) this.virtual[btn.action] = !this.virtual[btn.action];
