@@ -3,3 +3,4 @@
 
 ## 資料
 - [架空異変案 60選](docs/incident_ideas_60.md) — 4・5・6面ボスの設定付き異変案
+- [組織ぐるみの異変案 40選](docs/organization_incidents_40.md) — 6面が首領の組織が起こす異変案（3〜6面が組織の構成員）
