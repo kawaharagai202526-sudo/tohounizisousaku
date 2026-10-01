@@ -56,7 +56,10 @@ class GameScene {
     this.continueMenu = null;
     this.frame = 0;
     this.messages = [];
-    this.cheat = false;
+    this.cheat = false;                       // テスト用の無敵
+    this.accountKey = Accounts.currentKey();  // ログイン中のプレイヤー
+    this.usedKeys = Cheats.anyOn();           // 管理者ページのキーを使ったか
+    this.records = null;                      // 終わったときの記録結果
     // 描画が update より先に呼ばれても大丈夫なように、ここでステージを組み立てる
     this.startStage(startStage);
   }
@@ -108,8 +111,36 @@ class GameScene {
     Sound.playBgm(this.stage.bgm);
     this.showBgmTitle(this.stage.bgm);
     this.stageTitle = { frame: 0 };
-    yield* this.stage.script(this);
+    if (Cheats.on.bossOnly) yield 150;
+    else {
+      this.inRoad = true;
+      yield* this.stage.script(this);
+    }
+    this.inRoad = false;
+    yield* this.stage.boss(this);
     yield* this.stageClear();
+  }
+
+  // キー「V」を入れたとき：道中（中ボスを含む）を打ち切ってボス戦へ
+  skipToBoss() {
+    if (!this.inRoad) return;
+    this.inRoad = false;
+    this.tasks.clear();
+    this.enemies = [];
+    this.bullets.cancelAll(true);
+    this.clearLasers();
+    this.boss = null;
+    this.bossPhases = null;
+    this.spell = null;
+    this.spellBgKind = null;
+    this.cutin = null;
+    this.dialogue = null;
+    const g = this;
+    this.tasks.add((function* () {
+      yield 60;
+      yield* g.stage.boss(g);
+      yield* g.stageClear();
+    })());
   }
 
   *stageClear() {
@@ -129,15 +160,32 @@ class GameScene {
   }
 
   finish(kind) {
-    this.saveHiScore();
+    this.saveRecords(kind);
     Sound.stopBgm(1.5);
     if (kind === 'clear') Game.setScene(new EndingScene(this));
     else Game.setScene(new ResultScene(this, kind));
   }
 
-  saveHiScore() {
-    if (this.practice || this.cheat) return;
-    if (this.score > Store.get(this.hiKey, 0)) Store.set(this.hiKey, Math.floor(this.score));
+  // ランキングに載らない理由（載るなら null）
+  rankBlock() {
+    if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
+    if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
+    if (this.usedKeys) return { short: 'キー使用', long: 'キーを使ったため' };
+    if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
+    if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
+    return null;
+  }
+
+  // ハイスコアとプレイヤーの記録を保存する（キー使用・コンティニュー・プラクティスは保存しない）
+  saveRecords(kind) {
+    if (this.records) return this.records;
+    const block = this.rankBlock();
+    const local = !block || block.short === '未ログイン';
+    const hiscore = local && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
+    if (hiscore) Store.set(this.hiKey, Math.floor(this.score));
+    const ranking = block ? { saved: false, reason: block.long } : Accounts.record(this, kind);
+    this.records = { hiscore, ranking };
+    return this.records;
   }
 
   // ---------------- 更新 ----------------
@@ -147,6 +195,7 @@ class GameScene {
       this.pendingStage = null;
       this.startStage(i);
     }
+    Cheats.apply(this);
     if (this.continueMenu) { this.updateContinue(); return; }
     if (this.paused) { this.updatePause(); return; }
     if (Input.pressed('pause') || (Input.isTouch && document.hidden)) { this.openPause(); return; }
@@ -446,7 +495,7 @@ class GameScene {
         Sound.applyVolume();
         Game.setScene(new GameScene({ ...this.opts, seed: undefined }));
       } else {
-        this.saveHiScore();
+        this.saveRecords('quit');
         Sound.applyVolume();
         Game.setScene(new TitleScene());
       }

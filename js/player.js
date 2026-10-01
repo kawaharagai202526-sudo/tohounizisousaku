@@ -337,11 +337,12 @@ class Player {
     let dy = (Input.down('down') ? 1 : 0) - (Input.down('up') ? 1 : 0);
     let sp = this.focused ? this.type.focusSpeed : this.type.speed;
     if (this.bomb && this.bomb.slow) sp *= 0.5;
+    if (Cheats.on.playerSpeed) sp *= 2; // キー「I」
     if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
     this.x += dx * sp;
     this.y += dy * sp;
     if (move.x || move.y) {
-      const s = this.focused ? 0.75 : 1.25;
+      const s = (this.focused ? 0.75 : 1.25) * (Cheats.on.playerSpeed ? 2 : 1);
       this.x += move.x * s;
       this.y += move.y * s;
       dx = clamp(move.x, -1, 1);

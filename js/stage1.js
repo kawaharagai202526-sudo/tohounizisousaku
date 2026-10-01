@@ -304,8 +304,9 @@ STAGES.push({
     [192].forEach(x => ringFairy(x, { stopY: 70, times: 4 }));
     yield* waitClear(900);
     yield 90;
-
-    // ボス
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     const boss = g.spawnBoss('rumia', { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread', x: FIELD_W + 40, y: 40 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage1[g.charId].before);

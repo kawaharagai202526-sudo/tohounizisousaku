@@ -112,7 +112,7 @@
       box-shadow: 0 0 14px rgba(214, 186, 120, 0.4);
     }
   }
-  #adminOverlay {
+  #adminOverlay, #accountOverlay {
     position: fixed;
     inset: 0;
     z-index: 40;
@@ -123,7 +123,7 @@
     box-sizing: border-box;
     background: rgba(4, 2, 16, 0.74);
   }
-  #adminOverlay[hidden] { display: none; }
+  #adminOverlay[hidden], #accountOverlay[hidden] { display: none; }
   .admin-panel {
     position: relative;
     display: flex;
@@ -214,6 +214,73 @@
   .admin-btn:hover:not(:disabled), .admin-btn:focus-visible { background: rgba(214, 186, 120, 0.18); outline: none; }
   .admin-btn:disabled { color: var(--ink-dim); opacity: 0.55; cursor: not-allowed; }
   .admin-btn-top { width: auto; padding-inline: 28px; text-align: center; letter-spacing: 0.08em; }
+  .admin-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; width: 100%; margin: 0; padding: 0; list-style: none; font-size: 12px; }
+  .admin-keys li { display: flex; align-items: center; gap: 6px; padding: 3px 6px; color: var(--ink-dim); border: 1px solid rgba(255, 255, 255, 0.08); }
+  .admin-keys b { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--ink); }
+  .admin-keys .is-on { color: var(--night); background: var(--gold); border-color: var(--gold); }
+  .admin-keys .is-on b { color: var(--night); }
+  .admin-keymsg { min-height: 1.5em; }
+  .admin-mini {
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 9px;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(214, 186, 120, 0.5);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .admin-mini:hover, .admin-mini:focus-visible { background: rgba(214, 186, 120, 0.18); outline: none; }
+  .admin-mini.is-danger { border-color: rgba(255, 154, 168, 0.7); color: var(--error); }
+  .admin-mini.is-danger:hover, .admin-mini.is-danger:focus-visible { background: rgba(255, 154, 168, 0.16); }
+  .admin-ops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .admin-ops input { width: 9em; font: inherit; font-size: 13px; padding: 3px 6px; color: var(--ink); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(214, 186, 120, 0.55); }
+  .admin-ops .admin-optext { font-size: 12px; }
+  .admin-status { min-height: 1.4em; margin: 0 0 8px; font-size: 13px; color: #9af0b8; }
+  .admin-status.is-error { color: var(--error); }
+  .admin-badge { margin-left: 6px; padding: 1px 6px; font-size: 11px; color: var(--night); background: var(--gold); }
+  .admin-table td.num, .acct-table td.num { text-align: right; }
+  .admin-lines span { display: block; }
+  .admin-table td { vertical-align: middle; }
+  .admin-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+
+  /* ---------- アカウント画面 ---------- */
+  .acct-panel { width: min(400px, 100%); gap: 14px; padding: 24px 26px; overflow: auto; }
+  .acct-title { margin: 0; font-size: 20px; letter-spacing: 0.1em; }
+  .acct-tabs { display: flex; border-bottom: 1px solid rgba(214, 186, 120, 0.35); }
+  .acct-tab {
+    flex: 1;
+    padding: 10px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink-dim);
+    background: transparent;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+  }
+  .acct-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold); }
+  .acct-tab:hover, .acct-tab:focus-visible { color: var(--ink); outline: none; background: rgba(214, 186, 120, 0.08); }
+  .acct-form { display: flex; flex-direction: column; gap: 12px; }
+  .acct-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-dim); }
+  .acct-input {
+    font: inherit;
+    font-size: 16px;
+    padding: 9px 12px;
+    color: var(--ink);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(214, 186, 120, 0.55);
+  }
+  .acct-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.4); }
+  .acct-msg { min-height: 1.5em; text-align: left; }
+  .acct-submit { text-align: center; letter-spacing: 0.08em; }
+  .acct-note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
+  .acct-welcome { margin: 0; font-size: 14px; color: #9af0b8; }
+  .acct-who { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 13px; color: var(--ink-dim); }
+  .acct-name { font-size: 22px; color: var(--ink); word-break: break-all; }
+  .acct-table { width: 100%; }
+  .acct-row { display: flex; gap: 10px; }
   .admin-label { margin: 0; font-size: 15px; }
   .admin-keyinput {
     width: 64px;
@@ -373,6 +440,20 @@ const Store = {
   },
 };
 
+// 画面に重ねて出すHTMLの部品（管理者ページ・アカウント画面で使う）
+function domEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function domButton(cls, text, onClick) {
+  const b = domEl('button', cls, text);
+  b.type = 'button';
+  if (onClick) b.addEventListener('click', onClick);
+  return b;
+}
+
 function padScore(n, len = 9) {
   const s = String(Math.floor(n));
   return s.length >= len ? s : '0'.repeat(len - s.length) + s;
@@ -531,6 +612,7 @@ const Input = {
   taps: [],
   tapQueue: [],
   isTouch: false,
+  realTouch: false,  // 本物のタッチ操作があったか
   canvas: null,
   onFirstInput: null,
 
@@ -579,8 +661,10 @@ const Input = {
     // メニューの選択や会話送りなどのクリック（タップ）はマウスでも受け付ける
     this.tapQueue.push(p);
     // 自機の操作（ドラッグで移動・画面のボム／低速／ポーズボタン）はマウスでは不可
-    if (e.pointerType === 'mouse') return;
+    // （管理者ページのキー「M」を入れたときだけマウスでも操作できる）
+    if (e.pointerType === 'mouse' && !Cheats.on.mouse) return;
     e.preventDefault();
+    if (e.pointerType !== 'mouse') this.realTouch = true;
     this.isTouch = true;
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
     const btn = this.touchButtons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
@@ -609,6 +693,13 @@ const Input = {
     if (!ptr) return;
     if (ptr.role === 'button' && !ptr.btn.toggle) this.virtual[ptr.btn.action] = false;
     this.pointers.delete(e.pointerId);
+  },
+
+  // キー「M」を切ったとき：マウスで押していた操作をやめ、表示をキーボード用に戻す
+  endMouseControl() {
+    this.pointers.clear();
+    this.virtual = {};
+    this.isTouch = this.realTouch;
   },
 
   // タッチで自機を動かしている最中か
@@ -3807,11 +3898,12 @@ class Player {
     let dy = (Input.down('down') ? 1 : 0) - (Input.down('up') ? 1 : 0);
     let sp = this.focused ? this.type.focusSpeed : this.type.speed;
     if (this.bomb && this.bomb.slow) sp *= 0.5;
+    if (Cheats.on.playerSpeed) sp *= 2; // キー「I」
     if (dx && dy) { dx *= Math.SQRT1_2; dy *= Math.SQRT1_2; }
     this.x += dx * sp;
     this.y += dy * sp;
     if (move.x || move.y) {
-      const s = this.focused ? 0.75 : 1.25;
+      const s = (this.focused ? 0.75 : 1.25) * (Cheats.on.playerSpeed ? 2 : 1);
       this.x += move.x * s;
       this.y += move.y * s;
       dx = clamp(move.x, -1, 1);
@@ -4543,8 +4635,23 @@ function drawSidePanel(ctx, g) {
   const next = EXTEND_POINTS[g.extendIdx];
   value(next ? `${g.pointItems}/${next}` : String(g.pointItems), 262, '#b0c8ff');
 
+  // プレイヤー名と、ランキングに載るかどうか
+  const acc = g.accountKey ? Accounts.get(g.accountKey) : null;
+  const block = g.rankBlock();
+  const keys = Cheats.activeLetters();
+  ctx.font = `12px ${FONT_JP}`;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#d8d0ff';
+  ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
+  ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
+  ctx.fillText(block ? `ランキング対象外（${block.short}）` : 'ランキング対象', x0, 303, vx - x0);
+  if (keys) {
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillText(`使用中のキー：${keys.split('').join(' ')}`, x0, 320, vx - x0);
+  }
+
   if (Input.isTouch) {
-    drawLogo(ctx, 528, 318, 22);
+    if (!Party.active) drawLogo(ctx, 528, 344, 18);
     for (const b of TOUCH_BUTTONS) {
       const on = b.toggle ? Input.virtual[b.action] : Input.held[b.action];
       ctx.fillStyle = on ? 'rgba(255,220,150,0.35)' : 'rgba(255,255,255,0.08)';
@@ -4558,7 +4665,7 @@ function drawSidePanel(ctx, g) {
       ctx.fillStyle = '#fff';
       ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
     }
-  } else {
+  } else if (!Party.active) {
     drawLogo(ctx, 528, 404, 30);
   }
 
@@ -4847,7 +4954,10 @@ class GameScene {
     this.continueMenu = null;
     this.frame = 0;
     this.messages = [];
-    this.cheat = false;
+    this.cheat = false;                       // テスト用の無敵
+    this.accountKey = Accounts.currentKey();  // ログイン中のプレイヤー
+    this.usedKeys = Cheats.anyOn();           // 管理者ページのキーを使ったか
+    this.records = null;                      // 終わったときの記録結果
     // 描画が update より先に呼ばれても大丈夫なように、ここでステージを組み立てる
     this.startStage(startStage);
   }
@@ -4899,8 +5009,36 @@ class GameScene {
     Sound.playBgm(this.stage.bgm);
     this.showBgmTitle(this.stage.bgm);
     this.stageTitle = { frame: 0 };
-    yield* this.stage.script(this);
+    if (Cheats.on.bossOnly) yield 150;
+    else {
+      this.inRoad = true;
+      yield* this.stage.script(this);
+    }
+    this.inRoad = false;
+    yield* this.stage.boss(this);
     yield* this.stageClear();
+  }
+
+  // キー「V」を入れたとき：道中（中ボスを含む）を打ち切ってボス戦へ
+  skipToBoss() {
+    if (!this.inRoad) return;
+    this.inRoad = false;
+    this.tasks.clear();
+    this.enemies = [];
+    this.bullets.cancelAll(true);
+    this.clearLasers();
+    this.boss = null;
+    this.bossPhases = null;
+    this.spell = null;
+    this.spellBgKind = null;
+    this.cutin = null;
+    this.dialogue = null;
+    const g = this;
+    this.tasks.add((function* () {
+      yield 60;
+      yield* g.stage.boss(g);
+      yield* g.stageClear();
+    })());
   }
 
   *stageClear() {
@@ -4920,15 +5058,32 @@ class GameScene {
   }
 
   finish(kind) {
-    this.saveHiScore();
+    this.saveRecords(kind);
     Sound.stopBgm(1.5);
     if (kind === 'clear') Game.setScene(new EndingScene(this));
     else Game.setScene(new ResultScene(this, kind));
   }
 
-  saveHiScore() {
-    if (this.practice || this.cheat) return;
-    if (this.score > Store.get(this.hiKey, 0)) Store.set(this.hiKey, Math.floor(this.score));
+  // ランキングに載らない理由（載るなら null）
+  rankBlock() {
+    if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
+    if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
+    if (this.usedKeys) return { short: 'キー使用', long: 'キーを使ったため' };
+    if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
+    if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
+    return null;
+  }
+
+  // ハイスコアとプレイヤーの記録を保存する（キー使用・コンティニュー・プラクティスは保存しない）
+  saveRecords(kind) {
+    if (this.records) return this.records;
+    const block = this.rankBlock();
+    const local = !block || block.short === '未ログイン';
+    const hiscore = local && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
+    if (hiscore) Store.set(this.hiKey, Math.floor(this.score));
+    const ranking = block ? { saved: false, reason: block.long } : Accounts.record(this, kind);
+    this.records = { hiscore, ranking };
+    return this.records;
   }
 
   // ---------------- 更新 ----------------
@@ -4938,6 +5093,7 @@ class GameScene {
       this.pendingStage = null;
       this.startStage(i);
     }
+    Cheats.apply(this);
     if (this.continueMenu) { this.updateContinue(); return; }
     if (this.paused) { this.updatePause(); return; }
     if (Input.pressed('pause') || (Input.isTouch && document.hidden)) { this.openPause(); return; }
@@ -5237,7 +5393,7 @@ class GameScene {
         Sound.applyVolume();
         Game.setScene(new GameScene({ ...this.opts, seed: undefined }));
       } else {
-        this.saveHiScore();
+        this.saveRecords('quit');
         Sound.applyVolume();
         Game.setScene(new TitleScene());
       }
@@ -5900,8 +6056,9 @@ STAGES.push({
     [192].forEach(x => ringFairy(x, { stopY: 70, times: 4 }));
     yield* waitClear(900);
     yield 90;
-
-    // ボス
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     const boss = g.spawnBoss('rumia', { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread', x: FIELD_W + 40, y: 40 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage1[g.charId].before);
@@ -6170,7 +6327,9 @@ STAGES.push({
     [80, 304, 192].forEach((x, i) => ringFairy(x, { color: 'blue', bcolor: 'cyan', type: 'ice', stopY: 80 + i * 20, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 90;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     const boss = g.spawnBoss('cirno', { spellBg: 'cirno', circleColor: '120,220,255', x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);
@@ -6448,7 +6607,9 @@ STAGES.push({
     [120, 264].forEach(x => ringFairy(x, { color: 'blue', bcolor: 'yellow', type: 'star', stopY: 120, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 120;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     // ボス（会話はあとで追加する）
     const boss = g.spawnBoss('boss3', { spellBg: 'dream', circleColor: '255,200,235', x: FIELD_W / 2, y: -50 });
     Sound.playBgm('boss3');
@@ -6907,7 +7068,9 @@ STAGES.push({
     fairyLine(6, 50);
     yield* waitClear(900);
     yield 120;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     // ボス：瑠璃（ボス曲は会話の途中で始まる）
     const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
@@ -7096,11 +7259,22 @@ function drawHeading(ctx, text, en) {
 // ------------------------------------------------------------
 //  タイトル
 // ------------------------------------------------------------
+const TITLE_ITEMS = [
+  { id: 'start', label: 'ゲームスタート' },
+  { id: 'practice', label: 'プラクティス' },
+  { id: 'ranking', label: 'ランキング' },
+  { id: 'music', label: 'ミュージックルーム' },
+  { id: 'manual', label: '操作説明とお話' },
+  { id: 'option', label: 'オプション' },
+  { id: 'account', label: 'アカウント' },
+];
+
 class TitleScene {
+  // sel は項目の番号か id（'music' など）
   constructor(sel = 0) {
-    this.sel = sel;
+    this.sel = typeof sel === 'string' ? Math.max(0, TITLE_ITEMS.findIndex(it => it.id === sel)) : sel;
     this.frame = 0;
-    this.items = ['ゲームスタート', 'プラクティス', 'ミュージックルーム', '操作説明とお話', 'オプション'];
+    this.items = TITLE_ITEMS.map(it => it.label);
     this.rects = [];
   }
   enter() { Sound.playBgm('title'); }
@@ -7112,12 +7286,14 @@ class TitleScene {
     if (tap >= 0) this.sel = tap;
     if ((Input.pressed('shot') || tap >= 0) && this.frame > 10) {
       Sound.se('ok');
-      switch (this.sel) {
-        case 0: Game.setScene(new DifficultyScene('game')); break;
-        case 1: Game.setScene(new DifficultyScene('practice')); break;
-        case 2: Game.setScene(new MusicRoomScene()); break;
-        case 3: Game.setScene(new ManualScene()); break;
-        case 4: Game.setScene(new OptionScene()); break;
+      switch (TITLE_ITEMS[this.sel].id) {
+        case 'start': Game.setScene(new DifficultyScene('game')); break;
+        case 'practice': Game.setScene(new DifficultyScene('practice')); break;
+        case 'ranking': Game.setScene(new RankingScene()); break;
+        case 'music': Game.setScene(new MusicRoomScene()); break;
+        case 'manual': Game.setScene(new ManualScene()); break;
+        case 'option': Game.setScene(new OptionScene()); break;
+        case 'account': AccountDialog.open(); break;
       }
     }
   }
@@ -7146,9 +7322,20 @@ class TitleScene {
     ctx.fillStyle = '#ecd9a0';
     ctx.fillText('〜 Night of Falling Stars.', 420, 184);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 240, 34);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 228, 28);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const acc = Accounts.current();
+    ctx.font = `600 13px ${FONT_JP}`;
+    strokeText(ctx, acc ? `プレイヤー：${acc.name}` : 'ゲスト（「アカウント」からログインするとランキングに載ります）', 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
+    const keys = Cheats.activeLetters();
+    if (keys) {
+      ctx.textAlign = 'right';
+      ctx.font = `12px ${FONT_JP}`;
+      strokeText(ctx, `キー使用中：${keys.split('').join(' ')}`, SCREEN_W - 16, 416, '#ffd27a', 'rgba(10,5,30,0.9)', 3);
+      ctx.textAlign = 'left';
+    }
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -7188,7 +7375,7 @@ class DifficultyScene {
       Game.setScene(new CharacterScene(this.mode, this.sel));
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(this.mode === 'game' ? 0 : 1));
+      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : 'practice'));
     }
   }
   draw(ctx) {
@@ -7360,7 +7547,7 @@ class MusicRoomScene {
       Sound.playBgm(MUSIC_ROOM[this.sel]);
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(2));
+      Game.setScene(new TitleScene('music'));
     }
   }
   draw(ctx) {
@@ -7400,7 +7587,7 @@ class ManualScene {
     menuBG().update();
     if ((Input.pressed('shot') || backPressed() || (Input.anyTap() && !Input.tapIn(10, 10, 70, 30))) && this.frame > 10) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(3));
+      Game.setScene(new TitleScene('manual'));
     }
   }
   draw(ctx) {
@@ -7490,7 +7677,7 @@ class OptionScene {
     }
     if ((this.sel === 3 && (Input.pressed('shot') || tap === 3)) || backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(4));
+      Game.setScene(new TitleScene('option'));
     }
   }
   draw(ctx) {
@@ -7575,7 +7762,8 @@ class ResultScene {
     this.g = g;
     this.kind = kind;
     this.frame = 0;
-    this.newRecord = !g.practice && !g.cheat && g.score >= Store.get(g.hiKey, 0) && g.score > 0;
+    this.records = g.records || g.saveRecords(kind);
+    this.newRecord = this.records.hiscore;
   }
   enter() { if (this.kind !== 'clear') Sound.playBgm('title'); }
   update() {
@@ -7618,10 +7806,18 @@ class ResultScene {
       ctx.fillStyle = '#ffffff';
       ctx.fillText(v, 470, y);
     });
+    const rk = this.records.ranking;
+    ctx.textAlign = 'center';
+    ctx.font = `700 15px ${FONT_JP}`;
+    if (rk.saved) {
+      const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
+      strokeText(ctx, text, SCREEN_W / 2, 396, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
+    } else {
+      strokeText(ctx, `ランキングには載りません（${rk.reason}）`, SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
+    }
     if (this.newRecord) {
-      ctx.textAlign = 'center';
       ctx.font = `800 18px ${FONT_JP}`;
-      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 408, '#ffe070', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 424, '#ffe070', 'rgba(0,0,0,0.8)', 3);
     }
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT_JP}`;
@@ -7629,6 +7825,739 @@ class ResultScene {
     ctx.fillText(Input.isTouch ? 'タップでタイトルへ' : 'Z でタイトルへ', SCREEN_W / 2, 456);
   }
 }
+
+</script>
+<script data-file="js/accounts.js">
+'use strict';
+// ============================================================
+//  アカウント（ユーザー名・パスワード・スコア）とランキング
+//  データはこのブラウザの localStorage に保存する（サーバーは使わない）。
+//  パスワードはそのまま保存せず、ソルトを付けて SHA-256 を繰り返したハッシュだけを保存する。
+//  ※ ブラウザの中のデータなので、本当に大事なパスワードは使わないこと。
+// ============================================================
+
+const NAME_MAX = 12;
+const PASS_MIN = 4;
+const PASS_MAX = 32;
+const HASH_ROUNDS = 2000;
+const HISTORY_MAX = 20; // 1人あたり残すプレイ記録の数
+
+// ------------------------------------------------------------
+//  SHA-256（同期で使えるように自前で計算する）
+// ------------------------------------------------------------
+const sha256 = (() => {
+  const K = [], H0 = [];
+  for (let n = 2; K.length < 64; n++) {
+    let prime = true;
+    for (let d = 2; d * d <= n; d++) if (n % d === 0) { prime = false; break; }
+    if (!prime) continue;
+    if (H0.length < 8) H0.push((Math.sqrt(n) % 1) * 4294967296 | 0);
+    K.push((Math.cbrt(n) % 1) * 4294967296 | 0);
+  }
+  const ror = (x, n) => (x >>> n) | (x << (32 - n));
+  const w = new Int32Array(64);
+  return text => {
+    const src = new TextEncoder().encode(text);
+    const len = Math.ceil((src.length + 9) / 64) * 64;
+    const bytes = new Uint8Array(len);
+    bytes.set(src);
+    bytes[src.length] = 0x80;
+    const bits = src.length * 8;
+    for (let i = 0; i < 4; i++) bytes[len - 1 - i] = (bits >>> (i * 8)) & 255;
+    const H = H0.slice();
+    for (let off = 0; off < len; off += 64) {
+      for (let i = 0; i < 16; i++) {
+        const j = off + i * 4;
+        w[i] = (bytes[j] << 24) | (bytes[j + 1] << 16) | (bytes[j + 2] << 8) | bytes[j + 3];
+      }
+      for (let i = 16; i < 64; i++) {
+        const a = w[i - 15], b = w[i - 2];
+        const s0 = ror(a, 7) ^ ror(a, 18) ^ (a >>> 3);
+        const s1 = ror(b, 17) ^ ror(b, 19) ^ (b >>> 10);
+        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
+      }
+      let [a, b, c, d, e, f, g, h] = H;
+      for (let i = 0; i < 64; i++) {
+        const t1 = (h + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+        h = g; g = f; f = e; e = (d + t1) | 0;
+        d = c; c = b; b = a; a = (t1 + t2) | 0;
+      }
+      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
+      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
+    }
+    return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+  };
+})();
+
+function hashPassword(pw, salt) {
+  let h = sha256(`${salt}:${pw}`);
+  for (let i = 1; i < HASH_ROUNDS; i++) h = sha256(h + salt);
+  return h;
+}
+function makeSalt() {
+  const a = new Uint8Array(16);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
+  else for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
+  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function formatDate(t, withTime = false) {
+  if (!t) return '―';
+  const d = new Date(t);
+  const p = n => String(n).padStart(2, '0');
+  const s = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+  return withTime ? `${s} ${p(d.getHours())}:${p(d.getMinutes())}` : s;
+}
+// 「博麗 霊夢」→「霊夢」
+function shortCharaName(id) { return CHARA_INFO[id] ? CHARA_INFO[id].name.split(' ').pop() : id; }
+
+// ------------------------------------------------------------
+//  保存データ
+//  accounts: { [キー]: { name, salt, hash, created, lastLogin, plays,
+//              best: { [難易度]: 記録 }, history: [記録...] } }
+//  記録: { score, diff, char, stage, clear, date }
+// ------------------------------------------------------------
+const Accounts = {
+  db: Store.get('accounts', {}),
+  cur: Store.get('currentUser', null),
+
+  init() {
+    // 別のタブで変更されたら読み直す
+    window.addEventListener('storage', e => {
+      if (e.key === Store.prefix + 'accounts') this.db = Store.get('accounts', {});
+      if (e.key === Store.prefix + 'currentUser') this.cur = Store.get('currentUser', null);
+    });
+  },
+  commit() { Store.set('accounts', this.db); },
+
+  // 大文字・小文字や全角・半角の違いは同じ名前として扱う
+  keyOf(name) { return name.normalize('NFKC').toLowerCase(); },
+  get(key) { return Object.prototype.hasOwnProperty.call(this.db, key) ? this.db[key] : null; },
+  all() { return Object.entries(this.db).map(([key, a]) => ({ key, ...a })); },
+  currentKey() { return this.cur && this.get(this.cur) ? this.cur : null; },
+  current() { const k = this.currentKey(); return k ? this.get(k) : null; },
+  setCurrent(key) { this.cur = key; Store.set('currentUser', key); },
+
+  checkName(raw) {
+    const name = raw.normalize('NFC').trim();
+    if (!name) return { error: 'ユーザー名を入力してください' };
+    if ([...name].length > NAME_MAX) return { error: `ユーザー名は${NAME_MAX}文字までです` };
+    if (/[\u0000-\u001f\u007f]/.test(name)) return { error: 'ユーザー名に使えない文字が入っています' };
+    return { name };
+  },
+  checkPassword(pw) {
+    if (pw.length < PASS_MIN) return `パスワードは${PASS_MIN}文字以上にしてください`;
+    if (pw.length > PASS_MAX) return `パスワードは${PASS_MAX}文字までです`;
+    return null;
+  },
+
+  register(rawName, pw) {
+    const { name, error } = this.checkName(rawName);
+    if (error) return { error };
+    const key = this.keyOf(name);
+    if (this.get(key)) return { error: 'そのユーザー名はもう使われています' };
+    const pwError = this.checkPassword(pw);
+    if (pwError) return { error: pwError };
+    const salt = makeSalt();
+    const now = Date.now();
+    this.db[key] = { name, salt, hash: hashPassword(pw, salt), created: now, lastLogin: now, plays: 0, best: {}, history: [] };
+    this.commit();
+    this.setCurrent(key);
+    return { ok: true, name };
+  },
+
+  login(rawName, pw) {
+    const { name, error } = this.checkName(rawName);
+    if (error) return { error };
+    if (!pw) return { error: 'パスワードを入力してください' };
+    const key = this.keyOf(name);
+    const acc = this.get(key);
+    if (!acc || hashPassword(pw, acc.salt) !== acc.hash) return { error: 'ユーザー名かパスワードがちがいます' };
+    acc.lastLogin = Date.now();
+    this.commit();
+    this.setCurrent(key);
+    return { ok: true, name: acc.name };
+  },
+
+  logout() { this.setCurrent(null); },
+
+  // 難易度ごとのランキング（1人1件、そのプレイヤーのベスト）
+  ranking(diff) {
+    return this.all()
+      .filter(a => a.best && a.best[diff])
+      .map(a => ({ key: a.key, name: a.name, ...a.best[diff] }))
+      .sort((x, y) => y.score - x.score || x.date - y.date);
+  },
+  rankOf(key, diff) {
+    const i = this.ranking(diff).findIndex(r => r.key === key);
+    return i < 0 ? null : i + 1;
+  },
+
+  // ゲーム終了時に呼ぶ。ランキングに載せられるプレイかどうかは呼ぶ側で確かめる
+  record(g, kind) {
+    const acc = this.get(g.accountKey);
+    if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
+    if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
+    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
+    acc.plays = (acc.plays || 0) + 1;
+    acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
+    acc.best = acc.best || {};
+    const prev = acc.best[DIFF];
+    const best = !prev || entry.score > prev.score;
+    if (best) acc.best[DIFF] = entry;
+    this.commit();
+    return { saved: true, best, diff: DIFF, rank: this.rankOf(g.accountKey, DIFF), total: this.ranking(DIFF).length };
+  },
+
+  // ---------- 管理者ページから使う ----------
+  remove(key) {
+    delete this.db[key];
+    this.commit();
+    if (this.cur === key) this.logout();
+  },
+  removeAll() {
+    this.db = {};
+    this.commit();
+    this.logout();
+  },
+  resetScores(key) {
+    const acc = this.get(key);
+    if (!acc) return;
+    acc.best = {};
+    acc.history = [];
+    acc.plays = 0;
+    this.commit();
+  },
+  setPassword(key, pw) {
+    const acc = this.get(key);
+    if (!acc) return 'プレイヤーが見つかりません';
+    const err = this.checkPassword(pw);
+    if (err) return err;
+    acc.salt = makeSalt();
+    acc.hash = hashPassword(pw, acc.salt);
+    this.commit();
+    return null;
+  },
+};
+Accounts.init();
+
+// ------------------------------------------------------------
+//  アカウント画面（ログイン・新規登録・ログアウト）
+//  文字を入力するので、キャンバスではなくHTMLで画面の上に重ねる
+// ------------------------------------------------------------
+const AccountDialog = {
+  root: null,
+  tab: 'login',
+  onClose: null,
+
+  init() {
+    const root = domEl('div');
+    root.id = 'accountOverlay';
+    root.hidden = true;
+    root.addEventListener('click', e => { if (e.target === root) this.close(); });
+    document.body.appendChild(root);
+    this.root = root;
+    window.addEventListener('keydown', e => {
+      if (root.hidden || e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation(); // 閉じたEscでゲーム側が反応しないように
+      this.close();
+    });
+  },
+
+  get isOpen() { return !this.root.hidden; },
+
+  open(onClose) {
+    this.onClose = onClose || null;
+    Input.suspended = true;
+    Input.keys = {};
+    this.root.hidden = false;
+    this.render();
+  },
+  close() {
+    if (this.root.hidden) return;
+    this.root.hidden = true;
+    this.root.textContent = '';
+    Input.suspended = false;
+    Input.keys = {};
+    if (Game.canvas) Game.canvas.focus();
+    const f = this.onClose;
+    this.onClose = null;
+    if (f) f();
+  },
+
+  panel() {
+    this.root.textContent = '';
+    const p = domEl('div', 'admin-panel acct-panel');
+    p.setAttribute('role', 'dialog');
+    p.setAttribute('aria-modal', 'true');
+    p.setAttribute('aria-labelledby', 'acctTitle');
+    const x = domButton('admin-close', '×', () => this.close());
+    x.setAttribute('aria-label', '閉じる');
+    const h = domEl('h2', 'acct-title', 'アカウント');
+    h.id = 'acctTitle';
+    p.append(x, h);
+    this.root.appendChild(p);
+    return p;
+  },
+
+  render(welcome) {
+    if (Accounts.current()) this.renderUser(welcome);
+    else this.renderForm();
+  },
+
+  renderForm() {
+    const p = this.panel();
+    const reg = this.tab === 'register';
+    const tabs = domEl('div', 'acct-tabs');
+    tabs.setAttribute('role', 'tablist');
+    for (const [id, label] of [['login', 'ログイン'], ['register', '新規登録']]) {
+      const t = domButton('acct-tab', label, () => { if (this.tab !== id) { this.tab = id; this.renderForm(); } });
+      t.setAttribute('role', 'tab');
+      t.setAttribute('aria-selected', String(this.tab === id));
+      tabs.append(t);
+    }
+    const form = domEl('form', 'acct-form');
+    form.noValidate = true;
+    const field = (label, type, auto, max) => {
+      const wrap = domEl('label', 'acct-field');
+      const input = domEl('input', 'acct-input');
+      input.type = type;
+      input.autocomplete = auto;
+      input.maxLength = max;
+      input.spellcheck = false;
+      input.autocapitalize = 'off';
+      wrap.append(domEl('span', '', label), input);
+      form.append(wrap);
+      return input;
+    };
+    const name = field(`ユーザー名（${NAME_MAX}文字まで）`, 'text', 'username', NAME_MAX * 2);
+    const pass = field(reg ? `パスワード（${PASS_MIN}文字以上）` : 'パスワード', 'password', reg ? 'new-password' : 'current-password', PASS_MAX);
+    const pass2 = reg ? field('パスワード（確認）', 'password', 'new-password', PASS_MAX) : null;
+    const msg = domEl('p', 'admin-msg acct-msg');
+    msg.setAttribute('aria-live', 'polite');
+    const submit = domEl('button', 'admin-btn acct-submit', reg ? '登録してログイン' : 'ログイン');
+    submit.type = 'submit';
+    form.append(msg, submit);
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      if (reg && pass.value !== pass2.value) return this.fail(msg, form, 'パスワード（確認）が一致しません');
+      const r = reg ? Accounts.register(name.value, pass.value) : Accounts.login(name.value, pass.value);
+      if (r.error) return this.fail(msg, form, r.error);
+      Sound.se('ok');
+      this.render(reg ? `登録しました。ようこそ、${r.name} さん` : `おかえりなさい、${r.name} さん`);
+    });
+    p.append(tabs, form, domEl('p', 'acct-note', 'アカウントとスコアはこのブラウザの中に保存されます。ほかのサイトで使っているパスワードは使わないでください。'));
+    setTimeout(() => name.focus(), 0);
+  },
+
+  fail(msg, form, text) {
+    msg.className = 'admin-msg acct-msg is-error';
+    msg.textContent = text;
+    form.classList.remove('shake');
+    void form.offsetWidth;
+    form.classList.add('shake');
+    Sound.se('cancel');
+  },
+
+  renderUser(welcome) {
+    const p = this.panel();
+    const key = Accounts.currentKey();
+    const acc = Accounts.get(key);
+    if (welcome) p.append(domEl('p', 'acct-welcome', welcome));
+    const who = domEl('p', 'acct-who');
+    who.append(domEl('span', '', 'ログイン中のプレイヤー'), domEl('strong', 'acct-name', acc.name));
+    p.append(who);
+    const t = domEl('table', 'admin-table acct-table');
+    const head = domEl('tr');
+    for (const h of ['難易度', 'ベストスコア', '順位']) head.append(domEl('th', '', h));
+    t.append(head);
+    DIFF_NAMES.forEach((d, i) => {
+      const b = acc.best && acc.best[i];
+      const rank = b ? Accounts.rankOf(key, i) : null;
+      const tr = domEl('tr');
+      tr.append(domEl('td', '', d), domEl('td', 'num', b ? padScore(b.score) : '―'), domEl('td', 'num', rank ? `${rank}位` : '―'));
+      t.append(tr);
+    });
+    p.append(t, domEl('p', 'acct-note', `プレイ回数：${acc.plays || 0}回　登録日：${formatDate(acc.created)}`));
+    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイ、キーを使ったプレイ、プラクティスは記録されません。'));
+    const row = domEl('div', 'acct-row');
+    row.append(
+      domButton('admin-btn acct-submit', 'ログアウト', () => { Accounts.logout(); Sound.se('cancel'); this.tab = 'login'; this.renderForm(); }),
+      domButton('admin-btn acct-submit', '閉じる', () => this.close()),
+    );
+    p.append(row);
+    setTimeout(() => row.lastChild.focus(), 0);
+  },
+};
+AccountDialog.init();
+
+// ------------------------------------------------------------
+//  ランキング画面
+// ------------------------------------------------------------
+const RANK_ROWS = 10;
+
+class RankingScene {
+  constructor() {
+    this.diff = Store.get('lastDiff', 1);
+    this.scroll = 0;
+    this.frame = 0;
+    this.list = Accounts.ranking(this.diff);
+  }
+  tabRect(i) { return { x: 80 + i * 122, y: 88, w: 114, h: 30 }; }
+  update() {
+    this.frame++;
+    menuBG().update();
+    const before = this.diff;
+    this.diff = menuMove(this.diff, 4, 'left', 'right');
+    for (let i = 0; i < 4; i++) {
+      const r = this.tabRect(i);
+      if (Input.tapIn(r.x, r.y, r.w, r.h) && this.diff !== i) { this.diff = i; Sound.se('cursor'); }
+    }
+    if (this.diff !== before || this.frame % 60 === 0) {
+      if (this.diff !== before) this.scroll = 0;
+      this.list = Accounts.ranking(this.diff);
+    }
+    const maxScroll = Math.max(0, this.list.length - RANK_ROWS);
+    if (Input.repeat('up') || Input.tapIn(596, 156, 36, 60)) this.scroll = Math.max(0, this.scroll - 1);
+    if (Input.repeat('down') || Input.tapIn(596, 340, 36, 60)) this.scroll = Math.min(maxScroll, this.scroll + 1);
+    if ((backPressed() || Input.pressed('shot')) && this.frame > 10) {
+      Sound.se('cancel');
+      Game.setScene(new TitleScene('ranking'));
+    }
+  }
+  draw(ctx) {
+    menuBG().draw(ctx);
+    ctx.fillStyle = 'rgba(6,4,20,0.7)';
+    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+    drawHeading(ctx, 'ランキング', 'Ranking');
+    ctx.textBaseline = 'middle';
+    // 難易度のタブ
+    for (let i = 0; i < 4; i++) {
+      const r = this.tabRect(i), on = i === this.diff;
+      ctx.fillStyle = on ? 'rgba(60,40,120,0.85)' : 'rgba(20,14,50,0.6)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.strokeStyle = on ? DIFF_COLORS[i] : 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = on ? 2 : 1;
+      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
+      ctx.textAlign = 'center';
+      ctx.font = `italic 700 ${on ? 20 : 17}px ${FONT_EN}`;
+      strokeText(ctx, DIFF_NAMES[i], r.x + r.w / 2, r.y + r.h / 2, on ? DIFF_COLORS[i] : '#8a84a8', 'rgba(0,0,0,0.8)', 3);
+    }
+    // 表
+    const cols = { rank: 98, name: 112, score: 390, chara: 408, stage: 470, date: 588 };
+    const y0 = 140, rowH = 24;
+    ctx.font = `600 12px ${FONT_JP}`;
+    ctx.fillStyle = '#d8c89a';
+    ctx.textAlign = 'right'; ctx.fillText('順位', cols.rank, y0); ctx.fillText('スコア', cols.score, y0); ctx.fillText('日付', cols.date, y0);
+    ctx.textAlign = 'left'; ctx.fillText('プレイヤー', cols.name, y0); ctx.fillText('キャラ', cols.chara, y0); ctx.fillText('到達', cols.stage, y0);
+    ctx.fillStyle = 'rgba(214,186,120,0.5)';
+    ctx.fillRect(48, y0 + 11, 548, 1);
+    const me = Accounts.currentKey();
+    const list = this.list;
+    if (!list.length) {
+      ctx.textAlign = 'center';
+      ctx.font = `14px ${FONT_JP}`;
+      ctx.fillStyle = '#a8a0cc';
+      ctx.fillText('まだ記録がありません', SCREEN_W / 2, y0 + 110);
+    }
+    for (let i = 0; i < RANK_ROWS && this.scroll + i < list.length; i++) {
+      const n = this.scroll + i, r = list[n];
+      const y = y0 + 26 + i * rowH;
+      if (r.key === me) {
+        ctx.fillStyle = 'rgba(214,186,120,0.18)';
+        ctx.fillRect(48, y - rowH / 2, 548, rowH);
+      } else if (n % 2) {
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(48, y - rowH / 2, 548, rowH);
+      }
+      const medal = ['#ffd860', '#d8dcec', '#e0a070'][n];
+      ctx.textAlign = 'right';
+      ctx.font = `700 15px ${FONT_JP}`;
+      ctx.fillStyle = medal || '#ece6ff';
+      ctx.fillText(`${n + 1}位`, cols.rank, y);
+      ctx.textAlign = 'left';
+      ctx.font = `${r.key === me ? 700 : 500} 14px ${FONT_JP}`;
+      ctx.fillStyle = r.key === me ? '#fff3c8' : '#ece6ff';
+      ctx.save();
+      ctx.beginPath(); ctx.rect(cols.name, y - rowH / 2, 180, rowH); ctx.clip();
+      ctx.fillText(r.name, cols.name, y);
+      ctx.restore();
+      ctx.textAlign = 'right';
+      ctx.font = `700 16px ${FONT_EN}`;
+      ctx.fillStyle = '#ffffff';
+      drawDigits(ctx, padScore(r.score), cols.score, y, 10, 'right');
+      ctx.textAlign = 'left';
+      ctx.font = `13px ${FONT_JP}`;
+      ctx.fillStyle = r.char === 'reimu' ? SELECT_COLOR.reimu : SELECT_COLOR.marisa;
+      ctx.fillText(shortCharaName(r.char), cols.chara, y);
+      ctx.font = `italic 600 14px ${FONT_EN}`;
+      ctx.fillStyle = r.clear ? '#ffe070' : '#c8c0e8';
+      ctx.fillText(r.clear ? 'All Clear' : `Stage ${r.stage}`, cols.stage, y);
+      ctx.textAlign = 'right';
+      ctx.font = `12px ${FONT_JP}`;
+      ctx.fillStyle = '#a8a0cc';
+      ctx.fillText(formatDate(r.date), cols.date, y);
+    }
+    // スクロールの印
+    if (list.length > RANK_ROWS) {
+      ctx.fillStyle = '#d6ba78';
+      ctx.textAlign = 'center';
+      ctx.font = `14px ${FONT_JP}`;
+      if (this.scroll > 0) ctx.fillText('▲', 614, 186);
+      if (this.scroll < list.length - RANK_ROWS) ctx.fillText('▼', 614, 370);
+    }
+    // 自分の順位
+    ctx.textAlign = 'center';
+    ctx.font = `600 14px ${FONT_JP}`;
+    const acc = Accounts.current();
+    let mine;
+    if (!acc) mine = 'ログインしていません（タイトルの「アカウント」からログインできます）';
+    else {
+      const rank = Accounts.rankOf(me, this.diff);
+      mine = rank ? `${acc.name} さんの順位：${rank}位 / ${list.length}人` : `${acc.name} さんは ${DIFF_NAMES[this.diff]} の記録がまだありません`;
+    }
+    strokeText(ctx, mine, SCREEN_W / 2, 412, '#fff3c8', 'rgba(0,0,0,0.8)', 3);
+    ctx.font = `11px ${FONT_JP}`;
+    ctx.fillStyle = 'rgba(220,210,255,0.75)';
+    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスとキーを使ったプレイは対象外）', SCREEN_W / 2, 438);
+    ctx.font = `12px ${FONT_JP}`;
+    ctx.fillStyle = 'rgba(220,210,255,0.8)';
+    ctx.fillText(Input.isTouch ? '難易度をタップで切り替え　▲▼でスクロール' : '←→：難易度　↑↓：スクロール　X：戻る', SCREEN_W / 2, 462);
+    drawBackButton(ctx);
+  }
+}
+
+</script>
+<script data-file="js/cheats.js">
+'use strict';
+// ============================================================
+//  管理者ページの「キー」（1文字で切り替える特別な機能）
+//  キーを1つでも使ったプレイは、スコアが保存されずランキングにも載らない。
+//  切り替えた状態はページを読み込み直すと元に戻る。
+// ============================================================
+
+const CHEAT_KEYS = {
+  M: { id: 'mouse', label: 'マウス操作' },
+  H: { id: 'lives', label: '残機カンスト' },
+  B: { id: 'bombs', label: 'ボムカンスト' },
+  S: { id: 'speed', label: 'ゲーム速度2倍' },
+  V: { id: 'bossOnly', label: 'ボス戦のみ' },
+  I: { id: 'playerSpeed', label: '自機の速度2倍' },
+  D: { id: 'party', label: 'パリピ' },
+};
+const CHEAT_MAX = 8; // 残機・ボムの上限（画面の星の数）
+
+const Cheats = {
+  on: {},
+
+  anyOn() { return Object.values(this.on).some(Boolean); },
+  // 使用中のキーの文字（例：'HBS'）
+  activeLetters() { return Object.keys(CHEAT_KEYS).filter(k => this.on[CHEAT_KEYS[k].id]).join(''); },
+
+  // 1文字を受け取って切り替える。割り当てのない文字なら null
+  toggle(letter) {
+    const def = CHEAT_KEYS[letter];
+    if (!def) return null;
+    const on = !this.on[def.id];
+    this.on[def.id] = on;
+    const scene = Game.scene;
+    const inGame = typeof GameScene !== 'undefined' && scene instanceof GameScene;
+    if (on && inGame) scene.usedKeys = true;
+    if (def.id === 'mouse' && !on) Input.endMouseControl();
+    if (def.id === 'bossOnly' && on && inGame) scene.skipToBoss();
+    if (def.id === 'party' && !on) Party.stop();
+    return { letter, label: def.label, on };
+  },
+
+  // ゲーム中に毎フレーム呼ぶ
+  apply(g) {
+    if (!this.anyOn()) return;
+    g.usedKeys = true;
+    if (this.on.lives) g.lives = CHEAT_MAX;
+    if (this.on.bombs) g.bombs = CHEAT_MAX;
+  },
+};
+
+// ------------------------------------------------------------
+//  D：パリピ（色が回り、ライトと紙吹雪、ビートとエアホーンが鳴る）
+//  画面全体が点滅するような演出はしない
+// ------------------------------------------------------------
+const Party = {
+  active: false,
+  t: 0,
+  pulse: 0,
+  confetti: [],
+  beat: 0,
+  spb: 0,
+  anchor: null,
+  lastT: -Infinity,
+  freeAnchor: null,
+  calm: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+
+  piece(top) {
+    return {
+      x: frand(SCREEN_W), y: top ? frand(-SCREEN_H, 0) : -10,
+      vx: frand(-0.6, 0.6), vy: frand(1.2, 2.6), r: frand(TAU), vr: frand(-0.15, 0.15),
+      w: frand(4, 7), h: frand(7, 11), hue: Math.floor(frand(360)), ph: frand(100),
+    };
+  },
+
+  update() {
+    if (!Cheats.on.party) { if (this.active) this.stop(); return; }
+    this.active = true;
+    this.t++;
+    while (this.confetti.length < 90) this.confetti.push(this.piece(true));
+    for (const p of this.confetti) {
+      p.x += p.vx + Math.sin((this.t + p.ph) * 0.05) * 0.7;
+      p.y += p.vy;
+      p.r += p.vr;
+      if (p.y > SCREEN_H + 12) Object.assign(p, this.piece(false));
+    }
+    this.pulse = Math.exp(-this.beatPhase() * 5);
+    const cv = Game.canvas;
+    if (cv) {
+      cv.style.filter = `hue-rotate(${(this.t * 3) % 360}deg) saturate(1.6)`;
+      cv.style.transform = this.calm ? '' : `scale(${(1 + 0.012 * this.pulse).toFixed(4)})`;
+    }
+    this.scheduleAudio();
+  },
+
+  stop() {
+    this.active = false;
+    this.confetti = [];
+    this.anchor = null;
+    this.lastT = -Infinity;
+    this.freeAnchor = null;
+    if (Game.canvas) { Game.canvas.style.filter = ''; Game.canvas.style.transform = ''; }
+  },
+
+  // 拍の中のどこにいるか（0〜1）。音が鳴っていないときは128BPM相当
+  beatPhase() {
+    const S = Sound;
+    if (S.ctx && S.ctx.state === 'running' && this.anchor !== null && this.spb) {
+      const x = (S.ctx.currentTime - this.anchor) / this.spb;
+      return x - Math.floor(x);
+    }
+    return (this.t % 28) / 28;
+  },
+
+  // BGMの拍に合わせて打楽器を重ねる
+  scheduleAudio() {
+    const S = Sound;
+    if (!S.ctx || S.ctx.state !== 'running') return;
+    const now = S.ctx.currentTime;
+    const spb = 60 / (S.song ? S.song.c.bpm : 128);
+    if (!S.song && this.freeAnchor === null) this.freeAnchor = now + 0.05;
+    const anchor = S.song ? S.song.t0 : this.freeAnchor;
+    if (this.spb !== spb || this.anchor !== anchor) {
+      this.spb = spb;
+      this.anchor = anchor;
+      this.beat = Math.ceil((Math.max(now, this.lastT + 0.05) - anchor) / spb);
+    }
+    while (anchor + this.beat * spb < now + 0.25) {
+      const t = anchor + this.beat * spb;
+      if (t >= now - 0.02) this.hit(t, this.beat, spb);
+      this.lastT = t;
+      this.beat++;
+    }
+  },
+
+  hit(t, k, spb) {
+    const S = Sound, d = S.bgmBus;
+    const n = ((k % 16) + 16) % 16;
+    S.osc('sine', 160, 42, t, 0.3, 0.55, d);                       // キック（4つ打ち）
+    S.noise(t, 0.02, 0.12, d, 'highpass', 3000);
+    S.noise(t + spb / 2, 0.08, 0.1, d, 'highpass', 8000);          // 裏拍のハイハット
+    if (n % 2 === 1) {                                               // 2・4拍目のクラップ
+      for (const dt of [0, 0.011, 0.023]) S.noise(t + dt, 0.14, 0.18, d, 'bandpass', 1500, 0, 1.3);
+    }
+    if (n === 0) this.horn(t);
+    if (n === 6 || n === 14) S.osc('sine', 1800, 3400, t + spb / 2, 0.3, 0.05, d, 0.05); // ホイッスル
+  },
+
+  // エアホーン（パッ、パッ、パーー）
+  horn(t) {
+    const ctx = Sound.ctx;
+    for (const [st, len] of [[0, 0.11], [0.15, 0.11], [0.3, 0.55]]) {
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t + st);
+      g.gain.linearRampToValueAtTime(0.07, t + st + 0.015);
+      g.gain.setValueAtTime(0.07, t + st + len - 0.03);
+      g.gain.linearRampToValueAtTime(0, t + st + len);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2600;
+      lp.connect(g);
+      g.connect(Sound.bgmBus);
+      for (const f of [466, 471, 233]) {
+        const o = ctx.createOscillator();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(f, t + st);
+        o.frequency.linearRampToValueAtTime(f * 0.96, t + st + len);
+        o.connect(lp);
+        o.start(t + st);
+        o.stop(t + st + len + 0.05);
+      }
+    }
+  },
+
+  draw(ctx) {
+    if (!this.active) return;
+    ctx.save();
+    ctx.setTransform(Game.scale, 0, 0, Game.scale, 0, 0);
+    // スポットライト
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 4; i++) {
+      const a = Math.sin(this.t * 0.03 + i * 1.7) * 0.55 + (i % 2 ? 0.25 : -0.25);
+      const hue = (this.t * 4 + i * 90) % 360;
+      ctx.save();
+      ctx.translate(60 + i * 173, -20);
+      ctx.rotate(a);
+      const g = ctx.createLinearGradient(0, 0, 0, 520);
+      g.addColorStop(0, `hsla(${hue},100%,65%,${(0.22 + 0.16 * this.pulse).toFixed(3)})`);
+      g.addColorStop(1, `hsla(${hue},100%,65%,0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.lineTo(70, 520); ctx.lineTo(-70, 520);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    // 紙吹雪
+    ctx.globalAlpha = 0.85;
+    for (const p of this.confetti) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.r);
+      ctx.scale(1, Math.cos(p.r * 1.7));
+      ctx.fillStyle = `hsl(${p.hue},95%,62%)`;
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+    // 虹色の枠
+    ctx.lineWidth = 3 + 4 * this.pulse;
+    ctx.strokeStyle = `hsl(${(this.t * 6) % 360},100%,60%)`;
+    ctx.strokeRect(2, 2, SCREEN_W - 4, SCREEN_H - 4);
+    // 文字（ゲーム中は右のパネルのロゴの代わりに出す）
+    const inGame = Game.scene instanceof GameScene;
+    const [cx, cy, size] = inGame ? [528, Input.isTouch ? 348 : 400, 24] : [SCREEN_W - 92, 24, 18];
+    const text = 'PARTY TIME!!';
+    ctx.font = `italic 700 ${size}px ${FONT_EN}`;
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    let x = cx - ctx.measureText(text).width / 2;
+    [...text].forEach((ch, i) => {
+      const y = cy - Math.abs(Math.sin(this.t * 0.12 + i * 0.5)) * 5 - this.pulse * 3;
+      strokeText(ctx, ch, x, y, `hsl(${(this.t * 5 + i * 30) % 360},100%,65%)`, 'rgba(0,0,0,0.85)', 3);
+      x += ctx.measureText(ch).width;
+    });
+    ctx.restore();
+  },
+};
 
 </script>
 <script data-file="js/main.js">
@@ -7654,6 +8583,12 @@ const Game = {
   },
 
   update() {
+    this.step();
+    // キー「S」：ゲーム中は1フレームに2回進める
+    if (Cheats.on.speed && this.scene instanceof GameScene) this.step();
+    Party.update();
+  },
+  step() {
     Input.update();
     this.scene.update();
     Sound.flush();
@@ -7667,6 +8602,7 @@ const Game = {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     this.scene.draw(ctx);
+    Party.draw(ctx);
     if (this.fade > 0) {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
       ctx.fillStyle = `rgba(0,0,0,${this.fade})`;
@@ -7754,7 +8690,8 @@ else bootGame();
 'use strict';
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
-//  PIN入力 → キー入力 → 管理者ページ（データベース／キャラクター／プログラム）
+//  PIN入力 → キー入力（1文字で特別な機能を切り替え。js/cheats.js）
+//  → 管理者ページ（データベース／キャラクター／プログラム／プレイヤー管理）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
@@ -7762,19 +8699,6 @@ else bootGame();
 const ADMIN_PIN = '114514';
 const ADMIN_MAX_TRIES = 3;               // この回数まちがえると
 const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
-
-function adminEl(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-function adminButton(cls, text, onClick) {
-  const b = adminEl('button', cls, text);
-  b.type = 'button';
-  if (onClick) b.addEventListener('click', onClick);
-  return b;
-}
 
 const Admin = {
   root: null,
@@ -7784,18 +8708,21 @@ const Admin = {
   memLock: 0,
 
   init() {
-    const hot = adminButton('', '', () => this.open());
+    const hot = domButton('', '', () => this.open());
     hot.id = 'adminHotspot';
     hot.setAttribute('aria-label', '管理者用の隠しボタン');
     document.body.appendChild(hot);
-    const root = adminEl('div');
+    const root = domEl('div');
     root.id = 'adminOverlay';
     root.hidden = true;
     root.addEventListener('click', e => { if (e.target === root) this.close(); });
     document.body.appendChild(root);
     this.root = root;
     window.addEventListener('keydown', e => {
-      if (!this.root.hidden && e.key === 'Escape') { e.preventDefault(); this.close(); }
+      if (this.root.hidden || e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation(); // 閉じたEscでポーズが解けないように
+      this.close();
     });
   },
 
@@ -7820,10 +8747,10 @@ const Admin = {
     clearInterval(this.timer);
     this.timer = null;
     this.root.textContent = '';
-    const p = adminEl('div', 'admin-panel ' + cls);
+    const p = domEl('div', 'admin-panel ' + cls);
     p.setAttribute('role', 'dialog');
     p.setAttribute('aria-modal', 'true');
-    const x = adminButton('admin-close', '×', () => this.close());
+    const x = domButton('admin-close', '×', () => this.close());
     x.setAttribute('aria-label', '閉じる');
     p.appendChild(x);
     this.root.appendChild(p);
@@ -7837,10 +8764,10 @@ const Admin = {
   // ---------------- PIN入力 ----------------
   showPin() {
     const p = this.panel('admin-square');
-    p.append(adminEl('h2', 'admin-title', 'PINを入力'));
-    const box = adminEl('label', 'admin-pinbox');
-    const slots = adminEl('div', 'admin-slots', '______');
-    const input = adminEl('input', 'admin-pininput');
+    p.append(domEl('h2', 'admin-title', 'PINを入力'));
+    const box = domEl('label', 'admin-pinbox');
+    const slots = domEl('div', 'admin-slots', '______');
+    const input = domEl('input', 'admin-pininput');
     input.id = 'adminPin';
     input.type = 'password';
     input.inputMode = 'numeric';
@@ -7848,7 +8775,7 @@ const Admin = {
     input.autocomplete = 'off';
     input.setAttribute('aria-label', 'PIN');
     box.append(slots, input);
-    const msg = adminEl('p', 'admin-msg');
+    const msg = domEl('p', 'admin-msg');
     msg.setAttribute('aria-live', 'polite');
     p.append(box, msg);
 
@@ -7909,60 +8836,83 @@ const Admin = {
   // ---------------- キー入力 ----------------
   showKey() {
     const p = this.panel('admin-square');
-    p.append(adminButton('admin-btn admin-btn-top', '管理者ページ', () => this.showMenu()));
-    p.append(adminEl('p', 'admin-label', 'キーを入力'));
-    const key = adminEl('input', 'admin-keyinput');
+    p.append(domButton('admin-btn admin-btn-top', '管理者ページ', () => this.showMenu()));
+    p.append(domEl('p', 'admin-label', 'キーを入力'));
+    const key = domEl('input', 'admin-keyinput');
     key.id = 'adminKey';
     key.type = 'text';
     key.maxLength = 1;
     key.autocomplete = 'off';
     key.setAttribute('aria-label', 'キー');
-    // ここに入力したキーで何かが起きるようにするのは、のちに追加する
-    p.append(key);
+    const msg = domEl('p', 'admin-msg admin-keymsg');
+    msg.setAttribute('aria-live', 'polite');
+    const list = domEl('ul', 'admin-keys');
+    const renderList = () => {
+      list.textContent = '';
+      for (const [k, def] of Object.entries(CHEAT_KEYS)) {
+        const li = domEl('li', Cheats.on[def.id] ? 'is-on' : '');
+        li.append(domEl('b', '', k), domEl('span', '', def.label));
+        list.append(li);
+      }
+    };
+    // 1文字入れるたびに、その文字のキーを ON / OFF する（日本語入力の全角文字も受け付ける）
+    const handle = () => {
+      const ch = key.value.normalize('NFKC').toUpperCase();
+      if (!ch) return;
+      const r = Cheats.toggle(ch);
+      msg.className = r ? 'admin-msg admin-keymsg' : 'admin-msg admin-keymsg is-error';
+      msg.textContent = r
+        ? `${ch}：${r.label}を${r.on ? 'ON' : 'OFF'}にしました` + (r.on ? '（スコアは保存されません）' : '')
+        : `「${ch}」には何も割り当てられていません`;
+      renderList();
+      key.select();
+    };
+    key.addEventListener('input', e => { if (!e.isComposing) handle(); });
+    key.addEventListener('compositionend', handle);
+    renderList();
+    p.append(key, msg, list);
     setTimeout(() => key.focus(), 0);
   },
 
   // ---------------- 管理者ページ ----------------
   showMenu() {
     const p = this.panel('admin-wide');
-    p.append(adminEl('h2', 'admin-heading', '管理者ページ'));
-    const menu = adminEl('div', 'admin-menu');
+    p.append(domEl('h2', 'admin-heading', '管理者ページ'));
+    const menu = domEl('div', 'admin-menu');
     menu.append(
-      adminButton('admin-btn', 'データベース', () => this.showDatabase()),
-      adminButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
-      adminButton('admin-btn', 'プログラム', () => this.showProgram()),
+      domButton('admin-btn', 'データベース', () => this.showDatabase()),
+      domButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
+      domButton('admin-btn', 'プログラム', () => this.showProgram()),
     );
-    const todo = adminButton('admin-btn', '（未実装）');
-    todo.disabled = true;
-    menu.append(todo);
+    menu.append(domButton('admin-btn', 'プレイヤー管理', () => this.showPlayers()));
     p.append(menu);
   },
 
   subPage(title) {
     const p = this.panel('admin-wide');
-    const head = adminEl('div', 'admin-subhead');
-    head.append(adminButton('admin-back', '← 戻る', () => this.showMenu()), adminEl('h2', 'admin-heading', title));
-    const body = adminEl('div', 'admin-body');
+    const head = domEl('div', 'admin-subhead');
+    head.append(domButton('admin-back', '← 戻る', () => this.showMenu()), domEl('h2', 'admin-heading', title));
+    const body = domEl('div', 'admin-body');
     p.append(head, body);
     return body;
   },
 
   table(parent, caption, header, rows) {
-    const sec = adminEl('section', 'admin-section');
-    sec.append(adminEl('h4', 'admin-caption', caption));
+    const sec = domEl('section', 'admin-section');
+    sec.append(domEl('h4', 'admin-caption', caption));
     if (!rows.length) {
-      sec.append(adminEl('p', 'admin-empty', 'まだ記録はありません'));
+      sec.append(domEl('p', 'admin-empty', 'まだ記録はありません'));
       parent.append(sec);
       return;
     }
-    const wrap = adminEl('div', 'admin-tablewrap');
-    const t = adminEl('table', 'admin-table');
-    const tr = adminEl('tr');
-    for (const h of header) tr.append(adminEl('th', '', h));
+    const wrap = domEl('div', 'admin-tablewrap');
+    const t = domEl('table', 'admin-table');
+    const tr = domEl('tr');
+    for (const h of header) tr.append(domEl('th', '', h));
     t.append(tr);
     for (const r of rows) {
-      const row = adminEl('tr');
-      for (const c of r) row.append(adminEl('td', '', String(c ?? '')));
+      const row = domEl('tr');
+      for (const c of r) row.append(domEl('td', '', String(c ?? '')));
       t.append(row);
     }
     wrap.append(t);
@@ -7974,7 +8924,7 @@ const Admin = {
   showDatabase() {
     const body = this.subPage('データベース');
     const name = id => (CHARA_INFO[id] ? CHARA_INFO[id].name : id);
-    body.append(adminEl('h3', 'admin-group', '保存データ（このブラウザ）'));
+    body.append(domEl('h3', 'admin-group', '保存データ（このブラウザ）'));
     this.table(body, 'ハイスコア', ['難易度', name('reimu'), name('marisa')],
       DIFF_NAMES.map((d, i) => [d, padScore(Store.get(`hi_${i}_reimu`, 0)), padScore(Store.get(`hi_${i}_marisa`, 0))]));
     const spells = Object.entries(Store.get('spells', {})).map(([k, v]) => {
@@ -7989,9 +8939,12 @@ const Admin = {
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
       ['最後に選んだキャラクター', name(Store.get('lastChar', 'reimu'))],
+      ['登録プレイヤー', `${Accounts.all().length}人`],
+      ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
+      ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
 
-    body.append(adminEl('h3', 'admin-group', 'ゲームのデータ'));
+    body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
     this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
       STAGES.map((s, i) => [`Stage ${i + 1}`, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm]));
     const bosses = [
@@ -8013,6 +8966,95 @@ const Admin = {
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
     ]);
+  },
+
+  // ---------------- プレイヤー管理 ----------------
+  showPlayers(notice, isError) {
+    const body = this.subPage('プレイヤー管理');
+    const status = domEl('p', 'admin-status' + (isError ? ' is-error' : ''), notice || '');
+    status.setAttribute('aria-live', 'polite');
+    body.append(status);
+    const players = Accounts.all().sort((a, b) => a.created - b.created);
+    const me = Accounts.currentKey();
+    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（このブラウザに保存されているアカウント）`));
+    if (!players.length) {
+      body.append(domEl('p', 'admin-empty', 'まだプレイヤーはいません。タイトル画面の「アカウント」から登録できます。'));
+      return;
+    }
+    const wrap = domEl('div', 'admin-tablewrap');
+    const t = domEl('table', 'admin-table');
+    const head = domEl('tr');
+    for (const h of ['ユーザー名', '登録日 / 最終ログイン', 'プレイ回数', 'ベストスコア（順位）', '操作']) head.append(domEl('th', '', h));
+    t.append(head);
+    for (const a of players) {
+      const tr = domEl('tr');
+      const nameTd = domEl('td', '', a.name);
+      if (a.key === me) nameTd.append(domEl('span', 'admin-badge', 'ログイン中'));
+      const dates = domEl('td', 'admin-lines');
+      dates.append(domEl('span', '', formatDate(a.created)), domEl('span', 'admin-sub', formatDate(a.lastLogin, true)));
+      const bests = domEl('td', 'admin-lines');
+      DIFF_NAMES.forEach((d, i) => {
+        const b = a.best && a.best[i];
+        if (b) bests.append(domEl('span', '', `${d}　${padScore(b.score)}（${Accounts.rankOf(a.key, i)}位）`));
+      });
+      if (!bests.childNodes.length) bests.textContent = '―';
+      tr.append(nameTd, dates, domEl('td', 'num', String(a.plays || 0)), bests);
+      const ops = domEl('td');
+      ops.append(this.playerOps(a));
+      tr.append(ops);
+      t.append(tr);
+    }
+    wrap.append(t);
+    body.append(wrap);
+    const foot = domEl('div', 'admin-foot');
+    const all = domButton('admin-mini is-danger', '全プレイヤーを削除', () => {
+      foot.textContent = '';
+      foot.append(
+        domEl('span', 'admin-optext', `${players.length}人のプレイヤーとスコアをすべて削除します。元に戻せません。`),
+        domButton('admin-mini is-danger', '削除する', () => { Accounts.removeAll(); this.showPlayers('全プレイヤーを削除しました'); }),
+        domButton('admin-mini', 'やめる', () => this.showPlayers()),
+      );
+    });
+    foot.append(all);
+    body.append(foot);
+  },
+
+  // 1人分の操作ボタン（確認やパスワード入力はその場で切り替える）
+  playerOps(a) {
+    const box = domEl('div', 'admin-ops');
+    const reset = () => { box.replaceWith(this.playerOps(a)); };
+    const confirm = (text, label, run) => {
+      box.textContent = '';
+      box.append(domEl('span', 'admin-optext', text), domButton('admin-mini is-danger', label, run), domButton('admin-mini', 'やめる', reset));
+    };
+    box.append(
+      domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット', () => {
+        Accounts.resetScores(a.key);
+        this.showPlayers(`${a.name} のスコアをリセットしました`);
+      })),
+      domButton('admin-mini', 'パスワード変更', () => {
+        box.textContent = '';
+        const input = domEl('input');
+        input.type = 'text';
+        input.placeholder = '新しいパスワード';
+        input.maxLength = PASS_MAX;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', `${a.name} の新しいパスワード`);
+        const save = () => {
+          const err = Accounts.setPassword(a.key, input.value);
+          if (err) this.showPlayers(err, true);
+          else this.showPlayers(`${a.name} のパスワードを変更しました`);
+        };
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+        box.append(input, domButton('admin-mini', '保存', save), domButton('admin-mini', 'やめる', reset));
+        input.focus();
+      }),
+      domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する', () => {
+        Accounts.remove(a.key);
+        this.showPlayers(`${a.name} を削除しました`);
+      })),
+    );
+    return box;
   },
 
   // ---------------- キャラクター一覧 ----------------
@@ -8060,11 +9102,11 @@ const Admin = {
     ];
 
     for (const [label, items] of groups) {
-      body.append(adminEl('h3', 'admin-group', label));
-      const grid = adminEl('div', 'admin-chars');
+      body.append(domEl('h3', 'admin-group', label));
+      const grid = domEl('div', 'admin-chars');
       for (const it of items) {
-        const card = adminEl('figure', 'admin-card');
-        const cv = adminEl('canvas');
+        const card = domEl('figure', 'admin-card');
+        const cv = domEl('canvas');
         const W = 180, H = 150, dpr = Math.min(window.devicePixelRatio || 1, 2);
         cv.width = W * dpr;
         cv.height = H * dpr;
@@ -8072,10 +9114,10 @@ const Admin = {
         c.scale(dpr, dpr);
         c.translate(W / 2, H / 2);
         try { it.draw(c); } catch (e) { /* 描けないものは空欄のまま */ }
-        const cap = adminEl('figcaption');
-        cap.append(adminEl('strong', '', it.name));
-        if (it.title && it.title !== '？？？') cap.append(adminEl('span', 'admin-sub', it.title));
-        cap.append(adminEl('span', 'admin-note', it.note));
+        const cap = domEl('figcaption');
+        cap.append(domEl('strong', '', it.name));
+        if (it.title && it.title !== '？？？') cap.append(domEl('span', 'admin-sub', it.title));
+        cap.append(domEl('span', 'admin-note', it.note));
         card.append(cv, cap);
         grid.append(card);
       }
@@ -8104,10 +9146,10 @@ const Admin = {
   async showProgram() {
     const body = this.subPage('プログラム');
     body.classList.add('admin-program');
-    const list = adminEl('div', 'admin-files');
-    const view = adminEl('div', 'admin-codeview');
-    const info = adminEl('p', 'admin-codeinfo', '読み込み中…');
-    const code = adminEl('pre', 'admin-code');
+    const list = domEl('div', 'admin-files');
+    const view = domEl('div', 'admin-codeview');
+    const info = domEl('p', 'admin-codeinfo', '読み込み中…');
+    const code = domEl('pre', 'admin-code');
     view.append(info, code);
     body.append(list, view);
     const files = await this.loadSources();
@@ -8133,7 +9175,7 @@ const Admin = {
     };
     list.textContent = '';
     files.forEach((f, i) => {
-      const b = adminButton('admin-file', f.name.replace(/^js\//, ''), () => show(f, b));
+      const b = domButton('admin-file', f.name.replace(/^js\//, ''), () => show(f, b));
       list.append(b);
       if (i === 0) show(f, b);
     });

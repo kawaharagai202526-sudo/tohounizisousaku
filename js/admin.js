@@ -1,7 +1,8 @@
 'use strict';
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
-//  PIN入力 → キー入力 → 管理者ページ（データベース／キャラクター／プログラム）
+//  PIN入力 → キー入力（1文字で特別な機能を切り替え。js/cheats.js）
+//  → 管理者ページ（データベース／キャラクター／プログラム／プレイヤー管理）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
@@ -9,19 +10,6 @@
 const ADMIN_PIN = '114514';
 const ADMIN_MAX_TRIES = 3;               // この回数まちがえると
 const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
-
-function adminEl(tag, cls, text) {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-}
-function adminButton(cls, text, onClick) {
-  const b = adminEl('button', cls, text);
-  b.type = 'button';
-  if (onClick) b.addEventListener('click', onClick);
-  return b;
-}
 
 const Admin = {
   root: null,
@@ -31,18 +19,21 @@ const Admin = {
   memLock: 0,
 
   init() {
-    const hot = adminButton('', '', () => this.open());
+    const hot = domButton('', '', () => this.open());
     hot.id = 'adminHotspot';
     hot.setAttribute('aria-label', '管理者用の隠しボタン');
     document.body.appendChild(hot);
-    const root = adminEl('div');
+    const root = domEl('div');
     root.id = 'adminOverlay';
     root.hidden = true;
     root.addEventListener('click', e => { if (e.target === root) this.close(); });
     document.body.appendChild(root);
     this.root = root;
     window.addEventListener('keydown', e => {
-      if (!this.root.hidden && e.key === 'Escape') { e.preventDefault(); this.close(); }
+      if (this.root.hidden || e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation(); // 閉じたEscでポーズが解けないように
+      this.close();
     });
   },
 
@@ -67,10 +58,10 @@ const Admin = {
     clearInterval(this.timer);
     this.timer = null;
     this.root.textContent = '';
-    const p = adminEl('div', 'admin-panel ' + cls);
+    const p = domEl('div', 'admin-panel ' + cls);
     p.setAttribute('role', 'dialog');
     p.setAttribute('aria-modal', 'true');
-    const x = adminButton('admin-close', '×', () => this.close());
+    const x = domButton('admin-close', '×', () => this.close());
     x.setAttribute('aria-label', '閉じる');
     p.appendChild(x);
     this.root.appendChild(p);
@@ -84,10 +75,10 @@ const Admin = {
   // ---------------- PIN入力 ----------------
   showPin() {
     const p = this.panel('admin-square');
-    p.append(adminEl('h2', 'admin-title', 'PINを入力'));
-    const box = adminEl('label', 'admin-pinbox');
-    const slots = adminEl('div', 'admin-slots', '______');
-    const input = adminEl('input', 'admin-pininput');
+    p.append(domEl('h2', 'admin-title', 'PINを入力'));
+    const box = domEl('label', 'admin-pinbox');
+    const slots = domEl('div', 'admin-slots', '______');
+    const input = domEl('input', 'admin-pininput');
     input.id = 'adminPin';
     input.type = 'password';
     input.inputMode = 'numeric';
@@ -95,7 +86,7 @@ const Admin = {
     input.autocomplete = 'off';
     input.setAttribute('aria-label', 'PIN');
     box.append(slots, input);
-    const msg = adminEl('p', 'admin-msg');
+    const msg = domEl('p', 'admin-msg');
     msg.setAttribute('aria-live', 'polite');
     p.append(box, msg);
 
@@ -156,60 +147,83 @@ const Admin = {
   // ---------------- キー入力 ----------------
   showKey() {
     const p = this.panel('admin-square');
-    p.append(adminButton('admin-btn admin-btn-top', '管理者ページ', () => this.showMenu()));
-    p.append(adminEl('p', 'admin-label', 'キーを入力'));
-    const key = adminEl('input', 'admin-keyinput');
+    p.append(domButton('admin-btn admin-btn-top', '管理者ページ', () => this.showMenu()));
+    p.append(domEl('p', 'admin-label', 'キーを入力'));
+    const key = domEl('input', 'admin-keyinput');
     key.id = 'adminKey';
     key.type = 'text';
     key.maxLength = 1;
     key.autocomplete = 'off';
     key.setAttribute('aria-label', 'キー');
-    // ここに入力したキーで何かが起きるようにするのは、のちに追加する
-    p.append(key);
+    const msg = domEl('p', 'admin-msg admin-keymsg');
+    msg.setAttribute('aria-live', 'polite');
+    const list = domEl('ul', 'admin-keys');
+    const renderList = () => {
+      list.textContent = '';
+      for (const [k, def] of Object.entries(CHEAT_KEYS)) {
+        const li = domEl('li', Cheats.on[def.id] ? 'is-on' : '');
+        li.append(domEl('b', '', k), domEl('span', '', def.label));
+        list.append(li);
+      }
+    };
+    // 1文字入れるたびに、その文字のキーを ON / OFF する（日本語入力の全角文字も受け付ける）
+    const handle = () => {
+      const ch = key.value.normalize('NFKC').toUpperCase();
+      if (!ch) return;
+      const r = Cheats.toggle(ch);
+      msg.className = r ? 'admin-msg admin-keymsg' : 'admin-msg admin-keymsg is-error';
+      msg.textContent = r
+        ? `${ch}：${r.label}を${r.on ? 'ON' : 'OFF'}にしました` + (r.on ? '（スコアは保存されません）' : '')
+        : `「${ch}」には何も割り当てられていません`;
+      renderList();
+      key.select();
+    };
+    key.addEventListener('input', e => { if (!e.isComposing) handle(); });
+    key.addEventListener('compositionend', handle);
+    renderList();
+    p.append(key, msg, list);
     setTimeout(() => key.focus(), 0);
   },
 
   // ---------------- 管理者ページ ----------------
   showMenu() {
     const p = this.panel('admin-wide');
-    p.append(adminEl('h2', 'admin-heading', '管理者ページ'));
-    const menu = adminEl('div', 'admin-menu');
+    p.append(domEl('h2', 'admin-heading', '管理者ページ'));
+    const menu = domEl('div', 'admin-menu');
     menu.append(
-      adminButton('admin-btn', 'データベース', () => this.showDatabase()),
-      adminButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
-      adminButton('admin-btn', 'プログラム', () => this.showProgram()),
+      domButton('admin-btn', 'データベース', () => this.showDatabase()),
+      domButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
+      domButton('admin-btn', 'プログラム', () => this.showProgram()),
     );
-    const todo = adminButton('admin-btn', '（未実装）');
-    todo.disabled = true;
-    menu.append(todo);
+    menu.append(domButton('admin-btn', 'プレイヤー管理', () => this.showPlayers()));
     p.append(menu);
   },
 
   subPage(title) {
     const p = this.panel('admin-wide');
-    const head = adminEl('div', 'admin-subhead');
-    head.append(adminButton('admin-back', '← 戻る', () => this.showMenu()), adminEl('h2', 'admin-heading', title));
-    const body = adminEl('div', 'admin-body');
+    const head = domEl('div', 'admin-subhead');
+    head.append(domButton('admin-back', '← 戻る', () => this.showMenu()), domEl('h2', 'admin-heading', title));
+    const body = domEl('div', 'admin-body');
     p.append(head, body);
     return body;
   },
 
   table(parent, caption, header, rows) {
-    const sec = adminEl('section', 'admin-section');
-    sec.append(adminEl('h4', 'admin-caption', caption));
+    const sec = domEl('section', 'admin-section');
+    sec.append(domEl('h4', 'admin-caption', caption));
     if (!rows.length) {
-      sec.append(adminEl('p', 'admin-empty', 'まだ記録はありません'));
+      sec.append(domEl('p', 'admin-empty', 'まだ記録はありません'));
       parent.append(sec);
       return;
     }
-    const wrap = adminEl('div', 'admin-tablewrap');
-    const t = adminEl('table', 'admin-table');
-    const tr = adminEl('tr');
-    for (const h of header) tr.append(adminEl('th', '', h));
+    const wrap = domEl('div', 'admin-tablewrap');
+    const t = domEl('table', 'admin-table');
+    const tr = domEl('tr');
+    for (const h of header) tr.append(domEl('th', '', h));
     t.append(tr);
     for (const r of rows) {
-      const row = adminEl('tr');
-      for (const c of r) row.append(adminEl('td', '', String(c ?? '')));
+      const row = domEl('tr');
+      for (const c of r) row.append(domEl('td', '', String(c ?? '')));
       t.append(row);
     }
     wrap.append(t);
@@ -221,7 +235,7 @@ const Admin = {
   showDatabase() {
     const body = this.subPage('データベース');
     const name = id => (CHARA_INFO[id] ? CHARA_INFO[id].name : id);
-    body.append(adminEl('h3', 'admin-group', '保存データ（このブラウザ）'));
+    body.append(domEl('h3', 'admin-group', '保存データ（このブラウザ）'));
     this.table(body, 'ハイスコア', ['難易度', name('reimu'), name('marisa')],
       DIFF_NAMES.map((d, i) => [d, padScore(Store.get(`hi_${i}_reimu`, 0)), padScore(Store.get(`hi_${i}_marisa`, 0))]));
     const spells = Object.entries(Store.get('spells', {})).map(([k, v]) => {
@@ -236,9 +250,12 @@ const Admin = {
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
       ['最後に選んだキャラクター', name(Store.get('lastChar', 'reimu'))],
+      ['登録プレイヤー', `${Accounts.all().length}人`],
+      ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
+      ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
 
-    body.append(adminEl('h3', 'admin-group', 'ゲームのデータ'));
+    body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
     this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
       STAGES.map((s, i) => [`Stage ${i + 1}`, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm]));
     const bosses = [
@@ -260,6 +277,95 @@ const Admin = {
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
     ]);
+  },
+
+  // ---------------- プレイヤー管理 ----------------
+  showPlayers(notice, isError) {
+    const body = this.subPage('プレイヤー管理');
+    const status = domEl('p', 'admin-status' + (isError ? ' is-error' : ''), notice || '');
+    status.setAttribute('aria-live', 'polite');
+    body.append(status);
+    const players = Accounts.all().sort((a, b) => a.created - b.created);
+    const me = Accounts.currentKey();
+    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（このブラウザに保存されているアカウント）`));
+    if (!players.length) {
+      body.append(domEl('p', 'admin-empty', 'まだプレイヤーはいません。タイトル画面の「アカウント」から登録できます。'));
+      return;
+    }
+    const wrap = domEl('div', 'admin-tablewrap');
+    const t = domEl('table', 'admin-table');
+    const head = domEl('tr');
+    for (const h of ['ユーザー名', '登録日 / 最終ログイン', 'プレイ回数', 'ベストスコア（順位）', '操作']) head.append(domEl('th', '', h));
+    t.append(head);
+    for (const a of players) {
+      const tr = domEl('tr');
+      const nameTd = domEl('td', '', a.name);
+      if (a.key === me) nameTd.append(domEl('span', 'admin-badge', 'ログイン中'));
+      const dates = domEl('td', 'admin-lines');
+      dates.append(domEl('span', '', formatDate(a.created)), domEl('span', 'admin-sub', formatDate(a.lastLogin, true)));
+      const bests = domEl('td', 'admin-lines');
+      DIFF_NAMES.forEach((d, i) => {
+        const b = a.best && a.best[i];
+        if (b) bests.append(domEl('span', '', `${d}　${padScore(b.score)}（${Accounts.rankOf(a.key, i)}位）`));
+      });
+      if (!bests.childNodes.length) bests.textContent = '―';
+      tr.append(nameTd, dates, domEl('td', 'num', String(a.plays || 0)), bests);
+      const ops = domEl('td');
+      ops.append(this.playerOps(a));
+      tr.append(ops);
+      t.append(tr);
+    }
+    wrap.append(t);
+    body.append(wrap);
+    const foot = domEl('div', 'admin-foot');
+    const all = domButton('admin-mini is-danger', '全プレイヤーを削除', () => {
+      foot.textContent = '';
+      foot.append(
+        domEl('span', 'admin-optext', `${players.length}人のプレイヤーとスコアをすべて削除します。元に戻せません。`),
+        domButton('admin-mini is-danger', '削除する', () => { Accounts.removeAll(); this.showPlayers('全プレイヤーを削除しました'); }),
+        domButton('admin-mini', 'やめる', () => this.showPlayers()),
+      );
+    });
+    foot.append(all);
+    body.append(foot);
+  },
+
+  // 1人分の操作ボタン（確認やパスワード入力はその場で切り替える）
+  playerOps(a) {
+    const box = domEl('div', 'admin-ops');
+    const reset = () => { box.replaceWith(this.playerOps(a)); };
+    const confirm = (text, label, run) => {
+      box.textContent = '';
+      box.append(domEl('span', 'admin-optext', text), domButton('admin-mini is-danger', label, run), domButton('admin-mini', 'やめる', reset));
+    };
+    box.append(
+      domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット', () => {
+        Accounts.resetScores(a.key);
+        this.showPlayers(`${a.name} のスコアをリセットしました`);
+      })),
+      domButton('admin-mini', 'パスワード変更', () => {
+        box.textContent = '';
+        const input = domEl('input');
+        input.type = 'text';
+        input.placeholder = '新しいパスワード';
+        input.maxLength = PASS_MAX;
+        input.autocomplete = 'off';
+        input.setAttribute('aria-label', `${a.name} の新しいパスワード`);
+        const save = () => {
+          const err = Accounts.setPassword(a.key, input.value);
+          if (err) this.showPlayers(err, true);
+          else this.showPlayers(`${a.name} のパスワードを変更しました`);
+        };
+        input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
+        box.append(input, domButton('admin-mini', '保存', save), domButton('admin-mini', 'やめる', reset));
+        input.focus();
+      }),
+      domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する', () => {
+        Accounts.remove(a.key);
+        this.showPlayers(`${a.name} を削除しました`);
+      })),
+    );
+    return box;
   },
 
   // ---------------- キャラクター一覧 ----------------
@@ -307,11 +413,11 @@ const Admin = {
     ];
 
     for (const [label, items] of groups) {
-      body.append(adminEl('h3', 'admin-group', label));
-      const grid = adminEl('div', 'admin-chars');
+      body.append(domEl('h3', 'admin-group', label));
+      const grid = domEl('div', 'admin-chars');
       for (const it of items) {
-        const card = adminEl('figure', 'admin-card');
-        const cv = adminEl('canvas');
+        const card = domEl('figure', 'admin-card');
+        const cv = domEl('canvas');
         const W = 180, H = 150, dpr = Math.min(window.devicePixelRatio || 1, 2);
         cv.width = W * dpr;
         cv.height = H * dpr;
@@ -319,10 +425,10 @@ const Admin = {
         c.scale(dpr, dpr);
         c.translate(W / 2, H / 2);
         try { it.draw(c); } catch (e) { /* 描けないものは空欄のまま */ }
-        const cap = adminEl('figcaption');
-        cap.append(adminEl('strong', '', it.name));
-        if (it.title && it.title !== '？？？') cap.append(adminEl('span', 'admin-sub', it.title));
-        cap.append(adminEl('span', 'admin-note', it.note));
+        const cap = domEl('figcaption');
+        cap.append(domEl('strong', '', it.name));
+        if (it.title && it.title !== '？？？') cap.append(domEl('span', 'admin-sub', it.title));
+        cap.append(domEl('span', 'admin-note', it.note));
         card.append(cv, cap);
         grid.append(card);
       }
@@ -351,10 +457,10 @@ const Admin = {
   async showProgram() {
     const body = this.subPage('プログラム');
     body.classList.add('admin-program');
-    const list = adminEl('div', 'admin-files');
-    const view = adminEl('div', 'admin-codeview');
-    const info = adminEl('p', 'admin-codeinfo', '読み込み中…');
-    const code = adminEl('pre', 'admin-code');
+    const list = domEl('div', 'admin-files');
+    const view = domEl('div', 'admin-codeview');
+    const info = domEl('p', 'admin-codeinfo', '読み込み中…');
+    const code = domEl('pre', 'admin-code');
     view.append(info, code);
     body.append(list, view);
     const files = await this.loadSources();
@@ -380,7 +486,7 @@ const Admin = {
     };
     list.textContent = '';
     files.forEach((f, i) => {
-      const b = adminButton('admin-file', f.name.replace(/^js\//, ''), () => show(f, b));
+      const b = domButton('admin-file', f.name.replace(/^js\//, ''), () => show(f, b));
       list.append(b);
       if (i === 0) show(f, b);
     });

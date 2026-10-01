@@ -255,7 +255,9 @@ STAGES.push({
     [80, 304, 192].forEach((x, i) => ringFairy(x, { color: 'blue', bcolor: 'cyan', type: 'ice', stopY: 80 + i * 20, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 90;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     const boss = g.spawnBoss('cirno', { spellBg: 'cirno', circleColor: '120,220,255', x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);

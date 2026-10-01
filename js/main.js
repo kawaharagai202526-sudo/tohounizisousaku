@@ -20,6 +20,12 @@ const Game = {
   },
 
   update() {
+    this.step();
+    // キー「S」：ゲーム中は1フレームに2回進める
+    if (Cheats.on.speed && this.scene instanceof GameScene) this.step();
+    Party.update();
+  },
+  step() {
     Input.update();
     this.scene.update();
     Sound.flush();
@@ -33,6 +39,7 @@ const Game = {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     this.scene.draw(ctx);
+    Party.draw(ctx);
     if (this.fade > 0) {
       ctx.setTransform(this.scale, 0, 0, this.scale, 0, 0);
       ctx.fillStyle = `rgba(0,0,0,${this.fade})`;

@@ -174,11 +174,22 @@ function drawHeading(ctx, text, en) {
 // ------------------------------------------------------------
 //  タイトル
 // ------------------------------------------------------------
+const TITLE_ITEMS = [
+  { id: 'start', label: 'ゲームスタート' },
+  { id: 'practice', label: 'プラクティス' },
+  { id: 'ranking', label: 'ランキング' },
+  { id: 'music', label: 'ミュージックルーム' },
+  { id: 'manual', label: '操作説明とお話' },
+  { id: 'option', label: 'オプション' },
+  { id: 'account', label: 'アカウント' },
+];
+
 class TitleScene {
+  // sel は項目の番号か id（'music' など）
   constructor(sel = 0) {
-    this.sel = sel;
+    this.sel = typeof sel === 'string' ? Math.max(0, TITLE_ITEMS.findIndex(it => it.id === sel)) : sel;
     this.frame = 0;
-    this.items = ['ゲームスタート', 'プラクティス', 'ミュージックルーム', '操作説明とお話', 'オプション'];
+    this.items = TITLE_ITEMS.map(it => it.label);
     this.rects = [];
   }
   enter() { Sound.playBgm('title'); }
@@ -190,12 +201,14 @@ class TitleScene {
     if (tap >= 0) this.sel = tap;
     if ((Input.pressed('shot') || tap >= 0) && this.frame > 10) {
       Sound.se('ok');
-      switch (this.sel) {
-        case 0: Game.setScene(new DifficultyScene('game')); break;
-        case 1: Game.setScene(new DifficultyScene('practice')); break;
-        case 2: Game.setScene(new MusicRoomScene()); break;
-        case 3: Game.setScene(new ManualScene()); break;
-        case 4: Game.setScene(new OptionScene()); break;
+      switch (TITLE_ITEMS[this.sel].id) {
+        case 'start': Game.setScene(new DifficultyScene('game')); break;
+        case 'practice': Game.setScene(new DifficultyScene('practice')); break;
+        case 'ranking': Game.setScene(new RankingScene()); break;
+        case 'music': Game.setScene(new MusicRoomScene()); break;
+        case 'manual': Game.setScene(new ManualScene()); break;
+        case 'option': Game.setScene(new OptionScene()); break;
+        case 'account': AccountDialog.open(); break;
       }
     }
   }
@@ -224,9 +237,20 @@ class TitleScene {
     ctx.fillStyle = '#ecd9a0';
     ctx.fillText('〜 Night of Falling Stars.', 420, 184);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 240, 34);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 228, 28);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const acc = Accounts.current();
+    ctx.font = `600 13px ${FONT_JP}`;
+    strokeText(ctx, acc ? `プレイヤー：${acc.name}` : 'ゲスト（「アカウント」からログインするとランキングに載ります）', 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
+    const keys = Cheats.activeLetters();
+    if (keys) {
+      ctx.textAlign = 'right';
+      ctx.font = `12px ${FONT_JP}`;
+      strokeText(ctx, `キー使用中：${keys.split('').join(' ')}`, SCREEN_W - 16, 416, '#ffd27a', 'rgba(10,5,30,0.9)', 3);
+      ctx.textAlign = 'left';
+    }
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -266,7 +290,7 @@ class DifficultyScene {
       Game.setScene(new CharacterScene(this.mode, this.sel));
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(this.mode === 'game' ? 0 : 1));
+      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : 'practice'));
     }
   }
   draw(ctx) {
@@ -438,7 +462,7 @@ class MusicRoomScene {
       Sound.playBgm(MUSIC_ROOM[this.sel]);
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(2));
+      Game.setScene(new TitleScene('music'));
     }
   }
   draw(ctx) {
@@ -478,7 +502,7 @@ class ManualScene {
     menuBG().update();
     if ((Input.pressed('shot') || backPressed() || (Input.anyTap() && !Input.tapIn(10, 10, 70, 30))) && this.frame > 10) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(3));
+      Game.setScene(new TitleScene('manual'));
     }
   }
   draw(ctx) {
@@ -568,7 +592,7 @@ class OptionScene {
     }
     if ((this.sel === 3 && (Input.pressed('shot') || tap === 3)) || backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(4));
+      Game.setScene(new TitleScene('option'));
     }
   }
   draw(ctx) {
@@ -653,7 +677,8 @@ class ResultScene {
     this.g = g;
     this.kind = kind;
     this.frame = 0;
-    this.newRecord = !g.practice && !g.cheat && g.score >= Store.get(g.hiKey, 0) && g.score > 0;
+    this.records = g.records || g.saveRecords(kind);
+    this.newRecord = this.records.hiscore;
   }
   enter() { if (this.kind !== 'clear') Sound.playBgm('title'); }
   update() {
@@ -696,10 +721,18 @@ class ResultScene {
       ctx.fillStyle = '#ffffff';
       ctx.fillText(v, 470, y);
     });
+    const rk = this.records.ranking;
+    ctx.textAlign = 'center';
+    ctx.font = `700 15px ${FONT_JP}`;
+    if (rk.saved) {
+      const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
+      strokeText(ctx, text, SCREEN_W / 2, 396, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
+    } else {
+      strokeText(ctx, `ランキングには載りません（${rk.reason}）`, SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
+    }
     if (this.newRecord) {
-      ctx.textAlign = 'center';
       ctx.font = `800 18px ${FONT_JP}`;
-      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 408, '#ffe070', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 424, '#ffe070', 'rgba(0,0,0,0.8)', 3);
     }
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT_JP}`;

@@ -264,7 +264,9 @@ STAGES.push({
     [120, 264].forEach(x => ringFairy(x, { color: 'blue', bcolor: 'yellow', type: 'star', stopY: 120, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 120;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     // ボス（会話はあとで追加する）
     const boss = g.spawnBoss('boss3', { spellBg: 'dream', circleColor: '255,200,235', x: FIELD_W / 2, y: -50 });
     Sound.playBgm('boss3');

@@ -443,7 +443,9 @@ STAGES.push({
     fairyLine(6, 50);
     yield* waitClear(900);
     yield 120;
-
+  },
+  // ボス戦（キー「V」のときはここから始まる）
+  *boss(g) {
     // ボス：瑠璃（ボス曲は会話の途中で始まる）
     const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);

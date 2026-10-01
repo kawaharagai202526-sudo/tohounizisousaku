@@ -70,6 +70,20 @@ const Store = {
   },
 };
 
+// 画面に重ねて出すHTMLの部品（管理者ページ・アカウント画面で使う）
+function domEl(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function domButton(cls, text, onClick) {
+  const b = domEl('button', cls, text);
+  b.type = 'button';
+  if (onClick) b.addEventListener('click', onClick);
+  return b;
+}
+
 function padScore(n, len = 9) {
   const s = String(Math.floor(n));
   return s.length >= len ? s : '0'.repeat(len - s.length) + s;

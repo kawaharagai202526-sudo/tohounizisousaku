@@ -31,6 +31,7 @@ const Input = {
   taps: [],
   tapQueue: [],
   isTouch: false,
+  realTouch: false,  // 本物のタッチ操作があったか
   canvas: null,
   onFirstInput: null,
 
@@ -79,8 +80,10 @@ const Input = {
     // メニューの選択や会話送りなどのクリック（タップ）はマウスでも受け付ける
     this.tapQueue.push(p);
     // 自機の操作（ドラッグで移動・画面のボム／低速／ポーズボタン）はマウスでは不可
-    if (e.pointerType === 'mouse') return;
+    // （管理者ページのキー「M」を入れたときだけマウスでも操作できる）
+    if (e.pointerType === 'mouse' && !Cheats.on.mouse) return;
     e.preventDefault();
+    if (e.pointerType !== 'mouse') this.realTouch = true;
     this.isTouch = true;
     try { this.canvas.setPointerCapture(e.pointerId); } catch (err) { /* 無視 */ }
     const btn = this.touchButtons.find(b => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
@@ -109,6 +112,13 @@ const Input = {
     if (!ptr) return;
     if (ptr.role === 'button' && !ptr.btn.toggle) this.virtual[ptr.btn.action] = false;
     this.pointers.delete(e.pointerId);
+  },
+
+  // キー「M」を切ったとき：マウスで押していた操作をやめ、表示をキーボード用に戻す
+  endMouseControl() {
+    this.pointers.clear();
+    this.virtual = {};
+    this.isTouch = this.realTouch;
   },
 
   // タッチで自機を動かしている最中か
