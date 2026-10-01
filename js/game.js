@@ -170,7 +170,8 @@ class GameScene {
   rankBlock() {
     if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
     if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
-    if (this.usedKeys) return { short: 'キー使用', long: 'キーを使ったため' };
+    // 管理者ページのキーは画面に出さないので、理由は表示しない
+    if (this.usedKeys) return { short: null, long: null };
     if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
     if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
     return null;

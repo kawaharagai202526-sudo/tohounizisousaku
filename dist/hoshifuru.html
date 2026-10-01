@@ -4633,17 +4633,12 @@ function drawSidePanel(ctx, g) {
   // プレイヤー名と、ランキングに載るかどうか
   const acc = g.accountKey ? Accounts.get(g.accountKey) : null;
   const block = g.rankBlock();
-  const keys = Cheats.activeLetters();
   ctx.font = `12px ${FONT_JP}`;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#d8d0ff';
   ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
   ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
-  ctx.fillText(block ? `ランキング対象外（${block.short}）` : 'ランキング対象', x0, 303, vx - x0);
-  if (keys) {
-    ctx.fillStyle = '#ffd27a';
-    ctx.fillText(`使用中のキー：${keys.split('').join(' ')}`, x0, 320, vx - x0);
-  }
+  ctx.fillText(!block ? 'ランキング対象' : block.short ? `ランキング対象外（${block.short}）` : 'ランキング対象外', x0, 303, vx - x0);
 
   if (Input.isTouch) {
     if (!Party.active) drawLogo(ctx, 528, 344, 18);
@@ -5063,7 +5058,8 @@ class GameScene {
   rankBlock() {
     if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
     if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
-    if (this.usedKeys) return { short: 'キー使用', long: 'キーを使ったため' };
+    // 管理者ページのキーは画面に出さないので、理由は表示しない
+    if (this.usedKeys) return { short: null, long: null };
     if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
     if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
     return null;
@@ -7324,13 +7320,6 @@ class TitleScene {
     const acc = Accounts.current();
     ctx.font = `600 13px ${FONT_JP}`;
     strokeText(ctx, acc ? `プレイヤー：${acc.name}` : 'ゲスト（「アカウント」からログインするとランキングに載ります）', 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
-    const keys = Cheats.activeLetters();
-    if (keys) {
-      ctx.textAlign = 'right';
-      ctx.font = `12px ${FONT_JP}`;
-      strokeText(ctx, `キー使用中：${keys.split('').join(' ')}`, SCREEN_W - 16, 416, '#ffd27a', 'rgba(10,5,30,0.9)', 3);
-      ctx.textAlign = 'left';
-    }
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -7808,7 +7797,7 @@ class ResultScene {
       const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
       strokeText(ctx, text, SCREEN_W / 2, 396, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
     } else {
-      strokeText(ctx, `ランキングには載りません（${rk.reason}）`, SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, rk.reason ? `ランキングには載りません（${rk.reason}）` : 'ランキングには載りません', SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
     }
     if (this.newRecord) {
       ctx.font = `800 18px ${FONT_JP}`;
@@ -8176,7 +8165,7 @@ const AccountDialog = {
       t.append(tr);
     });
     p.append(t, domEl('p', 'acct-note', `プレイ回数：${acc.plays || 0}回　登録日：${formatDate(acc.created)}`));
-    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイ、キーを使ったプレイ、プラクティスは記録されません。'));
+    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイとプラクティスは記録されません。'));
     const row = domEl('div', 'acct-row');
     row.append(
       domButton('admin-btn acct-submit', 'ログアウト', () => { Accounts.logout(); Sound.se('cancel'); this.tab = 'login'; this.renderForm(); }),
@@ -8316,7 +8305,7 @@ class RankingScene {
     strokeText(ctx, mine, SCREEN_W / 2, 412, '#fff3c8', 'rgba(0,0,0,0.8)', 3);
     ctx.font = `11px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
-    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスとキーを使ったプレイは対象外）', SCREEN_W / 2, 438);
+    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスは対象外）', SCREEN_W / 2, 438);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.8)';
     ctx.fillText(Input.isTouch ? '難易度をタップで切り替え　▲▼でスクロール' : '←→：難易度　↑↓：スクロール　X：戻る', SCREEN_W / 2, 462);

@@ -244,13 +244,6 @@ class TitleScene {
     const acc = Accounts.current();
     ctx.font = `600 13px ${FONT_JP}`;
     strokeText(ctx, acc ? `プレイヤー：${acc.name}` : 'ゲスト（「アカウント」からログインするとランキングに載ります）', 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
-    const keys = Cheats.activeLetters();
-    if (keys) {
-      ctx.textAlign = 'right';
-      ctx.font = `12px ${FONT_JP}`;
-      strokeText(ctx, `キー使用中：${keys.split('').join(' ')}`, SCREEN_W - 16, 416, '#ffd27a', 'rgba(10,5,30,0.9)', 3);
-      ctx.textAlign = 'left';
-    }
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -728,7 +721,7 @@ class ResultScene {
       const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
       strokeText(ctx, text, SCREEN_W / 2, 396, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
     } else {
-      strokeText(ctx, `ランキングには載りません（${rk.reason}）`, SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, rk.reason ? `ランキングには載りません（${rk.reason}）` : 'ランキングには載りません', SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
     }
     if (this.newRecord) {
       ctx.font = `800 18px ${FONT_JP}`;

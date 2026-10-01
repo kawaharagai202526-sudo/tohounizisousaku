@@ -148,17 +148,12 @@ function drawSidePanel(ctx, g) {
   // プレイヤー名と、ランキングに載るかどうか
   const acc = g.accountKey ? Accounts.get(g.accountKey) : null;
   const block = g.rankBlock();
-  const keys = Cheats.activeLetters();
   ctx.font = `12px ${FONT_JP}`;
   ctx.textAlign = 'left';
   ctx.fillStyle = '#d8d0ff';
   ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
   ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
-  ctx.fillText(block ? `ランキング対象外（${block.short}）` : 'ランキング対象', x0, 303, vx - x0);
-  if (keys) {
-    ctx.fillStyle = '#ffd27a';
-    ctx.fillText(`使用中のキー：${keys.split('').join(' ')}`, x0, 320, vx - x0);
-  }
+  ctx.fillText(!block ? 'ランキング対象' : block.short ? `ランキング対象外（${block.short}）` : 'ランキング対象外', x0, 303, vx - x0);
 
   if (Input.isTouch) {
     if (!Party.active) drawLogo(ctx, 528, 344, 18);

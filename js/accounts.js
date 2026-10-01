@@ -351,7 +351,7 @@ const AccountDialog = {
       t.append(tr);
     });
     p.append(t, domEl('p', 'acct-note', `プレイ回数：${acc.plays || 0}回　登録日：${formatDate(acc.created)}`));
-    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイ、キーを使ったプレイ、プラクティスは記録されません。'));
+    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイとプラクティスは記録されません。'));
     const row = domEl('div', 'acct-row');
     row.append(
       domButton('admin-btn acct-submit', 'ログアウト', () => { Accounts.logout(); Sound.se('cancel'); this.tab = 'login'; this.renderForm(); }),
@@ -491,7 +491,7 @@ class RankingScene {
     strokeText(ctx, mine, SCREEN_W / 2, 412, '#fff3c8', 'rgba(0,0,0,0.8)', 3);
     ctx.font = `11px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
-    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスとキーを使ったプレイは対象外）', SCREEN_W / 2, 438);
+    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスは対象外）', SCREEN_W / 2, 438);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.8)';
     ctx.fillText(Input.isTouch ? '難易度をタップで切り替え　▲▼でスクロール' : '←→：難易度　↑↓：スクロール　X：戻る', SCREEN_W / 2, 462);
