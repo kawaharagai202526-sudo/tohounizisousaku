@@ -155,33 +155,27 @@ const Admin = {
     key.maxLength = 1;
     key.autocomplete = 'off';
     key.setAttribute('aria-label', 'キー');
+    // キーの説明は出さず、入れた文字の ON / OFF と、ON になっている文字だけを表示する
     const msg = domEl('p', 'admin-msg admin-keymsg');
     msg.setAttribute('aria-live', 'polite');
-    const list = domEl('ul', 'admin-keys');
-    const renderList = () => {
-      list.textContent = '';
-      for (const [k, def] of Object.entries(CHEAT_KEYS)) {
-        const li = domEl('li', Cheats.on[def.id] ? 'is-on' : '');
-        li.append(domEl('b', '', k), domEl('span', '', def.label));
-        list.append(li);
-      }
+    const active = domEl('p', 'admin-msg admin-keymsg');
+    const renderActive = () => {
+      const keys = Cheats.activeLetters();
+      active.textContent = keys ? `ON：${keys.split('').join(' ')}` : '';
     };
     // 1文字入れるたびに、その文字のキーを ON / OFF する（日本語入力の全角文字も受け付ける）
     const handle = () => {
       const ch = key.value.normalize('NFKC').toUpperCase();
       if (!ch) return;
       const r = Cheats.toggle(ch);
-      msg.className = r ? 'admin-msg admin-keymsg' : 'admin-msg admin-keymsg is-error';
-      msg.textContent = r
-        ? `${ch}：${r.label}を${r.on ? 'ON' : 'OFF'}にしました` + (r.on ? '（スコアは保存されません）' : '')
-        : `「${ch}」には何も割り当てられていません`;
-      renderList();
+      msg.textContent = r ? `${ch}：${r.on ? 'ON' : 'OFF'}` : '';
+      renderActive();
       key.select();
     };
     key.addEventListener('input', e => { if (!e.isComposing) handle(); });
     key.addEventListener('compositionend', handle);
-    renderList();
-    p.append(key, msg, list);
+    renderActive();
+    p.append(key, msg, active);
     setTimeout(() => key.focus(), 0);
   },
 
