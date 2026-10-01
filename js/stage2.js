@@ -198,6 +198,8 @@ STAGES.push({
   nameEn: 'Starlight over the Misty Lake',
   bg: LakeBG,
   bgm: 'stage2',
+  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
+  bosses: [{ id: 'daiyousei', phases: DAIYOUSEI_PHASES, mid: true }, { id: 'cirno', phases: CIRNO_PHASES }],
   *script(g) {
     yield 160;
     iceFairyV(5);

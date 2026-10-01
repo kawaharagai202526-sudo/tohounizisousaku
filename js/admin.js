@@ -14,6 +14,7 @@ const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
 const Admin = {
   root: null,
   timer: null,
+  zoom: null,     // キャラクターの拡大表示
   // localStorage が使えないときのための控え
   memFails: 0,
   memLock: 0,
@@ -30,10 +31,17 @@ const Admin = {
     document.body.appendChild(root);
     this.root = root;
     window.addEventListener('keydown', e => {
-      if (this.root.hidden || e.key !== 'Escape') return;
+      if (this.root.hidden) return;
+      if (this.zoom && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        this.stepZoom(e.key === 'ArrowLeft' ? -1 : 1);
+        return;
+      }
+      if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopImmediatePropagation(); // 閉じたEscでポーズが解けないように
-      this.close();
+      if (this.zoom) this.closeZoom(); // 拡大表示中なら拡大だけ閉じる
+      else this.close();
     });
   },
 
@@ -45,6 +53,7 @@ const Admin = {
     this.showPin();
   },
   close() {
+    this.closeZoom();
     clearInterval(this.timer);
     this.timer = null;
     this.root.hidden = true;
@@ -55,6 +64,7 @@ const Admin = {
 
   // 表示中のパネルを作り直す
   panel(cls) {
+    this.closeZoom();
     clearInterval(this.timer);
     this.timer = null;
     this.root.textContent = '';
@@ -244,6 +254,8 @@ const Admin = {
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
       ['最後に選んだキャラクター', name(Store.get('lastChar', 'reimu'))],
+      ['ゲームの版', GAME_VERSION],
+      ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
       ['登録プレイヤー', `${Accounts.all().length}人`],
       ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
@@ -252,16 +264,15 @@ const Admin = {
     body.append(domEl('h3', 'admin-group', 'キー'));
     this.table(body, 'キーの一覧（もう一度入れるとOFF。使ったプレイはスコアが保存されない）',
       ['キー', '名前', '内容', '状態'],
-      Object.entries(CHEAT_KEYS).map(([k, d]) => [k, d.label, d.desc, Cheats.on[d.id] ? 'ON' : 'OFF']));
+      [
+        ...Object.entries(CHEAT_KEYS).map(([k, d]) => [k, d.label, d.desc, Cheats.on[d.id] ? 'ON' : 'OFF']),
+        [CHEAT_ALL_KEY.letter, CHEAT_ALL_KEY.label, CHEAT_ALL_KEY.desc, Cheats.allOn() ? 'ON' : 'OFF'],
+      ]);
 
     body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
     this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
       STAGES.map((s, i) => [`Stage ${i + 1}`, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm]));
-    const bosses = [
-      ['1面', 'rumia', RUMIA_PHASES], ['2面 中ボス', 'daiyousei', DAIYOUSEI_PHASES], ['2面', 'cirno', CIRNO_PHASES],
-      ['3面 中ボス', 'midboss3', MIDBOSS3_PHASES], ['3面', 'boss3', BOSS3_PHASES],
-      ['4面 中ボス', 'star', STAR_MID4_PHASES], ['4面', 'boss4', BOSS4_PHASES],
-    ];
+    const bosses = STAGES.flatMap((st, i) => (st.bosses || []).map(b => [`${i + 1}面${b.mid ? ' 中ボス' : ''}`, b.id, b.phases]));
     const rows = [];
     for (const [where, id, phases] of bosses) {
       phases.forEach((ph, i) => rows.push([
@@ -368,10 +379,12 @@ const Admin = {
   },
 
   // ---------------- キャラクター一覧 ----------------
+  // 描く関数は (ctx, t) を受け取る。t はフレーム数で、拡大表示のときだけ動かす
   showCharacters() {
     const body = this.subPage('キャラクター一覧');
+    body.append(domEl('p', 'admin-empty', 'キャラクターを選ぶと拡大して表示します（←→で切り替え、Escで戻る）'));
     const info = id => CHARA_INFO[id] || { name: id, title: '' };
-    const chibi = (id, x, y, s, pose) => c => { c.save(); c.translate(x, y); c.scale(s, s); drawChibi(c, id, { t: 0, pose }); c.restore(); };
+    const chibi = (id, x, y, s, pose) => (c, t) => { c.save(); c.translate(x, y); c.scale(s, s); drawChibi(c, id, { t, pose }); c.restore(); };
     const image = (key, x, y, h, crisp) => c => {
       const img = Images.get(key);
       if (!img) return;
@@ -380,14 +393,15 @@ const Admin = {
       c.drawImage(img, x - w / 2, y - h / 2, w, h);
       c.imageSmoothingEnabled = true;
     };
-    const both = (...fns) => c => fns.forEach(f => f(c));
-    const at = (x, y, s, fn) => c => { c.save(); c.translate(x, y); c.scale(s, s); fn(c); c.restore(); };
-    const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, CHARA_INFO[id].dot ? Images.get(CHARA_INFO[id].dot)?.naturalHeight || 74 : 74, true));
+    const both = (...fns) => (c, t) => fns.forEach(f => f(c, t));
+    const at = (x, y, s, fn) => (c, t) => { c.save(); c.translate(x, y); c.scale(s, s); fn(c, t); c.restore(); };
+    const dotH = key => (Images.get(key) ? Images.get(key).naturalHeight : 74);
+    const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, dotH(CHARA_INFO[id].dot), true));
 
     const groups = [
       ['自機', [
-        { ...info('reimu'), note: '右はゲーム中の自機', draw: both(chibi('reimuBlue', -30, 14, 1.8), image('player', 46, 6, 46)) },
-        { ...info('marisa'), note: '右はゲーム中の自機', draw: both(chibi('marisa', -30, 18, 1.8), at(46, 10, 1.3, c => drawPlayerBack(c, 'marisa', 0, 0))) },
+        { ...info('reimu'), note: '右はゲーム中の自機', draw: both(chibi('reimuBlue', -30, 14, 1.8), image('player', 46, 6, 46, true)) },
+        { ...info('marisa'), note: '右はゲーム中の自機', draw: both(chibi('marisa', -30, 18, 1.8), at(46, 10, 1.3, (c, t) => drawPlayerBack(c, 'marisa', t, 0))) },
       ]],
       ['ボス・中ボス', [
         { ...info('rumia'), note: '1面ボス', draw: chibi('rumia', 0, 16, 2, 'spread') },
@@ -400,31 +414,26 @@ const Admin = {
         { ...info('boss4'), note: '4面ボス（右はゲーム中のドット絵）', draw: imageChara('boss4') },
       ]],
       ['ザコ・その他', [
-        { name: '妖精', title: '', note: '1〜4面', draw: both(at(-44, 6, 2, c => drawFairy(c, 'blue', 0)), at(0, 6, 2, c => drawFairy(c, 'red', 0)), at(44, 6, 2, c => drawFairy(c, 'yellow', 0))) },
-        { name: '大妖精（ザコ）', title: '', note: '1〜4面', draw: at(0, 10, 2, c => drawFairy(c, 'purple', 0, true)) },
-        { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, c => drawKedama(c, 'white', 0)), at(30, 0, 2.4, c => drawKedama(c, 'blue', 0))) },
+        { name: '妖精', title: '', note: '1〜4面', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
+        { name: '大妖精（ザコ）', title: '', note: '1〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
+        { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },
         { name: '足の妖精', title: '', note: '各面でいちばん弱い妖精', draw: image('footFairy', 0, 0, 110) },
         { name: '緑の手', title: '', note: '2面以降', draw: image('hand', 0, 0, 100) },
-        { name: '青い蝶', title: '', note: '4面（弾は撃たない）', draw: at(0, 0, 3, c => drawBlueButterfly(c, 4, 0, -Math.PI / 2)) },
-        { name: '回転する星', title: '', note: '道中（一撃で倒せる）', draw: at(0, 0, 2.6, c => { const s = BTYPES.bigstar.size; c.drawImage(getBulletSprite('bigstar', 'yellow'), -s / 2, -s / 2, s, s); }) },
-        { name: '水晶', title: '', note: '4面の壁', draw: at(-6, 0, 2.4, c => drawCrystal(c, 0, 1)) },
+        { name: '青い蝶', title: '', note: '4面（弾は撃たない）', draw: at(0, 0, 3, (c, t) => drawBlueButterfly(c, 4 + t, 0, -Math.PI / 2)) },
+        { name: '回転する星', title: '', note: '道中（一撃で倒せる）', draw: at(0, 0, 2.6, (c, t) => { const s = BTYPES.bigstar.size; c.rotate(t * 0.05); c.drawImage(getBulletSprite('bigstar', 'yellow'), -s / 2, -s / 2, s, s); }) },
+        { name: '水晶', title: '', note: '4面の壁', draw: at(-6, 0, 2.4, (c, t) => drawCrystal(c, t, 1)) },
       ]],
     ];
 
+    const all = groups.flatMap(([, items]) => items);
     for (const [label, items] of groups) {
       body.append(domEl('h3', 'admin-group', label));
       const grid = domEl('div', 'admin-chars');
       for (const it of items) {
-        const card = domEl('figure', 'admin-card');
-        const cv = domEl('canvas');
-        const W = 180, H = 150, dpr = Math.min(window.devicePixelRatio || 1, 2);
-        cv.width = W * dpr;
-        cv.height = H * dpr;
-        const c = cv.getContext('2d');
-        c.scale(dpr, dpr);
-        c.translate(W / 2, H / 2);
-        try { it.draw(c); } catch (e) { /* 描けないものは空欄のまま */ }
-        const cap = domEl('figcaption');
+        const card = domButton('admin-card', '', () => this.openZoom(all, all.indexOf(it)));
+        card.setAttribute('aria-label', `${it.name}を拡大`);
+        const cv = this.charaCanvas(it, 180, 150, 1, 0);
+        const cap = domEl('span', 'admin-cardcap');
         cap.append(domEl('strong', '', it.name));
         if (it.title && it.title !== '？？？') cap.append(domEl('span', 'admin-sub', it.title));
         cap.append(domEl('span', 'admin-note', it.note));
@@ -433,6 +442,73 @@ const Admin = {
       }
       body.append(grid);
     }
+  },
+
+  // キャラクターを描いたキャンバス（W×H の大きさに、k 倍で描く）
+  charaCanvas(it, W, H, k, t, cv) {
+    cv = cv || domEl('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (cv.width !== W * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+    c.translate(W / 2, H / 2);
+    c.scale(k, k);
+    try { it.draw(c, t); } catch (e) { /* 描けないものは空欄のまま */ }
+    return cv;
+  },
+
+  // ---------------- 拡大表示 ----------------
+  openZoom(list, index) {
+    this.closeZoom();
+    const wrap = domEl('div', 'admin-zoom');
+    wrap.setAttribute('role', 'dialog');
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.addEventListener('click', e => { if (e.target === wrap) this.closeZoom(); });
+    const box = domEl('div', 'admin-zoombox');
+    const x = domButton('admin-close', '×', () => this.closeZoom());
+    x.setAttribute('aria-label', '拡大表示を閉じる');
+    const cv = domEl('canvas', 'admin-zoomcanvas');
+    const cap = domEl('div', 'admin-zoomcap');
+    const nav = domEl('div', 'admin-zoomnav');
+    const prev = domButton('admin-mini', '← 前', () => this.stepZoom(-1));
+    const count = domEl('span', 'admin-sub');
+    const next = domButton('admin-mini', '次 →', () => this.stepZoom(1));
+    nav.append(prev, count, next);
+    box.append(x, cv, cap, nav);
+    wrap.append(box);
+    this.root.append(wrap);
+    this.zoom = { wrap, cv, cap, count, list, index, t: 0, raf: 0 };
+    this.renderZoomInfo();
+    const loop = () => {
+      const z = this.zoom;
+      if (!z) return;
+      z.t++;
+      this.charaCanvas(z.list[z.index], 540, 450, 3, z.t, z.cv);
+      z.raf = requestAnimationFrame(loop);
+    };
+    loop();
+    next.focus();
+  },
+  stepZoom(d) {
+    const z = this.zoom;
+    if (!z) return;
+    z.index = (z.index + d + z.list.length) % z.list.length;
+    this.renderZoomInfo();
+  },
+  renderZoomInfo() {
+    const z = this.zoom, it = z.list[z.index];
+    z.cap.textContent = '';
+    z.cap.append(domEl('strong', 'admin-zoomname', it.name));
+    if (it.title && it.title !== '？？？') z.cap.append(domEl('span', 'admin-sub', it.title));
+    z.cap.append(domEl('span', 'admin-note', it.note));
+    z.count.textContent = `${z.index + 1} / ${z.list.length}`;
+  },
+  closeZoom() {
+    if (!this.zoom) return;
+    cancelAnimationFrame(this.zoom.raf);
+    this.zoom.wrap.remove();
+    this.zoom = null;
   },
 
   // ---------------- プログラム ----------------

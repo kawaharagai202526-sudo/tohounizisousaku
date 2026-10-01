@@ -340,7 +340,7 @@ class GameScene {
     Sound.se('kill');
     if (e.onDeath) e.onDeath(e);
     // Lunatic はザコを倒すと撃ち返し弾が飛んでくる（ボム中は無し）
-    if (DIFF >= 3 && REVENGE_KINDS.has(e.kind) && !this.player.bomb && this.player.state === 'normal') {
+    if (DIFF >= 3 && REVENGE_KINDS.has(e.kind) && !this.player.bombing && this.player.state === 'normal') {
       if (e.kind === 'bigfairy') fireRing({ x: e.x, y: e.y, n: 12, angle: rand(TAU), speed: 1.5, type: 'small', color: 'white' });
       else fire({ x: e.x, y: e.y, angle: aimAt(e.x, e.y), speed: 1.9, type: 'dot', color: 'white' });
     }
@@ -424,7 +424,7 @@ class GameScene {
 
   onPlayerDeath(x, y) {
     this.misses++;
-    this.lives--;
+    if (!Cheats.on.noLoss) this.lives--; // キー「C」：残機が減らない
     this.spellFailed = true;
     this.bombs = 3;
     const lost = Math.min(this.power, 50);
@@ -638,6 +638,7 @@ class GameScene {
     for (const it of this.items) it.draw(ctx);
     for (const s of this.shots) s.draw(ctx);
     if (this.player.bomb) this.player.bomb.draw(ctx);
+    for (const b of this.player.extraBombs) b.draw(ctx);
     this.player.draw(ctx);
     for (const l of this.lasers) l.draw(ctx);
     this.bullets.draw(ctx);

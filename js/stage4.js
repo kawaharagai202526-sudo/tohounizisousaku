@@ -380,6 +380,8 @@ STAGES.push({
   nameEn: 'The Grotto of Stardust',
   bg: CaveBG,
   bgm: 'stage4',
+  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
+  bosses: [{ id: 'star', phases: STAR_MID4_PHASES, mid: true }, { id: 'boss4', phases: BOSS4_PHASES }],
   // 4面は全難易度で他の面より難しい（弾速・全方位弾の数・ボスの体力）
   speedScale: 1.08,
   densityScale: 1.2,

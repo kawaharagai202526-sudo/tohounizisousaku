@@ -50,6 +50,9 @@ function randSign() { return rng.next() < 0.5 ? -1 : 1; }
 function pick(arr) { return arr[Math.floor(rng.next() * arr.length)]; }
 function frand(a = 1, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); }
 
+// ゲームの版（package.json の version と同じにする。テストで確かめている）
+const GAME_VERSION = '1.0.0';
+
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;
 const DIFF_NAMES = ['Easy', 'Normal', 'Hard', 'Lunatic'];
@@ -83,6 +86,17 @@ function domButton(cls, text, onClick) {
   if (onClick) b.addEventListener('click', onClick);
   return b;
 }
+
+// 保存データの形式の版。保存データの形を変えたら数字を上げて、migrateSave に古い形からの変換を書く
+// （変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる）
+const SAVE_VERSION = 1;
+function migrateSave() {
+  const from = Store.get('saveVersion', 0);
+  if (from >= SAVE_VERSION) return;
+  // 例：if (from < 2) { const a = Store.get('accounts', {}); ...形を直す... Store.set('accounts', a); }
+  Store.set('saveVersion', SAVE_VERSION);
+}
+migrateSave();
 
 function padScore(n, len = 9) {
   const s = String(Math.floor(n));

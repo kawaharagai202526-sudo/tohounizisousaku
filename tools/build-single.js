@@ -5,19 +5,29 @@ const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-html = html.replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
-  const code = fs.readFileSync(path.join(root, src), 'utf8');
-  if (code.includes('</script')) throw new Error(`${src} に </script が含まれているため埋め込めません`);
-  return `<script data-file="${src}">\n${code}\n</script>`;
-});
-// 'img/xxx.png' という文字列を data URI に置き換えて画像も埋め込む
-html = html.replace(/(['"])img\/([\w.-]+\.png)\1/g, (m, q, file) => {
-  const data = fs.readFileSync(path.join(root, 'img', file)).toString('base64');
-  return `${q}data:image/png;base64,${data}${q}`;
-});
-const outDir = path.join(root, 'dist');
-fs.mkdirSync(outDir, { recursive: true });
-const out = path.join(outDir, 'hoshifuru.html');
-fs.writeFileSync(out, html);
-console.log(`${path.relative(root, out)} (${(Buffer.byteLength(html) / 1024).toFixed(0)} KB)`);
+const out = path.join(root, 'dist', 'hoshifuru.html');
+
+// まとめたHTMLを文字列で返す（テストからも使う）
+function build() {
+  let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  html = html.replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
+    const code = fs.readFileSync(path.join(root, src), 'utf8');
+    if (code.includes('</script')) throw new Error(`${src} に </script が含まれているため埋め込めません`);
+    return `<script data-file="${src}">\n${code}\n</script>`;
+  });
+  // 'img/xxx.png' という文字列を data URI に置き換えて画像も埋め込む
+  html = html.replace(/(['"])img\/([\w.-]+\.png)\1/g, (m, q, file) => {
+    const data = fs.readFileSync(path.join(root, 'img', file)).toString('base64');
+    return `${q}data:image/png;base64,${data}${q}`;
+  });
+  return html;
+}
+
+if (require.main === module) {
+  const html = build();
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, html);
+  console.log(`${path.relative(root, out)} (${(Buffer.byteLength(html) / 1024).toFixed(0)} KB)`);
+}
+
+module.exports = { build, out };

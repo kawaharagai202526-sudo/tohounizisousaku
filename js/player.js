@@ -289,6 +289,8 @@ class Player {
     this.focusT = 0;
     this.shotFrame = 0;
     this.bomb = null;
+    this.extraBombs = [];   // キー「R」で撃ったボム（普通のボムと重ねて出せる）
+    this.autoBombTimer = 0;
     this.opts = [];
     this.lasers = [];
   }
@@ -303,6 +305,9 @@ class Player {
       this.bomb.update(g);
       if (this.bomb.done) this.bomb = null;
     }
+    for (const b of this.extraBombs) b.update(g);
+    this.extraBombs = this.extraBombs.filter(b => !b.done);
+    this.autoBomb(g);
     this.lasers = [];
     switch (this.state) {
       case 'hit':
@@ -423,6 +428,21 @@ class Player {
     }
   }
 
+  // ボムが出ている最中か（「R」のボムも含む）
+  get bombing() { return !!this.bomb || this.extraBombs.length > 0; }
+
+  // キー「R」：1秒おきにボムを撃ち続ける（ボムの数は減らない）
+  autoBomb(g) {
+    if (!Cheats.on.autoBomb || this.state !== 'normal' || !g.canShoot()) { this.autoBombTimer = 0; return; }
+    if (++this.autoBombTimer < AUTO_BOMB_INTERVAL) return;
+    this.autoBombTimer = 0;
+    g.spellFailed = true;
+    this.invuln = Math.max(this.invuln, AUTO_BOMB_INTERVAL + 30);
+    this.extraBombs.push(this.id === 'reimu' ? new FantasySeal(this) : new MasterSpark(this));
+    g.showBombName(this.type.bombName);
+    Sound.se('bomb');
+  }
+
   useBomb(g) {
     if (this.bomb || g.bombs <= 0) return;
     g.bombs--;
@@ -447,6 +467,7 @@ class Player {
     this.state = 'dead';
     this.timer = 60;
     this.bomb = null;
+    this.extraBombs = [];
     Fx.playerDeath(this.x, this.y);
     g.onPlayerDeath(this.x, this.y);
   }

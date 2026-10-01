@@ -210,6 +210,8 @@ STAGES.push({
   nameEn: 'The Great Tree beneath the Falling Stars',
   bg: SkyBG,
   bgm: 'stage3',
+  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
+  bosses: [{ id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true }, { id: 'boss3', phases: BOSS3_PHASES }],
   *script(g) {
     yield 160;
     g.tasks.add(swirlWave(-1, 8));

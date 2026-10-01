@@ -239,6 +239,8 @@ STAGES.push({
   nameEn: 'Shooting Stars in the Dusk',
   bg: ForestBG,
   bgm: 'stage1',
+  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
+  bosses: [{ id: 'rumia', phases: RUMIA_PHASES }],
   *script(g) {
     yield 160;
     yield* sideSweep(-1, 8);

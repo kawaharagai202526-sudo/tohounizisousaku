@@ -14,29 +14,46 @@ const CHEAT_KEYS = {
   V: { id: 'bossOnly', label: 'ボス戦のみ', desc: '道中（中ボスを含む）をとばしてボス戦だけになる。ゲーム中に入れるとすぐボス戦へ' },
   I: { id: 'playerSpeed', label: '自機の速度2倍', desc: '自機の移動の速さが2倍になる' },
   D: { id: 'party', label: 'パリピ', desc: '画面の色が回り、ライト・紙吹雪・ビート・エアホーンで騒々しくなる' },
+  C: { id: 'noLoss', label: '残機が減らない', desc: '被弾しても残機が減らない' },
+  R: { id: 'autoBomb', label: 'ボム連発', desc: 'ボムを1秒おきに発動し続ける（ボムの数は減らない）' },
 };
+// この文字は、すべてのキーをまとめて ON にする（すべて ON のときは全部 OFF）
+const CHEAT_ALL_KEY = { letter: 'F', label: 'すべて', desc: 'すべてのキーを ON にする（すべて ON のときに入れると全部 OFF）' };
 const CHEAT_MAX = 8; // 残機・ボムの上限（画面の星の数）
+const AUTO_BOMB_INTERVAL = 60; // R：ボムを撃つ間隔（フレーム）
 
 const Cheats = {
   on: {},
 
   anyOn() { return Object.values(this.on).some(Boolean); },
+  allOn() { return Object.values(CHEAT_KEYS).every(d => this.on[d.id]); },
   // 使用中のキーの文字（例：'HBS'）
   activeLetters() { return Object.keys(CHEAT_KEYS).filter(k => this.on[CHEAT_KEYS[k].id]).join(''); },
 
   // 1文字を受け取って切り替える。割り当てのない文字なら null
   toggle(letter) {
+    if (letter === CHEAT_ALL_KEY.letter) {
+      const on = !this.allOn();
+      for (const d of Object.values(CHEAT_KEYS)) this.set(d.id, on);
+      return { letter, label: CHEAT_ALL_KEY.label, on };
+    }
     const def = CHEAT_KEYS[letter];
     if (!def) return null;
     const on = !this.on[def.id];
-    this.on[def.id] = on;
+    this.set(def.id, on);
+    return { letter, label: def.label, on };
+  },
+
+  // ON / OFF を切り替えたときに、すぐ反映が必要なものはここで処理する
+  set(id, on) {
+    if (!!this.on[id] === on) return;
+    this.on[id] = on;
     const scene = Game.scene;
     const inGame = typeof GameScene !== 'undefined' && scene instanceof GameScene;
     if (on && inGame) scene.usedKeys = true;
-    if (def.id === 'mouse' && !on) Input.endMouseControl();
-    if (def.id === 'bossOnly' && on && inGame) scene.skipToBoss();
-    if (def.id === 'party' && !on) Party.stop();
-    return { letter, label: def.label, on };
+    if (id === 'mouse' && !on) Input.endMouseControl();
+    if (id === 'bossOnly' && on && inGame) scene.skipToBoss();
+    if (id === 'party' && !on) Party.stop();
   },
 
   // ゲーム中に毎フレーム呼ぶ
