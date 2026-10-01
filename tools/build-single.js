@@ -9,7 +9,7 @@ let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 html = html.replace(/<script src="([^"]+)"><\/script>/g, (m, src) => {
   const code = fs.readFileSync(path.join(root, src), 'utf8');
   if (code.includes('</script')) throw new Error(`${src} に </script が含まれているため埋め込めません`);
-  return `<script>\n${code}\n</script>`;
+  return `<script data-file="${src}">\n${code}\n</script>`;
 });
 // 'img/xxx.png' という文字列を data URI に置き換えて画像も埋め込む
 html = html.replace(/(['"])img\/([\w.-]+\.png)\1/g, (m, q, file) => {

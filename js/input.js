@@ -23,6 +23,7 @@ const Input = {
   virtual: {},       // タッチボタンによる押下
   pad: {},           // ゲームパッドによる押下
   debugHold: new Set(),
+  suspended: false,
   pointers: new Map(),
   touchButtons: [],
   moveDX: 0,
@@ -36,6 +37,7 @@ const Input = {
   init(canvas) {
     this.canvas = canvas;
     window.addEventListener('keydown', e => {
+      if (this.suspended) return; // 管理者ページなどで文字を入力している間はゲームに渡さない
       this.firstInput();
       if (e.code === 'KeyM' && !e.repeat) { Sound.toggleMute(); return; }
       const a = KEYMAP[e.code];
@@ -45,6 +47,7 @@ const Input = {
       this.keys[e.code] = true;
     });
     window.addEventListener('keyup', e => {
+      if (this.suspended) return;
       if (KEYMAP[e.code]) { this.keys[e.code] = false; e.preventDefault(); }
     });
     window.addEventListener('blur', () => { this.keys = {}; this.virtual = {}; });
