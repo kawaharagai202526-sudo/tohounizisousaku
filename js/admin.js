@@ -249,6 +249,11 @@ const Admin = {
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
 
+    body.append(domEl('h3', 'admin-group', 'キー'));
+    this.table(body, 'キーの一覧（もう一度入れるとOFF。使ったプレイはスコアが保存されない）',
+      ['キー', '名前', '内容', '状態'],
+      Object.entries(CHEAT_KEYS).map(([k, d]) => [k, d.label, d.desc, Cheats.on[d.id] ? 'ON' : 'OFF']));
+
     body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
     this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
       STAGES.map((s, i) => [`Stage ${i + 1}`, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm]));

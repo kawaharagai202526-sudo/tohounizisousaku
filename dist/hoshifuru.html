@@ -8333,14 +8333,15 @@ class RankingScene {
 //  切り替えた状態はページを読み込み直すと元に戻る。
 // ============================================================
 
+// label・desc は管理者ページの「データベース」の一覧にだけ出す（キー入力画面には出さない）
 const CHEAT_KEYS = {
-  M: { id: 'mouse', label: 'マウス操作' },
-  H: { id: 'lives', label: '残機カンスト' },
-  B: { id: 'bombs', label: 'ボムカンスト' },
-  S: { id: 'speed', label: 'ゲーム速度2倍' },
-  V: { id: 'bossOnly', label: 'ボス戦のみ' },
-  I: { id: 'playerSpeed', label: '自機の速度2倍' },
-  D: { id: 'party', label: 'パリピ' },
+  M: { id: 'mouse', label: 'マウス操作', desc: 'マウスで自機を操作できる（ドラッグで移動、画面のボム・低速ボタン）' },
+  H: { id: 'lives', label: '残機カンスト', desc: '残機が常に最大（8）になる' },
+  B: { id: 'bombs', label: 'ボムカンスト', desc: 'ボムが常に最大（8）になる' },
+  S: { id: 'speed', label: 'ゲーム速度2倍', desc: 'ゲームの進む速さが2倍になる' },
+  V: { id: 'bossOnly', label: 'ボス戦のみ', desc: '道中（中ボスを含む）をとばしてボス戦だけになる。ゲーム中に入れるとすぐボス戦へ' },
+  I: { id: 'playerSpeed', label: '自機の速度2倍', desc: '自機の移動の速さが2倍になる' },
+  D: { id: 'party', label: 'パリピ', desc: '画面の色が回り、ライト・紙吹雪・ビート・エアホーンで騒々しくなる' },
 };
 const CHEAT_MAX = 8; // 残機・ボムの上限（画面の星の数）
 
@@ -8932,6 +8933,11 @@ const Admin = {
       ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
+
+    body.append(domEl('h3', 'admin-group', 'キー'));
+    this.table(body, 'キーの一覧（もう一度入れるとOFF。使ったプレイはスコアが保存されない）',
+      ['キー', '名前', '内容', '状態'],
+      Object.entries(CHEAT_KEYS).map(([k, d]) => [k, d.label, d.desc, Cheats.on[d.id] ? 'ON' : 'OFF']));
 
     body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
     this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
