@@ -59,7 +59,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.1.0';
+const GAME_VERSION = '1.2.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;
@@ -79,6 +79,9 @@ const Store = {
   set(key, value) {
     try { localStorage.setItem(this.prefix + key, JSON.stringify(value)); } catch (e) { /* 保存できなくても続行 */ }
   },
+  remove(key) {
+    try { localStorage.removeItem(this.prefix + key); } catch (e) { /* 消せなくても続行 */ }
+  },
 };
 
 // 画面に重ねて出すHTMLの部品（管理者ページ・アカウント画面で使う）
@@ -97,11 +100,12 @@ function domButton(cls, text, onClick) {
 
 // 保存データの形式の版。保存データの形を変えたら数字を上げて、migrateSave に古い形からの変換を書く
 // （変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる）
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 function migrateSave() {
   const from = Store.get('saveVersion', 0);
   if (from >= SAVE_VERSION) return;
-  // 例：if (from < 2) { const a = Store.get('accounts', {}); ...形を直す... Store.set('accounts', a); }
+  // 2：アカウントとランキングをなくしたので、その記録を消す
+  if (from < 2) for (const k of ['accounts', 'currentUser', 'onlineSession', 'onlineMe', 'onlinePlayers']) Store.remove(k);
   Store.set('saveVersion', SAVE_VERSION);
 }
 migrateSave();

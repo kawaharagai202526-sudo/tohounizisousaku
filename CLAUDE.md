@@ -14,20 +14,7 @@
 - どこを書きかえるかは `docs/CONTENT_GUIDE.md`（差し替えガイド）にまとめてある。変えないものの一覧もそこにある
 - ボスの攻撃は URL の `?boss=ID&phase=番号&diff=0〜3` ですぐ試せる（`startBossTest`）。スクリーンショットで確かめるときにも使う
 - もらった画像から原画とドット絵を作るのは `python3 tools/make-sprite.py 画像 名前`
-- 内容を入れかえても、管理者ページ・アカウント・ランキング・キーはそのまま動く（自機やボスの一覧はデータから自動で作る）
-
-## オンラインのアカウント・ランキング（Firebase）
-
-ユーザーの希望：**claude.ai を使わない人も参加できる**、ブラウザが変わっても消えない共有ランキング。
-
-- `js/online-config.js` に `apiKey`・`projectId`・`admins`（管理者のユーザー名）を書くとオンラインになる。空ならこのブラウザだけ（LocalAccounts）
-- ユーザーが Firebase を準備する手順は `docs/ONLINE_SETUP.md`。**ユーザーから apiKey・projectId・管理者名をもらったら**、
-  `js/online-config.js` に書き、`node tools/firestore-rules.js` でルールを作り直して、ユーザーに `firebase/firestore.rules` を貼ってもらう
-- しくみ：`js/online.js`（ライブラリなしで Firebase のウェブ API を fetch で呼ぶ）。ログインは Authentication（ユーザー名から作った
-  `p<ハッシュ>@hoshifuru.example.com`）、記録は Firestore の `players/<ユーザーID>`。画面やゲームからは `Accounts`（js/accounts.js）を通す
-- 記録の形（`recordBody`）を変えたら、`tools/firestore-rules.js` の `validPlayer` と `tools/fake-firebase.js` の `validPlayer` も直す
-- テストは `tools/fake-firebase.js`（にせものの Firebase）を使う。本物の Firebase には、ここ（作業環境）からはつなげない
-- claude.ai の共有ページの中では外と通信できない可能性がある。オンラインで遊ぶ人には1ファイル版か、ふつうの Web ページで配る
+- 内容を入れかえても、管理者ページとキーはそのまま動く（自機やボスの一覧はデータから自動で作る）
 
 ## 変更したら必ずやること
 
@@ -56,7 +43,7 @@
 | もの | 場所 | ひとこと |
 | --- | --- | --- |
 | メインループ | js/main.js `Game` | `update()`（1/60秒ごと）と `draw()`。画面は `Game.setScene(シーン)` で切り替える |
-| シーン | menus.js / game.js / accounts.js | `update()`・`draw(ctx)` と、あれば `enter()`・`exit()` を持つクラス |
+| シーン | menus.js / game.js | `update()`・`draw(ctx)` と、あれば `enter()`・`exit()` を持つクラス |
 | ゲーム本編 | js/game.js `GameScene` | 当たり判定・スコア・ボス戦。実行中のものはグローバル変数 `G` |
 | ステージ | js/stage1〜4.js | `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })`。`script` は道中、`boss` はボス戦。`bosses` はその面のボスの一覧（攻撃・曲・見た目） |
 | コルーチン | js/util.js `TaskRunner` | ジェネレータ関数で書き、`yield n` で n フレーム待つ |
@@ -69,19 +56,16 @@
 | 曲 | js/music.js | `SONGS`（MML とコード進行）、`MUSIC_ROOM` |
 | ゲームの名前 | js/util.js `GAME_INFO` | タイトル・ロゴ・ブラウザのタブ（index.html の `<title>` と README にも同じ名前） |
 | メニューの背景 | js/menubg.js `MenuBG` | タイトルなどのメニュー画面で共有する背景 |
-| アカウント・ランキング | js/accounts.js | `Accounts`（窓口）、`LocalAccounts`（このブラウザ）、`AccountDialog`（HTMLの画面）、`RankingScene` |
-| オンライン | js/online.js / js/online-config.js | `OnlineAccounts`（Firebase）。設定が空なら使われない |
 | 管理者ページ | js/admin.js | 画面左上の隠しボタン → PIN → キー入力 → 管理者ページ |
 | キー（特別な機能） | js/cheats.js | `CHEAT_KEYS`（キーの一覧と説明）、`Cheats.on`、`Party`（キーの演出の一つ） |
 
 ### 保存データ（localStorage、頭に `hoshifuru.` が付く）
 
 `hi_{難易度}_{キャラ}`（ハイスコア）、`spells`（スペルカード履歴）、`lives` `bgmVol` `seVol` `muted` `lastDiff` `lastChar`（設定）、
-`accounts` `currentUser`（このブラウザだけのアカウント）、`onlineSession` `onlineMe` `onlinePlayers`（オンラインのログインと記録の控え）、
-`adminLock` `adminFails`（管理者ページのPIN）、`saveVersion`（保存データの形式）。
+`adminLock` `adminFails`（管理者ページのPIN）、`saveVersion`（保存データの形式。2 でアカウントの記録を消した）。
 
 保存データの形を変えるときは、`js/util.js` の `SAVE_VERSION` を上げて `migrateSave()` に古い形からの変換を書く。
-変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる。
+変換しないと、前の版で遊んでいた人のスコアや設定が読めなくなる。
 
 ## 何かを足すときに一緒に直すところ
 
@@ -114,8 +98,8 @@
 - **キーについての表記は管理者ページの中だけ**。キー入力画面にも説明は出さず（ON/OFFと文字だけ）、一覧はデータベースにだけ出す。
   タイトル・ゲーム中・リザルトなどには、キーを使ったことも理由も出さない。README などの文書にもキーの一覧や説明は書かない
   （説明はコードの `CHEAT_KEYS` にだけある）
-- ランキングに載らない（スコアも保存しない）のは：キーを使ったプレイ、コンティニューしたプレイ、プラクティス、ログインしていないプレイ
-- ランキングは claude.ai を使わない人も参加できるオンライン（Firebase）にする
+- アカウント・ランキングは作らない（一度作ったが、ユーザーの希望で 1.2.0 で完全に消した）
+- ハイスコアを保存しないのは：キーを使ったプレイ、コンティニューしたプレイ、プラクティス
 - ユーザーが「5面」と言ったときは4面（最後の面）のことだった
 
 ## まだできていないこと

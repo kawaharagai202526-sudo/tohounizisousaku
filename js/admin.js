@@ -2,7 +2,7 @@
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
 //  PIN入力 → キー入力（1文字で特別な機能を切り替え。js/cheats.js）
-//  → 管理者ページ（データベース／キャラクター／プログラム／プレイヤー管理）
+//  → 管理者ページ（データベース／キャラクター／プログラム／未実装）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
@@ -199,7 +199,9 @@ const Admin = {
       domButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
       domButton('admin-btn', 'プログラム', () => this.showProgram()),
     );
-    menu.append(domButton('admin-btn', 'プレイヤー管理', () => this.showPlayers()));
+    const todo = domButton('admin-btn', '（未実装）');
+    todo.disabled = true;
+    menu.append(todo);
     p.append(menu);
   },
 
@@ -256,14 +258,6 @@ const Admin = {
       ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
-      ['アカウントの保存先', Accounts.online ? `オンライン（Firebase：${onlineConfig().projectId}）` : 'このブラウザ'],
-      ['通信のようす', Accounts.statusText()],
-      ...(Accounts.online ? [
-        ['最後に通信できた時刻', OnlineAccounts.lastSync ? formatDate(OnlineAccounts.lastSync, true) : '―'],
-        ['管理者のユーザー名', (onlineConfig().admins || []).join('、') || '未設定'],
-      ] : []),
-      ['登録プレイヤー', `${Accounts.all().length}人`],
-      ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
 
@@ -293,111 +287,6 @@ const Admin = {
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
     ]);
-  },
-
-  // ---------------- プレイヤー管理 ----------------
-  // オンラインのときは開くたびに最新の記録を読みこむ（fresh = false なら読みこまない）
-  async showPlayers(notice, isError, fresh = true) {
-    const body = this.subPage('プレイヤー管理');
-    const status = domEl('p', 'admin-status' + (isError ? ' is-error' : ''), notice || '');
-    status.setAttribute('aria-live', 'polite');
-    body.append(status);
-    if (Accounts.online && fresh) {
-      const loading = domEl('p', 'admin-empty', '最新の記録を読みこんでいます…');
-      body.append(loading);
-      await Accounts.refresh();
-      if (!body.isConnected) return; // 読みこみのあいだにほかのページへ移った
-      loading.remove();
-    }
-    const players = Accounts.all().sort((a, b) => (a.created || 0) - (b.created || 0));
-    const me = Accounts.currentKey();
-    const where = Accounts.online ? `オンライン（Firebase）のアカウント　通信：${Accounts.statusText()}` : 'このブラウザに保存されているアカウント';
-    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（${where}）`));
-    if (Accounts.online) {
-      const admins = (onlineConfig().admins || []).join('、') || '未設定';
-      body.append(domEl('p', 'admin-empty', `スコアのリセットと削除は、管理者のアカウント（${admins}）でログインしているときだけできます。` +
-        'ログイン用の登録そのものは Firebase の管理画面（Authentication）で消せます。パスワードは本人しか変えられません。'));
-    }
-    if (!players.length) {
-      body.append(domEl('p', 'admin-empty', 'まだプレイヤーはいません。タイトル画面の「アカウント」から登録できます。'));
-      return;
-    }
-    const wrap = domEl('div', 'admin-tablewrap');
-    const t = domEl('table', 'admin-table');
-    const head = domEl('tr');
-    for (const h of ['ユーザー名', '登録日 / 最終ログイン', 'プレイ回数', 'ベストスコア（順位）', '操作']) head.append(domEl('th', '', h));
-    t.append(head);
-    for (const a of players) {
-      const tr = domEl('tr');
-      const nameTd = domEl('td', '', a.name);
-      if (a.key === me) nameTd.append(domEl('span', 'admin-badge', 'ログイン中'));
-      const dates = domEl('td', 'admin-lines');
-      dates.append(domEl('span', '', formatDate(a.created)), domEl('span', 'admin-sub', formatDate(a.lastLogin, true)));
-      const bests = domEl('td', 'admin-lines');
-      DIFF_NAMES.forEach((d, i) => {
-        const b = a.best && a.best[i];
-        if (b) bests.append(domEl('span', '', `${d}　${padScore(b.score)}（${Accounts.rankOf(a.key, i)}位）`));
-      });
-      if (!bests.childNodes.length) bests.textContent = '―';
-      tr.append(nameTd, dates, domEl('td', 'num', String(a.plays || 0)), bests);
-      const ops = domEl('td');
-      ops.append(this.playerOps(a));
-      tr.append(ops);
-      t.append(tr);
-    }
-    wrap.append(t);
-    body.append(wrap);
-    const foot = domEl('div', 'admin-foot');
-    const all = domButton('admin-mini is-danger', '全プレイヤーを削除', () => {
-      foot.textContent = '';
-      foot.append(
-        domEl('span', 'admin-optext', `${players.length}人のプレイヤーとスコアをすべて削除します。元に戻せません。`),
-        domButton('admin-mini is-danger', '削除する', () => this.playerAction(foot, () => Accounts.removeAll(), '全プレイヤーを削除しました')),
-        domButton('admin-mini', 'やめる', () => this.showPlayers(undefined, false, false)),
-      );
-    });
-    foot.append(all);
-    body.append(foot);
-  },
-
-  // 操作を行い、結果を出してページを作り直す（通信するときは「処理中…」にしておく）
-  async playerAction(box, run, okText) {
-    box.textContent = '';
-    box.append(domEl('span', 'admin-optext', '処理中…'));
-    const err = await run();
-    if (this.root.hidden) return;
-    this.showPlayers(err || okText, !!err, false);
-  },
-
-  // 1人分の操作ボタン（確認やパスワード入力はその場で切り替える）
-  playerOps(a) {
-    const box = domEl('div', 'admin-ops');
-    const reset = () => { box.replaceWith(this.playerOps(a)); };
-    const confirm = (text, label, run) => {
-      box.textContent = '';
-      box.append(domEl('span', 'admin-optext', text), domButton('admin-mini is-danger', label, run), domButton('admin-mini', 'やめる', reset));
-    };
-    box.append(domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット',
-      () => this.playerAction(box, () => Accounts.resetScores(a.key), `${a.name} のスコアをリセットしました`))));
-    // オンラインのアカウントのパスワードは本人しか変えられない
-    if (Accounts.canSetOthersPassword || a.key === Accounts.currentKey()) {
-      box.append(domButton('admin-mini', 'パスワード変更', () => {
-        box.textContent = '';
-        const input = domEl('input');
-        input.type = 'text';
-        input.placeholder = '新しいパスワード';
-        input.maxLength = PASS_MAX;
-        input.autocomplete = 'off';
-        input.setAttribute('aria-label', `${a.name} の新しいパスワード`);
-        const save = () => this.playerAction(box, () => Accounts.setPassword(a.key, input.value), `${a.name} のパスワードを変更しました`);
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
-        box.append(input, domButton('admin-mini', '保存', save), domButton('admin-mini', 'やめる', reset));
-        input.focus();
-      }));
-    }
-    box.append(domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する',
-      () => this.playerAction(box, () => Accounts.remove(a.key), `${a.name} を削除しました`))));
-    return box;
   },
 
   // ---------------- キャラクター一覧 ----------------

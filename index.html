@@ -112,7 +112,7 @@
       box-shadow: 0 0 14px rgba(214, 186, 120, 0.4);
     }
   }
-  #adminOverlay, #accountOverlay {
+  #adminOverlay {
     position: fixed;
     inset: 0;
     z-index: 40;
@@ -123,7 +123,7 @@
     box-sizing: border-box;
     background: rgba(4, 2, 16, 0.74);
   }
-  #adminOverlay[hidden], #accountOverlay[hidden] { display: none; }
+  #adminOverlay[hidden] { display: none; }
   .admin-panel {
     position: relative;
     display: flex;
@@ -226,56 +226,8 @@
     white-space: nowrap;
   }
   .admin-mini:hover, .admin-mini:focus-visible { background: rgba(214, 186, 120, 0.18); outline: none; }
-  .admin-mini.is-danger { border-color: rgba(255, 154, 168, 0.7); color: var(--error); }
-  .admin-mini.is-danger:hover, .admin-mini.is-danger:focus-visible { background: rgba(255, 154, 168, 0.16); }
-  .admin-ops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .admin-ops input { width: 9em; font: inherit; font-size: 13px; padding: 3px 6px; color: var(--ink); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(214, 186, 120, 0.55); }
-  .admin-ops .admin-optext { font-size: 12px; }
-  .admin-status { min-height: 1.4em; margin: 0 0 8px; font-size: 13px; color: #9af0b8; }
-  .admin-status.is-error { color: var(--error); }
-  .admin-badge { margin-left: 6px; padding: 1px 6px; font-size: 11px; color: var(--night); background: var(--gold); }
-  .admin-table td.num, .acct-table td.num { text-align: right; }
-  .admin-lines span { display: block; }
   .admin-table td { vertical-align: middle; }
-  .admin-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
 
-  /* ---------- アカウント画面 ---------- */
-  .acct-panel { width: min(400px, 100%); gap: 14px; padding: 24px 26px; overflow: auto; }
-  .acct-title { margin: 0; font-size: 20px; letter-spacing: 0.1em; }
-  .acct-tabs { display: flex; border-bottom: 1px solid rgba(214, 186, 120, 0.35); }
-  .acct-tab {
-    flex: 1;
-    padding: 10px;
-    font: inherit;
-    font-size: 15px;
-    color: var(--ink-dim);
-    background: transparent;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    cursor: pointer;
-  }
-  .acct-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold); }
-  .acct-tab:hover, .acct-tab:focus-visible { color: var(--ink); outline: none; background: rgba(214, 186, 120, 0.08); }
-  .acct-form { display: flex; flex-direction: column; gap: 12px; }
-  .acct-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-dim); }
-  .acct-input {
-    font: inherit;
-    font-size: 16px;
-    padding: 9px 12px;
-    color: var(--ink);
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(214, 186, 120, 0.55);
-  }
-  .acct-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.4); }
-  .acct-msg { min-height: 1.5em; text-align: left; }
-  .acct-submit { text-align: center; letter-spacing: 0.08em; }
-  .acct-note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
-  .acct-welcome { margin: 0; font-size: 14px; color: #9af0b8; }
-  .acct-who { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 13px; color: var(--ink-dim); }
-  .acct-name { font-size: 22px; color: var(--ink); word-break: break-all; }
-  .acct-table { width: 100%; }
-  .acct-row { display: flex; gap: 10px; }
   .admin-label { margin: 0; font-size: 15px; }
   .admin-keyinput {
     width: 64px;
@@ -430,9 +382,6 @@
 <script src="js/stage4.js"></script>
 <script src="js/menubg.js"></script>
 <script src="js/menus.js"></script>
-<script src="js/online-config.js"></script>
-<script src="js/online.js"></script>
-<script src="js/accounts.js"></script>
 <script src="js/cheats.js"></script>
 <script src="js/main.js"></script>
 <script src="js/admin.js"></script>

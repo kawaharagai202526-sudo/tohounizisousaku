@@ -112,7 +112,7 @@
       box-shadow: 0 0 14px rgba(214, 186, 120, 0.4);
     }
   }
-  #adminOverlay, #accountOverlay {
+  #adminOverlay {
     position: fixed;
     inset: 0;
     z-index: 40;
@@ -123,7 +123,7 @@
     box-sizing: border-box;
     background: rgba(4, 2, 16, 0.74);
   }
-  #adminOverlay[hidden], #accountOverlay[hidden] { display: none; }
+  #adminOverlay[hidden] { display: none; }
   .admin-panel {
     position: relative;
     display: flex;
@@ -226,56 +226,8 @@
     white-space: nowrap;
   }
   .admin-mini:hover, .admin-mini:focus-visible { background: rgba(214, 186, 120, 0.18); outline: none; }
-  .admin-mini.is-danger { border-color: rgba(255, 154, 168, 0.7); color: var(--error); }
-  .admin-mini.is-danger:hover, .admin-mini.is-danger:focus-visible { background: rgba(255, 154, 168, 0.16); }
-  .admin-ops { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .admin-ops input { width: 9em; font: inherit; font-size: 13px; padding: 3px 6px; color: var(--ink); background: rgba(0, 0, 0, 0.35); border: 1px solid rgba(214, 186, 120, 0.55); }
-  .admin-ops .admin-optext { font-size: 12px; }
-  .admin-status { min-height: 1.4em; margin: 0 0 8px; font-size: 13px; color: #9af0b8; }
-  .admin-status.is-error { color: var(--error); }
-  .admin-badge { margin-left: 6px; padding: 1px 6px; font-size: 11px; color: var(--night); background: var(--gold); }
-  .admin-table td.num, .acct-table td.num { text-align: right; }
-  .admin-lines span { display: block; }
   .admin-table td { vertical-align: middle; }
-  .admin-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
 
-  /* ---------- アカウント画面 ---------- */
-  .acct-panel { width: min(400px, 100%); gap: 14px; padding: 24px 26px; overflow: auto; }
-  .acct-title { margin: 0; font-size: 20px; letter-spacing: 0.1em; }
-  .acct-tabs { display: flex; border-bottom: 1px solid rgba(214, 186, 120, 0.35); }
-  .acct-tab {
-    flex: 1;
-    padding: 10px;
-    font: inherit;
-    font-size: 15px;
-    color: var(--ink-dim);
-    background: transparent;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    cursor: pointer;
-  }
-  .acct-tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--gold); }
-  .acct-tab:hover, .acct-tab:focus-visible { color: var(--ink); outline: none; background: rgba(214, 186, 120, 0.08); }
-  .acct-form { display: flex; flex-direction: column; gap: 12px; }
-  .acct-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-dim); }
-  .acct-input {
-    font: inherit;
-    font-size: 16px;
-    padding: 9px 12px;
-    color: var(--ink);
-    background: rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(214, 186, 120, 0.55);
-  }
-  .acct-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.4); }
-  .acct-msg { min-height: 1.5em; text-align: left; }
-  .acct-submit { text-align: center; letter-spacing: 0.08em; }
-  .acct-note { margin: 0; font-size: 12px; line-height: 1.6; color: var(--ink-dim); }
-  .acct-welcome { margin: 0; font-size: 14px; color: #9af0b8; }
-  .acct-who { display: flex; flex-direction: column; gap: 2px; margin: 0; font-size: 13px; color: var(--ink-dim); }
-  .acct-name { font-size: 22px; color: var(--ink); word-break: break-all; }
-  .acct-table { width: 100%; }
-  .acct-row { display: flex; gap: 10px; }
   .admin-label { margin: 0; font-size: 15px; }
   .admin-keyinput {
     width: 64px;
@@ -470,7 +422,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.1.0';
+const GAME_VERSION = '1.2.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;
@@ -490,6 +442,9 @@ const Store = {
   set(key, value) {
     try { localStorage.setItem(this.prefix + key, JSON.stringify(value)); } catch (e) { /* 保存できなくても続行 */ }
   },
+  remove(key) {
+    try { localStorage.removeItem(this.prefix + key); } catch (e) { /* 消せなくても続行 */ }
+  },
 };
 
 // 画面に重ねて出すHTMLの部品（管理者ページ・アカウント画面で使う）
@@ -508,11 +463,12 @@ function domButton(cls, text, onClick) {
 
 // 保存データの形式の版。保存データの形を変えたら数字を上げて、migrateSave に古い形からの変換を書く
 // （変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる）
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 function migrateSave() {
   const from = Store.get('saveVersion', 0);
   if (from >= SAVE_VERSION) return;
-  // 例：if (from < 2) { const a = Store.get('accounts', {}); ...形を直す... Store.set('accounts', a); }
+  // 2：アカウントとランキングをなくしたので、その記録を消す
+  if (from < 2) for (const k of ['accounts', 'currentUser', 'onlineSession', 'onlineMe', 'onlinePlayers']) Store.remove(k);
   Store.set('saveVersion', SAVE_VERSION);
 }
 migrateSave();
@@ -4748,22 +4704,8 @@ function drawSidePanel(ctx, g) {
   const next = EXTEND_POINTS[g.extendIdx];
   value(next ? `${g.pointItems}/${next}` : String(g.pointItems), 262, '#b0c8ff');
 
-  // プレイヤー名と、ランキングに載るかどうか
-  const acc = g.accountKey ? Accounts.get(g.accountKey) : null;
-  const block = g.rankBlock();
-  ctx.font = `12px ${FONT_JP}`;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#d8d0ff';
-  ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
-  ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
-  ctx.fillText(!block ? 'ランキング対象' : block.short ? `ランキング対象外（${block.short}）` : 'ランキング対象外', x0, 303, vx - x0);
-  if (acc && Accounts.online && OnlineAccounts.state !== 'online' && OnlineAccounts.state !== 'connecting') {
-    ctx.fillStyle = '#ffd27a';
-    ctx.fillText(Accounts.statusText(), x0, 320, vx - x0);
-  }
-
   if (Input.isTouch) {
-    if (!Party.active) drawLogo(ctx, 528, 344, 18);
+    if (!Party.active) drawLogo(ctx, 528, 318, 22);
     for (const b of TOUCH_BUTTONS) {
       const on = b.toggle ? Input.virtual[b.action] : Input.held[b.action];
       ctx.fillStyle = on ? 'rgba(255,220,150,0.35)' : 'rgba(255,255,255,0.08)';
@@ -5086,9 +5028,8 @@ class GameScene {
     this.frame = 0;
     this.messages = [];
     this.cheat = false;                       // テスト用の無敵
-    this.accountKey = Accounts.currentKey();  // ログイン中のプレイヤー
     this.usedKeys = Cheats.anyOn();           // 管理者ページのキーを使ったか
-    this.records = null;                      // 終わったときの記録結果
+    this.hiscoreSaved = null;                 // ハイスコアを更新したか（終わったときに決まる）
     // 描画が update より先に呼ばれても大丈夫なように、ここでステージを組み立てる
     this.startStage(startStage);
   }
@@ -5203,33 +5144,20 @@ class GameScene {
   }
 
   finish(kind) {
-    this.saveRecords(kind);
+    this.saveHiScore();
     Sound.stopBgm(1.5);
     if (kind === 'clear') Game.setScene(new EndingScene(this));
     else Game.setScene(new ResultScene(this, kind));
   }
 
-  // ランキングに載らない理由（載るなら null）
-  rankBlock() {
-    if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
-    if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
-    // 管理者ページのキーは画面に出さないので、理由は表示しない
-    if (this.usedKeys) return { short: null, long: null };
-    if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
-    if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
-    return null;
-  }
-
-  // ハイスコアとプレイヤーの記録を保存する（キー使用・コンティニュー・プラクティスは保存しない）
-  saveRecords(kind) {
-    if (this.records) return this.records;
-    const block = this.rankBlock();
-    const local = !block || block.short === '未ログイン';
-    const hiscore = local && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
-    if (hiscore) Store.set(this.hiKey, Math.floor(this.score));
-    const ranking = block ? { saved: false, reason: block.long } : Accounts.record(this, kind);
-    this.records = { hiscore, ranking };
-    return this.records;
+  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティスは保存しない）。更新したら true
+  saveHiScore() {
+    if (this.hiscoreSaved !== null) return this.hiscoreSaved;
+    const ok = !this.practice && !this.cheat && !this.usedKeys && this.continues === 0
+      && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
+    if (ok) Store.set(this.hiKey, Math.floor(this.score));
+    this.hiscoreSaved = ok;
+    return ok;
   }
 
   // ---------------- 更新 ----------------
@@ -5539,7 +5467,7 @@ class GameScene {
         Sound.applyVolume();
         Game.setScene(new GameScene({ ...this.opts, seed: undefined }));
       } else {
-        this.saveRecords('quit');
+        this.saveHiScore();
         Sound.applyVolume();
         Game.setScene(new TitleScene());
       }
@@ -7452,11 +7380,9 @@ function drawHeading(ctx, text, en) {
 const TITLE_ITEMS = [
   { id: 'start', label: 'ゲームスタート' },
   { id: 'practice', label: 'プラクティス' },
-  { id: 'ranking', label: 'ランキング' },
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
   { id: 'option', label: 'オプション' },
-  { id: 'account', label: 'アカウント' },
 ];
 
 class TitleScene {
@@ -7479,11 +7405,9 @@ class TitleScene {
       switch (TITLE_ITEMS[this.sel].id) {
         case 'start': Game.setScene(new DifficultyScene('game')); break;
         case 'practice': Game.setScene(new DifficultyScene('practice')); break;
-        case 'ranking': Game.setScene(new RankingScene()); break;
         case 'music': Game.setScene(new MusicRoomScene()); break;
         case 'manual': Game.setScene(new ManualScene()); break;
         case 'option': Game.setScene(new OptionScene()); break;
-        case 'account': AccountDialog.open(); break;
       }
     }
   }
@@ -7512,14 +7436,10 @@ class TitleScene {
     ctx.fillStyle = '#ecd9a0';
     ctx.fillText(GAME_INFO.subtitle, 420, 184);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 228, 28);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 240, 34);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const acc = Accounts.current();
-    ctx.font = `600 13px ${FONT_JP}`;
-    const where = Accounts.online ? `（${Accounts.statusText()}）` : '';
-    strokeText(ctx, acc ? `プレイヤー：${acc.name}${where}` : `ゲスト（「アカウント」からログインすると${Accounts.online ? 'オンライン' : ''}ランキングに載ります）`, 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -7955,8 +7875,7 @@ class ResultScene {
     this.g = g;
     this.kind = kind;
     this.frame = 0;
-    this.records = g.records || g.saveRecords(kind);
-    this.newRecord = this.records.hiscore;
+    this.newRecord = g.saveHiScore();
   }
   enter() { if (this.kind !== 'clear') Sound.playBgm('title'); }
   update() {
@@ -7999,1083 +7918,15 @@ class ResultScene {
       ctx.fillStyle = '#ffffff';
       ctx.fillText(v, 470, y);
     });
-    const rk = this.records.ranking;
-    ctx.textAlign = 'center';
-    ctx.font = `700 15px ${FONT_JP}`;
-    if (rk.saved) {
-      const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
-      strokeText(ctx, text, SCREEN_W / 2, 386, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
-      if (rk.online) {
-        ctx.font = `12px ${FONT_JP}`;
-        ctx.fillStyle = OnlineAccounts.state === 'online' ? 'rgba(220,210,255,0.8)' : '#ff9aa8';
-        ctx.fillText(OnlineAccounts.busy ? '記録を送っています…' : OnlineAccounts.state === 'online' ? 'オンラインのランキングに送りました' : Accounts.statusText(), SCREEN_W / 2, 406);
-      }
-    } else {
-      strokeText(ctx, rk.reason ? `ランキングには載りません（${rk.reason}）` : 'ランキングには載りません', SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
-    }
     if (this.newRecord) {
+      ctx.textAlign = 'center';
       ctx.font = `800 18px ${FONT_JP}`;
-      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 432, '#ffe070', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 408, '#ffe070', 'rgba(0,0,0,0.8)', 3);
     }
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.8)';
     ctx.fillText(Input.isTouch ? 'タップでタイトルへ' : 'Z でタイトルへ', SCREEN_W / 2, 456);
-  }
-}
-
-</script>
-<script data-file="js/online-config.js">
-'use strict';
-// ============================================================
-//  オンラインのアカウント・ランキング（Firebase）の設定
-//  apiKey と projectId が空のままなら、今までどおりアカウントとスコアはこのブラウザの中だけに保存する。
-//  入れ方は docs/ONLINE_SETUP.md を見ること。
-//  apiKey は公開してよい値（守りは Firebase のルール firebase/firestore.rules で行う）。
-// ============================================================
-
-const ONLINE_CONFIG = {
-  apiKey: '',      // Firebase の「ウェブ API キー」
-  projectId: '',   // Firebase の「プロジェクト ID」
-  // 管理者にするユーザー名（管理者ページのプレイヤー管理で、ほかの人の記録を消したりリセットしたりできる）。
-  // 変えたら node tools/firestore-rules.js でルールを作り直し、Firebase に貼り直す
-  admins: [],
-};
-
-</script>
-<script data-file="js/online.js">
-'use strict';
-// ============================================================
-//  オンラインのアカウント・ランキング（Firebase）
-//  ライブラリは使わず、Firebase のウェブ API を fetch で直接呼ぶ（1ファイル版を直接開いても動く）。
-//   ・ログイン：Firebase Authentication（メール／パスワード）。ユーザー名から作ったアドレスを使う
-//     （本物のメールアドレスではない。パスワードは Firebase が守り、ゲームのデータには入らない）
-//   ・記録：Cloud Firestore の players/<ユーザーID>。だれでも読めて、本人と管理者だけが書ける
-//     （firebase/firestore.rules）
-//  通信できないときは、記録をこのブラウザに取っておき、つながったときに送る。
-//  設定は js/online-config.js。設定が空なら使われない（js/accounts.js の LocalAccounts を使う）。
-// ============================================================
-
-const ONLINE_EMAIL_DOMAIN = 'hoshifuru.example.com';
-const ONLINE_REFRESH_MS = 15000;   // ランキングを開いているあいだ、この間隔で読み直す
-const ONLINE_RETRY_MS = 60000;     // 送れていない記録があるとき、この間隔で送り直す
-
-// 設定（テストでは window.HOSHIFURU_ONLINE で差しかえる）
-function onlineConfig() {
-  const c = (typeof window !== 'undefined' && window.HOSHIFURU_ONLINE) || ONLINE_CONFIG;
-  return c && c.apiKey && c.projectId ? c : null;
-}
-
-// ユーザー名からログイン用のアドレスを作る（大文字・小文字や全角・半角のちがいは同じ名前）
-// tools/firestore-rules.js も同じ作り方で管理者のアドレスを作る
-function onlineEmail(name) {
-  return `p${sha256(Accounts.keyOf(name)).slice(0, 40)}@${ONLINE_EMAIL_DOMAIN}`;
-}
-
-class OnlineError extends Error {
-  constructor(code, message) {
-    super(message || code);
-    this.code = code;
-  }
-}
-
-function onlineErrorText(e, ctx) {
-  const admins = ((onlineConfig() || {}).admins || []).join('、') || '未設定';
-  switch (e.code) {
-    case 'NETWORK': return '通信できませんでした。インターネットの接続を確かめてください';
-    case 'EMAIL_EXISTS': return 'そのユーザー名はもう使われています';
-    case 'EMAIL_NOT_FOUND':
-    case 'INVALID_PASSWORD':
-    case 'INVALID_LOGIN_CREDENTIALS': return 'ユーザー名かパスワードがちがいます';
-    case 'WEAK_PASSWORD': return `パスワードは${PASS_MIN}文字以上にしてください`;
-    case 'TOO_MANY_ATTEMPTS_TRY_LATER': return '何度もまちがえたため、しばらくログインできません。時間をおいてください';
-    case 'USER_DISABLED': return 'このアカウントは使えなくなっています';
-    case 'OPERATION_NOT_ALLOWED':
-    case 'PASSWORD_LOGIN_DISABLED': return '（設定）Firebase でメール／パスワードのログインが有効になっていません';
-    case 'API_KEY_INVALID': return '（設定）Firebase の API キーがちがいます';
-    case 'NOT_FOUND':
-    case 'FAILED_PRECONDITION': return '（設定）Firebase のデータベース（Firestore）が作られていません';
-    case 'RESOURCE_EXHAUSTED': return 'Firebase の無料で使える量の上限に達しました。時間をおいてください';
-    case 'PERMISSION_DENIED':
-      return ctx === 'admin' ? `管理者のアカウントでログインしてください（管理者：${admins}）` : '（設定）Firebase のルールで書きこみが止められています';
-    case 'DELETED': return 'このアカウントの記録は管理者に消されました。もう一度ログインすると、新しく記録を始められます';
-    case 'SESSION_EXPIRED': return 'ログインの期限が切れました。もう一度ログインしてください';
-    case 'NO_SESSION':
-      return ctx === 'admin' ? `管理者のアカウントでログインしてください（管理者：${admins}）` : 'ログインしてください';
-    default: return `通信でエラーが起きました（${e.code}）`;
-  }
-}
-
-// ---------------- Firestore の値の形 ↔ ふつうの値 ----------------
-function fsValue(v) {
-  if (v === null || v === undefined) return { nullValue: null };
-  if (typeof v === 'boolean') return { booleanValue: v };
-  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
-  if (typeof v === 'string') return { stringValue: v };
-  if (Array.isArray(v)) return { arrayValue: { values: v.map(fsValue) } };
-  return { mapValue: { fields: fsFields(v) } };
-}
-function fsFields(obj) {
-  const out = {};
-  for (const [k, v] of Object.entries(obj)) if (v !== undefined) out[k] = fsValue(v);
-  return out;
-}
-function fsParse(x) {
-  if (!x || typeof x !== 'object') return null;
-  if ('stringValue' in x) return x.stringValue;
-  if ('integerValue' in x) return Number(x.integerValue);
-  if ('doubleValue' in x) return Number(x.doubleValue);
-  if ('booleanValue' in x) return x.booleanValue;
-  if ('timestampValue' in x) return Date.parse(x.timestampValue);
-  if ('arrayValue' in x) return (x.arrayValue.values || []).map(fsParse);
-  if ('mapValue' in x) return fsParseFields(x.mapValue.fields || {});
-  return null;
-}
-function fsParseFields(fields) {
-  const out = {};
-  for (const [k, v] of Object.entries(fields || {})) out[k] = fsParse(v);
-  return out;
-}
-
-// ---------------- Firebase のウェブ API ----------------
-const FirebaseApi = {
-  cfg: null,
-
-  async request(url, opts) {
-    let res;
-    try { res = await fetch(url, opts); } catch (e) { throw new OnlineError('NETWORK'); }
-    let body = null;
-    try { body = await res.json(); } catch (e) { /* 中身のない返事 */ }
-    return { ok: res.ok, status: res.status, body: body || {} };
-  },
-
-  // ログインまわり（identitytoolkit）。エラーは message に「EMAIL_EXISTS」などの形で入る
-  async auth(method, payload) {
-    const r = await this.request(`https://identitytoolkit.googleapis.com/v1/accounts:${method}?key=${encodeURIComponent(this.cfg.apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (r.ok) return r.body;
-    const msg = (r.body.error && r.body.error.message) || '';
-    throw new OnlineError(/API key/i.test(msg) ? 'API_KEY_INVALID' : (msg.split(/[\s:]/)[0] || `HTTP_${r.status}`), msg);
-  },
-
-  async refreshToken(refreshToken) {
-    const r = await this.request(`https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(this.cfg.apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(refreshToken)}`,
-    });
-    if (r.ok) return r.body;
-    const msg = (r.body.error && r.body.error.message) || '';
-    throw new OnlineError(msg.split(/[\s:]/)[0] || `HTTP_${r.status}`, msg);
-  },
-
-  // データベース（Firestore）。見つからない文書は null を返す
-  async fs(method, path, { token, body, query } = {}) {
-    const headers = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    if (body) headers['Content-Type'] = 'application/json';
-    const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(this.cfg.projectId)}/databases/(default)/documents/${path}${query || ''}`;
-    const r = await this.request(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
-    if (r.ok) return r.body;
-    const err = r.body.error || {};
-    // 文書がないときの 404 は null。データベース自体がないとき（「… does not exist …」）はエラー
-    if (r.status === 404 && !/does not exist/i.test(err.message || '')) return null;
-    throw new OnlineError(err.status || `HTTP_${r.status}`, err.message);
-  },
-};
-
-// 2つの記録をまとめる（難易度ごとに良いほう、プレイ記録は日時で合わせる）
-function mergeRecords(a, b) {
-  const best = { ...(a.best || {}) };
-  for (const [d, e] of Object.entries(b.best || {})) if (e && (!best[d] || e.score > best[d].score)) best[d] = e;
-  const seen = new Set();
-  const history = [];
-  for (const e of [...(a.history || []), ...(b.history || [])].sort((x, y) => y.date - x.date)) {
-    const k = `${e.date}:${e.score}`;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    history.push(e);
-  }
-  return {
-    ...a,
-    name: a.name || b.name,
-    nameKey: a.nameKey || b.nameKey,
-    created: Math.min(a.created || Infinity, b.created || Infinity, Date.now()),
-    lastLogin: Math.max(a.lastLogin || 0, b.lastLogin || 0),
-    plays: Math.max(a.plays || 0, b.plays || 0),
-    best,
-    history: history.slice(0, HISTORY_MAX),
-  };
-}
-
-// Firestore に書く形（players/<ユーザーID>）。項目を増やしたら firebase/firestore.rules も直す
-function recordBody(r) {
-  return { name: r.name, nameKey: r.nameKey, created: r.created, lastLogin: r.lastLogin, plays: r.plays || 0, best: r.best || {}, history: r.history || [], v: 1 };
-}
-
-// ------------------------------------------------------------
-//  オンラインのアカウント（Accounts から使う。js/accounts.js の LocalAccounts と同じ形の関数を持つ）
-// ------------------------------------------------------------
-const OnlineAccounts = {
-  session: null,     // { uid, idToken, refreshToken, expiresAt }（このブラウザに保存）
-  me: null,          // 自分の記録（Firestore と同じ形 + uid と dirty。dirty はまだ送っていない変更があるか）
-  players: [],       // ランキング用に読んだ全員の記録 [{ key: ユーザーID, name, best, ... }]
-  state: 'connecting', // connecting / online / offline / error
-  message: '',
-  lastSync: 0,
-  busy: 0,
-  queue: Promise.resolve(),
-  refreshing: null,
-  refreshAgain: false,
-
-  init(cfg) {
-    FirebaseApi.cfg = cfg;
-    this.session = Store.get('onlineSession', null);
-    this.me = Store.get('onlineMe', null);
-    if (!this.session || !this.me || this.me.uid !== this.session.uid) { this.session = null; this.me = null; }
-    this.players = Store.get('onlinePlayers', []);
-    window.addEventListener('online', () => this.refresh());
-    // 送れていない記録があれば、ときどき送り直す
-    setInterval(() => {
-      if (!document.hidden && this.current() && (this.me.dirty || this.state === 'offline')) this.refresh();
-    }, ONLINE_RETRY_MS);
-    this.refresh();
-  },
-  saveCache() {
-    Store.set('onlineSession', this.session);
-    Store.set('onlineMe', this.me);
-  },
-  setState(state, message = '') {
-    this.state = state;
-    this.message = message;
-  },
-  // 通信の失敗を状態に出す
-  fail(e) {
-    if (e.code === 'NETWORK') this.setState('offline');
-    else this.setState('error', onlineErrorText(e));
-  },
-  statusText() {
-    if (this.state === 'error') return this.message;
-    if (this.state === 'offline') return this.me && this.me.dirty ? 'オフライン（記録はつながったら送ります）' : 'オフライン';
-    if (this.state === 'connecting' || this.busy) return '通信中…';
-    return 'オンライン';
-  },
-
-  currentKey() { return this.session && this.me ? this.session.uid : null; },
-  current() { return this.currentKey() ? this.me : null; },
-  get(key) {
-    if (key && this.current() && key === this.me.uid) return this.me;
-    return this.players.find(p => p.key === key) || null;
-  },
-  all() {
-    const mine = this.current();
-    const list = this.players.filter(p => !mine || p.key !== mine.uid);
-    if (mine) list.push({ ...mine, key: mine.uid });
-    return list;
-  },
-
-  // ログインのしるし（idToken）。期限が近ければ取り直す
-  async token() {
-    const s = this.session;
-    if (!s) throw new OnlineError('NO_SESSION');
-    if (s.idToken && s.expiresAt - 60000 > Date.now()) return s.idToken;
-    try {
-      const r = await FirebaseApi.refreshToken(s.refreshToken);
-      s.idToken = r.id_token;
-      s.refreshToken = r.refresh_token || s.refreshToken;
-      s.expiresAt = Date.now() + Number(r.expires_in || 3600) * 1000;
-      this.saveCache();
-      return s.idToken;
-    } catch (e) {
-      if (e.code !== 'NETWORK') {
-        this.logout();
-        throw new OnlineError('SESSION_EXPIRED');
-      }
-      throw e;
-    }
-  },
-  startSession(r) {
-    this.session = { uid: r.localId, idToken: r.idToken, refreshToken: r.refreshToken, expiresAt: Date.now() + Number(r.expiresIn || 3600) * 1000 };
-  },
-
-  // 通信を1つずつ順番に行う。失敗しても投げずに、そのエラーを返す（成功なら null）
-  run(fn) {
-    this.queue = this.queue.then(async () => {
-      this.busy++;
-      try {
-        await fn();
-        return null;
-      } catch (e) {
-        return e;
-      } finally {
-        this.busy--;
-      }
-    });
-    return this.queue;
-  },
-
-  // 自分の記録をサーバーと合わせる（ほかの端末で遊んだ分を取りこみ、まだ送っていない分を送る）
-  async syncMe() {
-    if (!this.current()) return;
-    const uid = this.me.uid;
-    const token = await this.token();
-    const doc = await FirebaseApi.fs('GET', `players/${uid}`, { token });
-    if (!this.current() || this.me.uid !== uid) return; // 通信のあいだにログアウトした
-    const server = doc ? fsParseFields(doc.fields) : null;
-    // 一度は送れていた記録がサーバーにない＝管理者に消された。送り直さずにログアウトする
-    if (!server && this.me.synced) {
-      this.logout();
-      throw new OnlineError('DELETED');
-    }
-    const merged = server ? mergeRecords(server, this.me) : this.me;
-    Object.assign(this.me, merged);
-    const body = recordBody(this.me);
-    if (!server || JSON.stringify(body) !== JSON.stringify(recordBody(server))) {
-      await FirebaseApi.fs('PATCH', `players/${uid}`, { token, body: { fields: fsFields(body) } });
-    }
-    this.me.dirty = false;
-    this.me.synced = true;
-    this.saveCache();
-  },
-
-  // ランキング用に全員の記録を読む（読むだけならログインはいらない）
-  async loadPlayers() {
-    const list = [];
-    let pageToken = '';
-    do {
-      const q = `?pageSize=300${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}`;
-      const r = await FirebaseApi.fs('GET', 'players', { query: q });
-      for (const d of (r && r.documents) || []) list.push({ ...fsParseFields(d.fields), key: d.name.split('/').pop() });
-      pageToken = r && r.nextPageToken;
-    } while (pageToken && list.length < 3000);
-    this.players = list;
-    Store.set('onlinePlayers', list);
-  },
-
-  // 自分の記録を送り、ランキングを読み直す。通信中にまた呼ばれたら、終わったあともう一度行う
-  refresh() {
-    if (this.refreshing) { this.refreshAgain = true; return this.refreshing; }
-    this.refreshing = (async () => {
-      do {
-        this.refreshAgain = false;
-        const e = (this.current() ? await this.run(() => this.syncMe()) : null) || await this.run(() => this.loadPlayers());
-        if (e) this.fail(e);
-        else { this.setState('online'); this.lastSync = Date.now(); }
-      } while (this.refreshAgain);
-    })().finally(() => { this.refreshing = null; });
-    return this.refreshing;
-  },
-
-  // このブラウザに保存されていた同じ名前・同じパスワードのアカウントの記録を取りこむ
-  importLocal(name, pw) {
-    const acc = LocalAccounts.get(Accounts.keyOf(name));
-    if (!acc || acc.migrated || hashPassword(pw, acc.salt) !== acc.hash) return false;
-    const plays = (this.me.plays || 0) + (acc.plays || 0);
-    Object.assign(this.me, mergeRecords(this.me, acc), { plays, dirty: true });
-    acc.migrated = true;
-    LocalAccounts.commit();
-    return true;
-  },
-
-  async register(name, pw) {
-    let r;
-    try {
-      r = await FirebaseApi.auth('signUp', { email: onlineEmail(name), password: pw, returnSecureToken: true });
-    } catch (e) {
-      if (e.code === 'NETWORK') this.setState('offline');
-      return { error: onlineErrorText(e) };
-    }
-    this.startSession(r);
-    const now = Date.now();
-    this.me = { uid: r.localId, name, nameKey: Accounts.keyOf(name), created: now, lastLogin: now, plays: 0, best: {}, history: [], dirty: true };
-    const imported = this.importLocal(name, pw);
-    this.saveCache();
-    await this.refresh();
-    return { ok: true, name, imported, warning: this.state === 'error' ? this.message : '' };
-  },
-
-  async login(name, pw) {
-    let r;
-    try {
-      r = await FirebaseApi.auth('signInWithPassword', { email: onlineEmail(name), password: pw, returnSecureToken: true });
-    } catch (e) {
-      if (e.code === 'NETWORK') this.setState('offline');
-      return { error: onlineErrorText(e) };
-    }
-    this.startSession(r);
-    let server = null;
-    try {
-      const doc = await FirebaseApi.fs('GET', `players/${r.localId}`, { token: r.idToken });
-      server = doc ? fsParseFields(doc.fields) : null;
-    } catch (e) { this.fail(e); }
-    const now = Date.now();
-    this.me = { ...(server || { name, nameKey: Accounts.keyOf(name), created: now, plays: 0, best: {}, history: [] }), uid: r.localId, lastLogin: now, dirty: true, synced: false };
-    const imported = this.importLocal(name, pw);
-    this.saveCache();
-    await this.refresh();
-    return { ok: true, name: this.me.name, imported, warning: this.state === 'error' ? this.message : '' };
-  },
-
-  logout() {
-    this.session = null;
-    this.me = null;
-    this.saveCache();
-  },
-
-  // 記録を足したあとに呼ぶ（このブラウザにすぐ保存し、通信して送る）
-  saved() {
-    this.me.dirty = true;
-    this.saveCache();
-    this.refresh();
-  },
-
-  // ---------- 管理者ページから使う（Firebase のルールで、管理者か本人だけができる） ----------
-  async admin(fn) {
-    try {
-      await fn(await this.token());
-    } catch (e) {
-      return onlineErrorText(e, 'admin');
-    }
-    await this.refresh();
-    return null;
-  },
-  remove(key) {
-    return this.admin(async token => {
-      await FirebaseApi.fs('DELETE', `players/${key}`, { token });
-      if (this.current() && key === this.me.uid) this.logout();
-    });
-  },
-  removeAll() {
-    return this.admin(async token => {
-      await this.loadPlayers();
-      const mine = this.current() && this.me.uid;
-      // 自分の記録は最後に消す（先に消すとログアウトしてしまう）
-      for (const p of this.players.filter(x => x.key !== mine)) await FirebaseApi.fs('DELETE', `players/${p.key}`, { token });
-      if (mine) { await FirebaseApi.fs('DELETE', `players/${mine}`, { token }); this.logout(); }
-    });
-  },
-  resetScores(key) {
-    return this.admin(async token => {
-      const doc = await FirebaseApi.fs('GET', `players/${key}`, { token });
-      if (!doc) return;
-      const body = { ...recordBody(fsParseFields(doc.fields)), plays: 0, best: {}, history: [] };
-      await FirebaseApi.fs('PATCH', `players/${key}`, { token, body: { fields: fsFields(body) } });
-      if (this.current() && key === this.me.uid) Object.assign(this.me, { plays: 0, best: {}, history: [], dirty: false });
-    });
-  },
-  // パスワードは本人しか変えられない（Firebase の決まり）
-  async setPassword(key, pw) {
-    if (!this.current() || key !== this.me.uid) return 'オンラインのアカウントのパスワードは、本人がログインしているときだけ変えられます';
-    return this.admin(async token => {
-      const r = await FirebaseApi.auth('update', { idToken: token, password: pw, returnSecureToken: true });
-      this.startSession(r.localId ? r : { ...r, localId: key });
-      this.saveCache();
-    });
-  },
-  isAdmin() {
-    const cfg = onlineConfig();
-    return !!(this.current() && cfg && (cfg.admins || []).some(n => Accounts.keyOf(n) === this.me.nameKey));
-  },
-};
-
-</script>
-<script data-file="js/accounts.js">
-'use strict';
-// ============================================================
-//  アカウント（ユーザー名・パスワード・スコア）とランキング
-//  Accounts が窓口。オンラインの設定（js/online-config.js）があれば OnlineAccounts（js/online.js、Firebase）、
-//  なければ LocalAccounts（このブラウザの localStorage）にアカウントとスコアを保存する。
-//  LocalAccounts はパスワードをそのまま保存せず、ソルトを付けて SHA-256 を繰り返したハッシュだけを保存する。
-// ============================================================
-
-const NAME_MAX = 12;
-const PASS_MIN = 6;   // Firebase の決まりに合わせる
-const PASS_MAX = 32;
-const HASH_ROUNDS = 2000;
-const HISTORY_MAX = 20; // 1人あたり残すプレイ記録の数
-
-// ------------------------------------------------------------
-//  SHA-256（同期で使えるように自前で計算する）
-// ------------------------------------------------------------
-const sha256 = (() => {
-  const K = [], H0 = [];
-  for (let n = 2; K.length < 64; n++) {
-    let prime = true;
-    for (let d = 2; d * d <= n; d++) if (n % d === 0) { prime = false; break; }
-    if (!prime) continue;
-    if (H0.length < 8) H0.push((Math.sqrt(n) % 1) * 4294967296 | 0);
-    K.push((Math.cbrt(n) % 1) * 4294967296 | 0);
-  }
-  const ror = (x, n) => (x >>> n) | (x << (32 - n));
-  const w = new Int32Array(64);
-  return text => {
-    const src = new TextEncoder().encode(text);
-    const len = Math.ceil((src.length + 9) / 64) * 64;
-    const bytes = new Uint8Array(len);
-    bytes.set(src);
-    bytes[src.length] = 0x80;
-    const bits = src.length * 8;
-    for (let i = 0; i < 4; i++) bytes[len - 1 - i] = (bits >>> (i * 8)) & 255;
-    const H = H0.slice();
-    for (let off = 0; off < len; off += 64) {
-      for (let i = 0; i < 16; i++) {
-        const j = off + i * 4;
-        w[i] = (bytes[j] << 24) | (bytes[j + 1] << 16) | (bytes[j + 2] << 8) | bytes[j + 3];
-      }
-      for (let i = 16; i < 64; i++) {
-        const a = w[i - 15], b = w[i - 2];
-        const s0 = ror(a, 7) ^ ror(a, 18) ^ (a >>> 3);
-        const s1 = ror(b, 17) ^ ror(b, 19) ^ (b >>> 10);
-        w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0;
-      }
-      let [a, b, c, d, e, f, g, h] = H;
-      for (let i = 0; i < 64; i++) {
-        const t1 = (h + (ror(e, 6) ^ ror(e, 11) ^ ror(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
-        const t2 = ((ror(a, 2) ^ ror(a, 13) ^ ror(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
-        h = g; g = f; f = e; e = (d + t1) | 0;
-        d = c; c = b; b = a; a = (t1 + t2) | 0;
-      }
-      H[0] = (H[0] + a) | 0; H[1] = (H[1] + b) | 0; H[2] = (H[2] + c) | 0; H[3] = (H[3] + d) | 0;
-      H[4] = (H[4] + e) | 0; H[5] = (H[5] + f) | 0; H[6] = (H[6] + g) | 0; H[7] = (H[7] + h) | 0;
-    }
-    return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
-  };
-})();
-
-function hashPassword(pw, salt) {
-  let h = sha256(`${salt}:${pw}`);
-  for (let i = 1; i < HASH_ROUNDS; i++) h = sha256(h + salt);
-  return h;
-}
-function makeSalt() {
-  const a = new Uint8Array(16);
-  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
-  else for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256);
-  return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
-}
-
-function formatDate(t, withTime = false) {
-  if (!t) return '―';
-  const d = new Date(t);
-  const p = n => String(n).padStart(2, '0');
-  const s = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
-  return withTime ? `${s} ${p(d.getHours())}:${p(d.getMinutes())}` : s;
-}
-// 「博麗 霊夢」→「霊夢」
-function shortCharaName(id) { return CHARA_INFO[id] ? CHARA_INFO[id].name.split(' ').pop() : id; }
-
-// ------------------------------------------------------------
-//  このブラウザだけに保存するアカウント
-//  accounts: { [キー]: { name, salt, hash, created, lastLogin, plays,
-//              best: { [難易度]: 記録 }, history: [記録...], migrated } }
-//  記録: { score, diff, char, charName, stage, clear, date }
-//  migrated：オンラインのアカウントに記録を移したもの
-// ------------------------------------------------------------
-const LocalAccounts = {
-  db: Store.get('accounts', {}),
-  cur: Store.get('currentUser', null),
-
-  init() {
-    // 別のタブで変更されたら読み直す
-    window.addEventListener('storage', e => {
-      if (e.key === Store.prefix + 'accounts') this.db = Store.get('accounts', {});
-      if (e.key === Store.prefix + 'currentUser') this.cur = Store.get('currentUser', null);
-    });
-  },
-  commit() { Store.set('accounts', this.db); },
-
-  // 大文字・小文字や全角・半角の違いは同じ名前として扱う
-  keyOf(name) { return name.normalize('NFKC').toLowerCase(); },
-  get(key) { return Object.prototype.hasOwnProperty.call(this.db, key) ? this.db[key] : null; },
-  all() { return Object.entries(this.db).map(([key, a]) => ({ key, ...a })); },
-  currentKey() { return this.cur && this.get(this.cur) ? this.cur : null; },
-  current() { const k = this.currentKey(); return k ? this.get(k) : null; },
-  setCurrent(key) { this.cur = key; Store.set('currentUser', key); },
-
-  checkName(raw) {
-    const name = raw.normalize('NFC').trim();
-    if (!name) return { error: 'ユーザー名を入力してください' };
-    if ([...name].length > NAME_MAX) return { error: `ユーザー名は${NAME_MAX}文字までです` };
-    if (/[\u0000-\u001f\u007f]/.test(name)) return { error: 'ユーザー名に使えない文字が入っています' };
-    return { name };
-  },
-  checkPassword(pw) {
-    if (pw.length < PASS_MIN) return `パスワードは${PASS_MIN}文字以上にしてください`;
-    if (pw.length > PASS_MAX) return `パスワードは${PASS_MAX}文字までです`;
-    return null;
-  },
-
-  register(rawName, pw) {
-    const { name, error } = this.checkName(rawName);
-    if (error) return { error };
-    const key = this.keyOf(name);
-    if (this.get(key)) return { error: 'そのユーザー名はもう使われています' };
-    const pwError = this.checkPassword(pw);
-    if (pwError) return { error: pwError };
-    const salt = makeSalt();
-    const now = Date.now();
-    this.db[key] = { name, salt, hash: hashPassword(pw, salt), created: now, lastLogin: now, plays: 0, best: {}, history: [] };
-    this.commit();
-    this.setCurrent(key);
-    return { ok: true, name };
-  },
-
-  login(rawName, pw) {
-    const { name, error } = this.checkName(rawName);
-    if (error) return { error };
-    if (!pw) return { error: 'パスワードを入力してください' };
-    const key = this.keyOf(name);
-    const acc = this.get(key);
-    if (!acc || hashPassword(pw, acc.salt) !== acc.hash) return { error: 'ユーザー名かパスワードがちがいます' };
-    acc.lastLogin = Date.now();
-    this.commit();
-    this.setCurrent(key);
-    return { ok: true, name: acc.name };
-  },
-
-  logout() { this.setCurrent(null); },
-  // 記録を書きかえたあとに呼ぶ
-  saved() { this.commit(); },
-
-  // ---------- 管理者ページから使う ----------
-  remove(key) {
-    delete this.db[key];
-    this.commit();
-    if (this.cur === key) this.logout();
-  },
-  removeAll() {
-    this.db = {};
-    this.commit();
-    this.logout();
-  },
-  resetScores(key) {
-    const acc = this.get(key);
-    if (!acc) return;
-    acc.best = {};
-    acc.history = [];
-    acc.plays = 0;
-    this.commit();
-  },
-  setPassword(key, pw) {
-    const acc = this.get(key);
-    if (!acc) return 'プレイヤーが見つかりません';
-    const err = this.checkPassword(pw);
-    if (err) return err;
-    acc.salt = makeSalt();
-    acc.hash = hashPassword(pw, acc.salt);
-    this.commit();
-    return null;
-  },
-};
-
-// 難易度ごとのランキング（1人1件、そのプレイヤーのベスト）
-function rankingOf(list, diff) {
-  return list
-    .filter(a => a.best && a.best[diff])
-    .map(a => ({ key: a.key, name: a.name, ...a.best[diff] }))
-    .sort((x, y) => y.score - x.score || x.date - y.date);
-}
-
-// ------------------------------------------------------------
-//  アカウントの窓口（画面やゲームからはこれを使う）
-//  ログイン・登録・管理者の操作は通信することがあるので Promise を返す
-// ------------------------------------------------------------
-const Accounts = {
-  backend: LocalAccounts,
-  get online() { return this.backend === OnlineAccounts; },
-
-  init() {
-    LocalAccounts.init();
-    const cfg = onlineConfig();
-    if (cfg) {
-      this.backend = OnlineAccounts;
-      OnlineAccounts.init(cfg);
-    }
-  },
-
-  keyOf(name) { return LocalAccounts.keyOf(name); },
-  checkName(raw) { return LocalAccounts.checkName(raw); },
-  checkPassword(pw) { return LocalAccounts.checkPassword(pw); },
-
-  currentKey() { return this.backend.currentKey(); },
-  current() { return this.backend.current(); },
-  get(key) { return this.backend.get(key); },
-  all() { return this.backend.all(); },
-  ranking(diff) { return rankingOf(this.all(), diff); },
-  rankOf(key, diff) {
-    const i = this.ranking(diff).findIndex(r => r.key === key);
-    return i < 0 ? null : i + 1;
-  },
-  // 画面に出す、保存先と通信のようす
-  statusText() { return this.online ? OnlineAccounts.statusText() : 'このブラウザに保存'; },
-  // 最新の記録を読み直す（オンラインのときだけ通信する）
-  refresh() { return this.online ? OnlineAccounts.refresh() : Promise.resolve(); },
-
-  async register(rawName, pw) {
-    const { name, error } = this.checkName(rawName);
-    if (error) return { error };
-    const pwError = this.checkPassword(pw);
-    if (pwError) return { error: pwError };
-    return this.backend.register(name, pw);
-  },
-  async login(rawName, pw) {
-    const { name, error } = this.checkName(rawName);
-    if (error) return { error };
-    if (!pw) return { error: 'パスワードを入力してください' };
-    return this.backend.login(name, pw);
-  },
-  logout() { this.backend.logout(); },
-
-  // ゲーム終了時に呼ぶ。ランキングに載せられるプレイかどうかは呼ぶ側（GameScene.rankBlock）で確かめる
-  record(g, kind) {
-    if (this.online && g.accountKey !== this.currentKey()) return { saved: false, reason: 'ログインし直したため' };
-    const acc = this.get(g.accountKey);
-    if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
-    if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
-    // charName も残しておく（あとで自機のIDや名前が変わっても、ランキングに当時の名前が出るように）
-    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, charName: shortCharaName(g.charId), stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
-    acc.plays = (acc.plays || 0) + 1;
-    acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
-    acc.best = acc.best || {};
-    const prev = acc.best[DIFF];
-    const best = !prev || entry.score > prev.score;
-    if (best) acc.best[DIFF] = entry;
-    this.backend.saved(g.accountKey);
-    return { saved: true, best, diff: DIFF, rank: this.rankOf(g.accountKey, DIFF), total: this.ranking(DIFF).length, online: this.online };
-  },
-
-  // ---------- 管理者ページから使う（うまくいかなければ理由の文章を返す） ----------
-  get canSetOthersPassword() { return !this.online; },
-  async remove(key) { return (await this.backend.remove(key)) || null; },
-  async removeAll() { return (await this.backend.removeAll()) || null; },
-  async resetScores(key) { return (await this.backend.resetScores(key)) || null; },
-  async setPassword(key, pw) {
-    const err = this.checkPassword(pw);
-    if (err) return err;
-    return (await this.backend.setPassword(key, pw)) || null;
-  },
-};
-Accounts.init();
-
-// ------------------------------------------------------------
-//  アカウント画面（ログイン・新規登録・ログアウト）
-//  文字を入力するので、キャンバスではなくHTMLで画面の上に重ねる
-// ------------------------------------------------------------
-const AccountDialog = {
-  root: null,
-  tab: 'login',
-  onClose: null,
-
-  init() {
-    const root = domEl('div');
-    root.id = 'accountOverlay';
-    root.hidden = true;
-    root.addEventListener('click', e => { if (e.target === root) this.close(); });
-    document.body.appendChild(root);
-    this.root = root;
-    window.addEventListener('keydown', e => {
-      if (root.hidden || e.key !== 'Escape') return;
-      e.preventDefault();
-      e.stopImmediatePropagation(); // 閉じたEscでゲーム側が反応しないように
-      this.close();
-    });
-  },
-
-  get isOpen() { return !this.root.hidden; },
-
-  open(onClose) {
-    this.onClose = onClose || null;
-    Input.suspended = true;
-    Input.keys = {};
-    this.root.hidden = false;
-    this.render();
-  },
-  close() {
-    if (this.root.hidden) return;
-    this.root.hidden = true;
-    this.root.textContent = '';
-    Input.suspended = false;
-    Input.keys = {};
-    if (Game.canvas) Game.canvas.focus();
-    const f = this.onClose;
-    this.onClose = null;
-    if (f) f();
-  },
-
-  panel() {
-    this.root.textContent = '';
-    const p = domEl('div', 'admin-panel acct-panel');
-    p.setAttribute('role', 'dialog');
-    p.setAttribute('aria-modal', 'true');
-    p.setAttribute('aria-labelledby', 'acctTitle');
-    const x = domButton('admin-close', '×', () => this.close());
-    x.setAttribute('aria-label', '閉じる');
-    const h = domEl('h2', 'acct-title', 'アカウント');
-    h.id = 'acctTitle';
-    p.append(x, h);
-    this.root.appendChild(p);
-    return p;
-  },
-
-  render(welcome, warning) {
-    if (Accounts.current()) this.renderUser(welcome, warning);
-    else this.renderForm();
-  },
-
-  renderForm() {
-    const p = this.panel();
-    const reg = this.tab === 'register';
-    const tabs = domEl('div', 'acct-tabs');
-    tabs.setAttribute('role', 'tablist');
-    for (const [id, label] of [['login', 'ログイン'], ['register', '新規登録']]) {
-      const t = domButton('acct-tab', label, () => { if (this.tab !== id) { this.tab = id; this.renderForm(); } });
-      t.setAttribute('role', 'tab');
-      t.setAttribute('aria-selected', String(this.tab === id));
-      tabs.append(t);
-    }
-    const form = domEl('form', 'acct-form');
-    form.noValidate = true;
-    const field = (label, type, auto, max) => {
-      const wrap = domEl('label', 'acct-field');
-      const input = domEl('input', 'acct-input');
-      input.type = type;
-      input.autocomplete = auto;
-      input.maxLength = max;
-      input.spellcheck = false;
-      input.autocapitalize = 'off';
-      wrap.append(domEl('span', '', label), input);
-      form.append(wrap);
-      return input;
-    };
-    const name = field(`ユーザー名（${NAME_MAX}文字まで）`, 'text', 'username', NAME_MAX * 2);
-    const pass = field(reg ? `パスワード（${PASS_MIN}文字以上）` : 'パスワード', 'password', reg ? 'new-password' : 'current-password', PASS_MAX);
-    const pass2 = reg ? field('パスワード（確認）', 'password', 'new-password', PASS_MAX) : null;
-    const msg = domEl('p', 'admin-msg acct-msg');
-    msg.setAttribute('aria-live', 'polite');
-    const submit = domEl('button', 'admin-btn acct-submit', reg ? '登録してログイン' : 'ログイン');
-    submit.type = 'submit';
-    form.append(msg, submit);
-    let busy = false;
-    form.addEventListener('submit', async e => {
-      e.preventDefault();
-      if (busy) return;
-      if (reg && pass.value !== pass2.value) return this.fail(msg, form, 'パスワード（確認）が一致しません');
-      // オンラインのときは通信するので、終わるまで入力できないようにする
-      busy = true;
-      for (const el of form.elements) el.disabled = true;
-      msg.className = 'admin-msg acct-msg';
-      msg.textContent = Accounts.online ? '通信中…' : '';
-      const r = reg ? await Accounts.register(name.value, pass.value) : await Accounts.login(name.value, pass.value);
-      busy = false;
-      if (this.root.hidden) return;
-      for (const el of form.elements) el.disabled = false;
-      if (r.error) return this.fail(msg, form, r.error);
-      Sound.se('ok');
-      let text = reg ? `登録しました。ようこそ、${r.name} さん` : `おかえりなさい、${r.name} さん`;
-      if (r.imported) text += '（このブラウザの記録もオンラインに移しました）';
-      this.render(text, r.warning);
-    });
-    p.append(tabs, form, domEl('p', 'acct-note', Accounts.online
-      ? 'アカウントとスコアはインターネット上（Firebase）に保存されます。どのブラウザ・端末からでも、同じユーザー名とパスワードでログインできます。ほかのサイトで使っているパスワードは使わないでください。'
-      : 'アカウントとスコアはこのブラウザの中に保存されます。ほかのサイトで使っているパスワードは使わないでください。'));
-    if (Accounts.online) p.append(domEl('p', 'acct-note', `通信：${Accounts.statusText()}`));
-    setTimeout(() => name.focus(), 0);
-  },
-
-  fail(msg, form, text) {
-    msg.className = 'admin-msg acct-msg is-error';
-    msg.textContent = text;
-    form.classList.remove('shake');
-    void form.offsetWidth;
-    form.classList.add('shake');
-    Sound.se('cancel');
-  },
-
-  renderUser(welcome, warning, fresh = true) {
-    const p = this.panel();
-    const key = Accounts.currentKey();
-    const acc = Accounts.get(key);
-    if (welcome) p.append(domEl('p', 'acct-welcome', welcome));
-    if (warning) p.append(domEl('p', 'admin-msg acct-msg is-error', warning));
-    // オンラインのときは開いたときに最新の記録を読み直し、表示を作り直す
-    if (Accounts.online && fresh) {
-      Accounts.refresh().then(() => {
-        if (!this.root.hidden && p.isConnected && Accounts.current()) this.renderUser(welcome, warning, false);
-      });
-    }
-    const who = domEl('p', 'acct-who');
-    who.append(domEl('span', '', 'ログイン中のプレイヤー'), domEl('strong', 'acct-name', acc.name));
-    p.append(who);
-    const t = domEl('table', 'admin-table acct-table');
-    const head = domEl('tr');
-    for (const h of ['難易度', 'ベストスコア', '順位']) head.append(domEl('th', '', h));
-    t.append(head);
-    DIFF_NAMES.forEach((d, i) => {
-      const b = acc.best && acc.best[i];
-      const rank = b ? Accounts.rankOf(key, i) : null;
-      const tr = domEl('tr');
-      tr.append(domEl('td', '', d), domEl('td', 'num', b ? padScore(b.score) : '―'), domEl('td', 'num', rank ? `${rank}位` : '―'));
-      t.append(tr);
-    });
-    p.append(t, domEl('p', 'acct-note', `プレイ回数：${acc.plays || 0}回　登録日：${formatDate(acc.created)}`));
-    p.append(domEl('p', 'acct-note', 'コンティニューしたプレイとプラクティスは記録されません。'));
-    p.append(domEl('p', 'acct-note', Accounts.online ? `保存先：インターネット上（Firebase）　通信：${Accounts.statusText()}` : '保存先：このブラウザ'));
-    const row = domEl('div', 'acct-row');
-    row.append(
-      domButton('admin-btn acct-submit', 'ログアウト', () => { Accounts.logout(); Sound.se('cancel'); this.tab = 'login'; this.renderForm(); }),
-      domButton('admin-btn acct-submit', '閉じる', () => this.close()),
-    );
-    p.append(row);
-    setTimeout(() => row.lastChild.focus(), 0);
-  },
-};
-AccountDialog.init();
-
-// ------------------------------------------------------------
-//  ランキング画面
-// ------------------------------------------------------------
-const RANK_ROWS = 10;
-
-class RankingScene {
-  constructor() {
-    this.diff = Store.get('lastDiff', 1);
-    this.scroll = 0;
-    this.frame = 0;
-    this.list = Accounts.ranking(this.diff);
-  }
-  enter() { Accounts.refresh(); }
-  tabRect(i) { return { x: 80 + i * 122, y: 88, w: 114, h: 30 }; }
-  update() {
-    this.frame++;
-    menuBG().update();
-    const before = this.diff;
-    this.diff = menuMove(this.diff, 4, 'left', 'right');
-    for (let i = 0; i < 4; i++) {
-      const r = this.tabRect(i);
-      if (Input.tapIn(r.x, r.y, r.w, r.h) && this.diff !== i) { this.diff = i; Sound.se('cursor'); }
-    }
-    if (Accounts.online && this.frame % Math.round(ONLINE_REFRESH_MS / (1000 / 60)) === 0) Accounts.refresh();
-    if (this.diff !== before || this.frame % 30 === 0) {
-      if (this.diff !== before) this.scroll = 0;
-      this.list = Accounts.ranking(this.diff);
-    }
-    const maxScroll = Math.max(0, this.list.length - RANK_ROWS);
-    if (Input.repeat('up') || Input.tapIn(596, 156, 36, 60)) this.scroll = Math.max(0, this.scroll - 1);
-    if (Input.repeat('down') || Input.tapIn(596, 340, 36, 60)) this.scroll = Math.min(maxScroll, this.scroll + 1);
-    if ((backPressed() || Input.pressed('shot')) && this.frame > 10) {
-      Sound.se('cancel');
-      Game.setScene(new TitleScene('ranking'));
-    }
-  }
-  draw(ctx) {
-    menuBG().draw(ctx);
-    ctx.fillStyle = 'rgba(6,4,20,0.7)';
-    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, Accounts.online ? 'オンラインランキング' : 'ランキング', 'Ranking');
-    // 保存先と通信のようす
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.font = `11px ${FONT_JP}`;
-    ctx.fillStyle = Accounts.online && OnlineAccounts.state !== 'online' && OnlineAccounts.state !== 'connecting' ? '#ff9aa8' : 'rgba(220,210,255,0.8)';
-    const sync = Accounts.online && OnlineAccounts.lastSync ? `　最終更新 ${new Date(OnlineAccounts.lastSync).toLocaleTimeString('ja-JP')}` : '';
-    ctx.fillText(Accounts.online ? `${Accounts.statusText()}${sync}` : 'このブラウザのランキング', SCREEN_W - 14, 18, 360);
-    ctx.textBaseline = 'middle';
-    // 難易度のタブ
-    for (let i = 0; i < 4; i++) {
-      const r = this.tabRect(i), on = i === this.diff;
-      ctx.fillStyle = on ? 'rgba(60,40,120,0.85)' : 'rgba(20,14,50,0.6)';
-      ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.strokeStyle = on ? DIFF_COLORS[i] : 'rgba(255,255,255,0.15)';
-      ctx.lineWidth = on ? 2 : 1;
-      ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
-      ctx.textAlign = 'center';
-      ctx.font = `italic 700 ${on ? 20 : 17}px ${FONT_EN}`;
-      strokeText(ctx, DIFF_NAMES[i], r.x + r.w / 2, r.y + r.h / 2, on ? DIFF_COLORS[i] : '#8a84a8', 'rgba(0,0,0,0.8)', 3);
-    }
-    // 表
-    const cols = { rank: 98, name: 112, score: 390, chara: 408, stage: 470, date: 588 };
-    const y0 = 140, rowH = 24;
-    ctx.font = `600 12px ${FONT_JP}`;
-    ctx.fillStyle = '#d8c89a';
-    ctx.textAlign = 'right'; ctx.fillText('順位', cols.rank, y0); ctx.fillText('スコア', cols.score, y0); ctx.fillText('日付', cols.date, y0);
-    ctx.textAlign = 'left'; ctx.fillText('プレイヤー', cols.name, y0); ctx.fillText('キャラ', cols.chara, y0); ctx.fillText('到達', cols.stage, y0);
-    ctx.fillStyle = 'rgba(214,186,120,0.5)';
-    ctx.fillRect(48, y0 + 11, 548, 1);
-    const me = Accounts.currentKey();
-    const list = this.list;
-    if (!list.length) {
-      ctx.textAlign = 'center';
-      ctx.font = `14px ${FONT_JP}`;
-      ctx.fillStyle = '#a8a0cc';
-      ctx.fillText('まだ記録がありません', SCREEN_W / 2, y0 + 110);
-    }
-    for (let i = 0; i < RANK_ROWS && this.scroll + i < list.length; i++) {
-      const n = this.scroll + i, r = list[n];
-      const y = y0 + 26 + i * rowH;
-      if (r.key === me) {
-        ctx.fillStyle = 'rgba(214,186,120,0.18)';
-        ctx.fillRect(48, y - rowH / 2, 548, rowH);
-      } else if (n % 2) {
-        ctx.fillStyle = 'rgba(255,255,255,0.04)';
-        ctx.fillRect(48, y - rowH / 2, 548, rowH);
-      }
-      const medal = ['#ffd860', '#d8dcec', '#e0a070'][n];
-      ctx.textAlign = 'right';
-      ctx.font = `700 15px ${FONT_JP}`;
-      ctx.fillStyle = medal || '#ece6ff';
-      ctx.fillText(`${n + 1}位`, cols.rank, y);
-      ctx.textAlign = 'left';
-      ctx.font = `${r.key === me ? 700 : 500} 14px ${FONT_JP}`;
-      ctx.fillStyle = r.key === me ? '#fff3c8' : '#ece6ff';
-      ctx.save();
-      ctx.beginPath(); ctx.rect(cols.name, y - rowH / 2, 180, rowH); ctx.clip();
-      ctx.fillText(r.name, cols.name, y);
-      ctx.restore();
-      ctx.textAlign = 'right';
-      ctx.font = `700 16px ${FONT_EN}`;
-      ctx.fillStyle = '#ffffff';
-      drawDigits(ctx, padScore(r.score), cols.score, y, 10, 'right');
-      ctx.textAlign = 'left';
-      ctx.font = `13px ${FONT_JP}`;
-      ctx.fillStyle = PLAYER_TYPES[r.char] ? PLAYER_TYPES[r.char].color : '#c8c0e8';
-      ctx.fillText(r.charName || shortCharaName(r.char), cols.chara, y);
-      ctx.font = `italic 600 14px ${FONT_EN}`;
-      ctx.fillStyle = r.clear ? '#ffe070' : '#c8c0e8';
-      ctx.fillText(r.clear ? 'All Clear' : `Stage ${r.stage}`, cols.stage, y);
-      ctx.textAlign = 'right';
-      ctx.font = `12px ${FONT_JP}`;
-      ctx.fillStyle = '#a8a0cc';
-      ctx.fillText(formatDate(r.date), cols.date, y);
-    }
-    // スクロールの印
-    if (list.length > RANK_ROWS) {
-      ctx.fillStyle = '#d6ba78';
-      ctx.textAlign = 'center';
-      ctx.font = `14px ${FONT_JP}`;
-      if (this.scroll > 0) ctx.fillText('▲', 614, 186);
-      if (this.scroll < list.length - RANK_ROWS) ctx.fillText('▼', 614, 370);
-    }
-    // 自分の順位
-    ctx.textAlign = 'center';
-    ctx.font = `600 14px ${FONT_JP}`;
-    const acc = Accounts.current();
-    let mine;
-    if (!acc) mine = Accounts.online ? 'ログインするとランキングに参加できます（タイトルの「アカウント」から）' : 'ログインしていません（タイトルの「アカウント」からログインできます）';
-    else {
-      const rank = Accounts.rankOf(me, this.diff);
-      mine = rank ? `${acc.name} さんの順位：${rank}位 / ${list.length}人` : `${acc.name} さんは ${DIFF_NAMES[this.diff]} の記録がまだありません`;
-    }
-    strokeText(ctx, mine, SCREEN_W / 2, 412, '#fff3c8', 'rgba(0,0,0,0.8)', 3);
-    ctx.font = `11px ${FONT_JP}`;
-    ctx.fillStyle = 'rgba(220,210,255,0.75)';
-    ctx.fillText('ログインして、コンティニューせずにプレイした記録が載ります（プラクティスは対象外）', SCREEN_W / 2, 438);
-    ctx.font = `12px ${FONT_JP}`;
-    ctx.fillStyle = 'rgba(220,210,255,0.8)';
-    ctx.fillText(Input.isTouch ? '難易度をタップで切り替え　▲▼でスクロール' : '←→：難易度　↑↓：スクロール　X：戻る', SCREEN_W / 2, 462);
-    drawBackButton(ctx);
   }
 }
 
@@ -9312,7 +8163,7 @@ const Party = {
     ctx.strokeRect(2, 2, SCREEN_W - 4, SCREEN_H - 4);
     // 文字（ゲーム中は右のパネルのロゴの代わりに出す）
     const inGame = Game.scene instanceof GameScene;
-    const [cx, cy, size] = inGame ? [528, Input.isTouch ? 348 : 400, 24] : [SCREEN_W - 92, 24, 18];
+    const [cx, cy, size] = inGame ? [528, Input.isTouch ? 330 : 400, 24] : [SCREEN_W - 92, 24, 18];
     const text = 'PARTY TIME!!';
     ctx.font = `italic 700 ${size}px ${FONT_EN}`;
     ctx.textBaseline = 'middle';
@@ -9470,7 +8321,7 @@ else bootGame();
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
 //  PIN入力 → キー入力（1文字で特別な機能を切り替え。js/cheats.js）
-//  → 管理者ページ（データベース／キャラクター／プログラム／プレイヤー管理）
+//  → 管理者ページ（データベース／キャラクター／プログラム／未実装）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
@@ -9667,7 +8518,9 @@ const Admin = {
       domButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
       domButton('admin-btn', 'プログラム', () => this.showProgram()),
     );
-    menu.append(domButton('admin-btn', 'プレイヤー管理', () => this.showPlayers()));
+    const todo = domButton('admin-btn', '（未実装）');
+    todo.disabled = true;
+    menu.append(todo);
     p.append(menu);
   },
 
@@ -9724,14 +8577,6 @@ const Admin = {
       ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
-      ['アカウントの保存先', Accounts.online ? `オンライン（Firebase：${onlineConfig().projectId}）` : 'このブラウザ'],
-      ['通信のようす', Accounts.statusText()],
-      ...(Accounts.online ? [
-        ['最後に通信できた時刻', OnlineAccounts.lastSync ? formatDate(OnlineAccounts.lastSync, true) : '―'],
-        ['管理者のユーザー名', (onlineConfig().admins || []).join('、') || '未設定'],
-      ] : []),
-      ['登録プレイヤー', `${Accounts.all().length}人`],
-      ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
     ]);
 
@@ -9761,111 +8606,6 @@ const Admin = {
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
     ]);
-  },
-
-  // ---------------- プレイヤー管理 ----------------
-  // オンラインのときは開くたびに最新の記録を読みこむ（fresh = false なら読みこまない）
-  async showPlayers(notice, isError, fresh = true) {
-    const body = this.subPage('プレイヤー管理');
-    const status = domEl('p', 'admin-status' + (isError ? ' is-error' : ''), notice || '');
-    status.setAttribute('aria-live', 'polite');
-    body.append(status);
-    if (Accounts.online && fresh) {
-      const loading = domEl('p', 'admin-empty', '最新の記録を読みこんでいます…');
-      body.append(loading);
-      await Accounts.refresh();
-      if (!body.isConnected) return; // 読みこみのあいだにほかのページへ移った
-      loading.remove();
-    }
-    const players = Accounts.all().sort((a, b) => (a.created || 0) - (b.created || 0));
-    const me = Accounts.currentKey();
-    const where = Accounts.online ? `オンライン（Firebase）のアカウント　通信：${Accounts.statusText()}` : 'このブラウザに保存されているアカウント';
-    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（${where}）`));
-    if (Accounts.online) {
-      const admins = (onlineConfig().admins || []).join('、') || '未設定';
-      body.append(domEl('p', 'admin-empty', `スコアのリセットと削除は、管理者のアカウント（${admins}）でログインしているときだけできます。` +
-        'ログイン用の登録そのものは Firebase の管理画面（Authentication）で消せます。パスワードは本人しか変えられません。'));
-    }
-    if (!players.length) {
-      body.append(domEl('p', 'admin-empty', 'まだプレイヤーはいません。タイトル画面の「アカウント」から登録できます。'));
-      return;
-    }
-    const wrap = domEl('div', 'admin-tablewrap');
-    const t = domEl('table', 'admin-table');
-    const head = domEl('tr');
-    for (const h of ['ユーザー名', '登録日 / 最終ログイン', 'プレイ回数', 'ベストスコア（順位）', '操作']) head.append(domEl('th', '', h));
-    t.append(head);
-    for (const a of players) {
-      const tr = domEl('tr');
-      const nameTd = domEl('td', '', a.name);
-      if (a.key === me) nameTd.append(domEl('span', 'admin-badge', 'ログイン中'));
-      const dates = domEl('td', 'admin-lines');
-      dates.append(domEl('span', '', formatDate(a.created)), domEl('span', 'admin-sub', formatDate(a.lastLogin, true)));
-      const bests = domEl('td', 'admin-lines');
-      DIFF_NAMES.forEach((d, i) => {
-        const b = a.best && a.best[i];
-        if (b) bests.append(domEl('span', '', `${d}　${padScore(b.score)}（${Accounts.rankOf(a.key, i)}位）`));
-      });
-      if (!bests.childNodes.length) bests.textContent = '―';
-      tr.append(nameTd, dates, domEl('td', 'num', String(a.plays || 0)), bests);
-      const ops = domEl('td');
-      ops.append(this.playerOps(a));
-      tr.append(ops);
-      t.append(tr);
-    }
-    wrap.append(t);
-    body.append(wrap);
-    const foot = domEl('div', 'admin-foot');
-    const all = domButton('admin-mini is-danger', '全プレイヤーを削除', () => {
-      foot.textContent = '';
-      foot.append(
-        domEl('span', 'admin-optext', `${players.length}人のプレイヤーとスコアをすべて削除します。元に戻せません。`),
-        domButton('admin-mini is-danger', '削除する', () => this.playerAction(foot, () => Accounts.removeAll(), '全プレイヤーを削除しました')),
-        domButton('admin-mini', 'やめる', () => this.showPlayers(undefined, false, false)),
-      );
-    });
-    foot.append(all);
-    body.append(foot);
-  },
-
-  // 操作を行い、結果を出してページを作り直す（通信するときは「処理中…」にしておく）
-  async playerAction(box, run, okText) {
-    box.textContent = '';
-    box.append(domEl('span', 'admin-optext', '処理中…'));
-    const err = await run();
-    if (this.root.hidden) return;
-    this.showPlayers(err || okText, !!err, false);
-  },
-
-  // 1人分の操作ボタン（確認やパスワード入力はその場で切り替える）
-  playerOps(a) {
-    const box = domEl('div', 'admin-ops');
-    const reset = () => { box.replaceWith(this.playerOps(a)); };
-    const confirm = (text, label, run) => {
-      box.textContent = '';
-      box.append(domEl('span', 'admin-optext', text), domButton('admin-mini is-danger', label, run), domButton('admin-mini', 'やめる', reset));
-    };
-    box.append(domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット',
-      () => this.playerAction(box, () => Accounts.resetScores(a.key), `${a.name} のスコアをリセットしました`))));
-    // オンラインのアカウントのパスワードは本人しか変えられない
-    if (Accounts.canSetOthersPassword || a.key === Accounts.currentKey()) {
-      box.append(domButton('admin-mini', 'パスワード変更', () => {
-        box.textContent = '';
-        const input = domEl('input');
-        input.type = 'text';
-        input.placeholder = '新しいパスワード';
-        input.maxLength = PASS_MAX;
-        input.autocomplete = 'off';
-        input.setAttribute('aria-label', `${a.name} の新しいパスワード`);
-        const save = () => this.playerAction(box, () => Accounts.setPassword(a.key, input.value), `${a.name} のパスワードを変更しました`);
-        input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
-        box.append(input, domButton('admin-mini', '保存', save), domButton('admin-mini', 'やめる', reset));
-        input.focus();
-      }));
-    }
-    box.append(domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する',
-      () => this.playerAction(box, () => Accounts.remove(a.key), `${a.name} を削除しました`))));
-    return box;
   },
 
   // ---------------- キャラクター一覧 ----------------

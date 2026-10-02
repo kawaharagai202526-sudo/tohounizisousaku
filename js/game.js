@@ -76,9 +76,8 @@ class GameScene {
     this.frame = 0;
     this.messages = [];
     this.cheat = false;                       // テスト用の無敵
-    this.accountKey = Accounts.currentKey();  // ログイン中のプレイヤー
     this.usedKeys = Cheats.anyOn();           // 管理者ページのキーを使ったか
-    this.records = null;                      // 終わったときの記録結果
+    this.hiscoreSaved = null;                 // ハイスコアを更新したか（終わったときに決まる）
     // 描画が update より先に呼ばれても大丈夫なように、ここでステージを組み立てる
     this.startStage(startStage);
   }
@@ -193,33 +192,20 @@ class GameScene {
   }
 
   finish(kind) {
-    this.saveRecords(kind);
+    this.saveHiScore();
     Sound.stopBgm(1.5);
     if (kind === 'clear') Game.setScene(new EndingScene(this));
     else Game.setScene(new ResultScene(this, kind));
   }
 
-  // ランキングに載らない理由（載るなら null）
-  rankBlock() {
-    if (this.practice) return { short: 'プラクティス', long: 'プラクティスのため' };
-    if (this.cheat) return { short: 'テストプレイ', long: 'テストプレイのため' };
-    // 管理者ページのキーは画面に出さないので、理由は表示しない
-    if (this.usedKeys) return { short: null, long: null };
-    if (this.continues > 0) return { short: 'コンティニュー', long: 'コンティニューしたため' };
-    if (!this.accountKey) return { short: '未ログイン', long: 'ログインしていないため' };
-    return null;
-  }
-
-  // ハイスコアとプレイヤーの記録を保存する（キー使用・コンティニュー・プラクティスは保存しない）
-  saveRecords(kind) {
-    if (this.records) return this.records;
-    const block = this.rankBlock();
-    const local = !block || block.short === '未ログイン';
-    const hiscore = local && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
-    if (hiscore) Store.set(this.hiKey, Math.floor(this.score));
-    const ranking = block ? { saved: false, reason: block.long } : Accounts.record(this, kind);
-    this.records = { hiscore, ranking };
-    return this.records;
+  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティスは保存しない）。更新したら true
+  saveHiScore() {
+    if (this.hiscoreSaved !== null) return this.hiscoreSaved;
+    const ok = !this.practice && !this.cheat && !this.usedKeys && this.continues === 0
+      && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
+    if (ok) Store.set(this.hiKey, Math.floor(this.score));
+    this.hiscoreSaved = ok;
+    return ok;
   }
 
   // ---------------- 更新 ----------------
@@ -529,7 +515,7 @@ class GameScene {
         Sound.applyVolume();
         Game.setScene(new GameScene({ ...this.opts, seed: undefined }));
       } else {
-        this.saveRecords('quit');
+        this.saveHiScore();
         Sound.applyVolume();
         Game.setScene(new TitleScene());
       }

@@ -229,7 +229,7 @@ const Party = {
     ctx.strokeRect(2, 2, SCREEN_W - 4, SCREEN_H - 4);
     // 文字（ゲーム中は右のパネルのロゴの代わりに出す）
     const inGame = Game.scene instanceof GameScene;
-    const [cx, cy, size] = inGame ? [528, Input.isTouch ? 348 : 400, 24] : [SCREEN_W - 92, 24, 18];
+    const [cx, cy, size] = inGame ? [528, Input.isTouch ? 330 : 400, 24] : [SCREEN_W - 92, 24, 18];
     const text = 'PARTY TIME!!';
     ctx.font = `italic 700 ${size}px ${FONT_EN}`;
     ctx.textBaseline = 'middle';

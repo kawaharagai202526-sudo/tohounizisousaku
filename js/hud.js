@@ -145,22 +145,8 @@ function drawSidePanel(ctx, g) {
   const next = EXTEND_POINTS[g.extendIdx];
   value(next ? `${g.pointItems}/${next}` : String(g.pointItems), 262, '#b0c8ff');
 
-  // プレイヤー名と、ランキングに載るかどうか
-  const acc = g.accountKey ? Accounts.get(g.accountKey) : null;
-  const block = g.rankBlock();
-  ctx.font = `12px ${FONT_JP}`;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#d8d0ff';
-  ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
-  ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
-  ctx.fillText(!block ? 'ランキング対象' : block.short ? `ランキング対象外（${block.short}）` : 'ランキング対象外', x0, 303, vx - x0);
-  if (acc && Accounts.online && OnlineAccounts.state !== 'online' && OnlineAccounts.state !== 'connecting') {
-    ctx.fillStyle = '#ffd27a';
-    ctx.fillText(Accounts.statusText(), x0, 320, vx - x0);
-  }
-
   if (Input.isTouch) {
-    if (!Party.active) drawLogo(ctx, 528, 344, 18);
+    if (!Party.active) drawLogo(ctx, 528, 318, 22);
     for (const b of TOUCH_BUTTONS) {
       const on = b.toggle ? Input.virtual[b.action] : Input.held[b.action];
       ctx.fillStyle = on ? 'rgba(255,220,150,0.35)' : 'rgba(255,255,255,0.08)';
