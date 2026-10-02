@@ -38,7 +38,7 @@ function loadPlaywright() {
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
 // ゲームを開く。requestAnimationFrame を止めて、テストからフレームを進める（T.step）
-async function openGame(browser, contextOptions = {}) {
+async function openGame(browser, contextOptions = {}, query = '') {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...contextOptions });
   const page = await context.newPage();
   const errors = [];
@@ -52,7 +52,7 @@ async function openGame(browser, contextOptions = {}) {
     const orig = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = cb => orig(t => { if (window.__rafPaused) window.requestAnimationFrame(cb); else cb(t); });
   });
-  await page.goto(URL);
+  await page.goto(URL + query);
   // requestAnimationFrame を止めているので、待つときは時間で調べる（polling）
   await page.waitForFunction(() => typeof Game !== 'undefined' && Game.scene, null, { polling: 50 });
   await page.evaluate(() => {
@@ -90,10 +90,10 @@ test('メニュー画面をひととおり表示できる', async ({ page }) => 
   const r = await page.evaluate(() => {
     const scenes = [
       () => new DifficultyScene('game'), () => new DifficultyScene('practice'), () => new CharacterScene('game', 1),
-      () => new StageSelectScene(1, 'reimu'), () => new RankingScene(), () => new MusicRoomScene(), () => new ManualScene(), () => new OptionScene(),
+      () => new StageSelectScene(1, PLAYER_IDS[0]), () => new RankingScene(), () => new MusicRoomScene(), () => new ManualScene(), () => new OptionScene(),
     ];
     for (const f of scenes) { Game.setScene(f()); T.step(30); }
-    Game.setScene(new GameScene({ difficulty: 1, character: 'marisa', stage: 0 }));
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }));
     T.step(30);
     const g = G;
     Game.setScene(new EndingScene(g)); T.step(30);
@@ -113,7 +113,7 @@ test('全ステージを道中からボス撃破まで進められる', async ({
   const r = await page.evaluate(() => {
     const out = [];
     for (let st = 0; st < STAGES.length; st++) {
-      for (const [ch, bossOnly] of [['reimu', false], ['marisa', true]]) {
+      for (const [ch, bossOnly] of PLAYER_IDS.flatMap(id => [[id, false], [id, true]])) {
         Cheats.on.bossOnly = bossOnly;
         Game.setScene(new GameScene({ difficulty: 1, character: ch, stage: st, practice: true }));
         const g = G;
@@ -144,6 +144,121 @@ test('全ステージを道中からボス撃破まで進められる', async ({
     assert(x.phases === x.expected, `${label}：ボスの攻撃の数 ${x.phases}（予定 ${x.expected}）`);
   }
 });
+
+test('ストーリー・曲・キャラクターのデータがそろっている', async ({ page }) => {
+  // 画像の読み込みを待つ（file:// でもすぐ読める）
+  await page.waitForFunction(() => Object.keys(IMAGE_FILES).every(k => Images.list[k].complete), null, { polling: 50, timeout: 10000 });
+  const problems = await page.evaluate(() => {
+    const out = [];
+    // 名前が出るキャラクターは CHARA_INFO に、絵は CHARA_INFO の image か CHARA（キャンバスで描く絵）に必要
+    const drawable = id => (CHARA_INFO[id] && CHARA_INFO[id].image) || CHARA[id] || out.push(`${id} の絵がない（CHARA_INFO の image か CHARA）`);
+    const chara = id => (CHARA_INFO[id] ? drawable(id) : out.push(`CHARA_INFO に ${id} がない`));
+    const song = (id, where) => SONGS[id] || out.push(`${where}: 曲 ${id} がない`);
+    // 自機
+    for (const id of PLAYER_IDS) {
+      chara(id);
+      const t = PLAYER_TYPES[id];
+      for (const k of ['speed', 'focusSpeed', 'hitR', 'color', 'shoot', 'drawOption', 'makeBomb', 'bombName', 'shotDesc', 'desc']) if (t[k] === undefined) out.push(`PLAYER_TYPES.${id}.${k} がない`);
+      if (t.portrait) drawable(t.portrait);
+      if (t.sprite && !IMAGE_FILES[t.sprite.image]) out.push(`PLAYER_TYPES.${id}.sprite の画像 ${t.sprite.image} がない`);
+      const e = ENDINGS[id];
+      if (!e || !e.title || !e.pages || !e.pages.length) out.push(`ENDINGS.${id} がない`);
+      else if (e.guest) drawable(e.guest.id);
+    }
+    // ステージとボス
+    STAGES.forEach((st, i) => {
+      const w = `${i + 1}面`;
+      song(st.bgm, w);
+      if (typeof st.script !== 'function' || typeof st.boss !== 'function') out.push(`${w}: script か boss がない`);
+      if (!st.bosses || !st.bosses.length) out.push(`${w}: bosses がない`);
+      for (const b of st.bosses || []) {
+        chara(b.id);
+        if (b.bgm) song(b.bgm, `${w} ${b.id}`);
+        if (!b.phases || !b.phases.length) out.push(`${w} ${b.id}: 攻撃がない`);
+        for (const ph of b.phases || []) if (typeof ph.script !== 'function' || !ph.time) out.push(`${w} ${b.id}: 攻撃 ${ph.name || ph.type} に script か time がない`);
+      }
+    });
+    // 会話（[話者, 表情, 台詞] / { bgm } / { title }）
+    for (const [key, byChar] of Object.entries(STORY)) {
+      for (const id of PLAYER_IDS) {
+        const sc = byChar[id];
+        if (!sc) { out.push(`STORY.${key}.${id} がない`); continue; }
+        for (const part of ['before', 'after']) {
+          for (const line of sc[part] || []) {
+            if (Array.isArray(line)) {
+              if (line.length !== 3 || typeof line[2] !== 'string') out.push(`STORY.${key}.${id}.${part}: 形がおかしい行 ${JSON.stringify(line)}`);
+              else chara(line[0]);
+            } else if (line.bgm) song(line.bgm, `STORY.${key}.${id}`);
+            else if (line.title) chara(line.title);
+          }
+        }
+      }
+    }
+    // 曲（MML の小節のずれは console.warn で知らせる）
+    const warn = console.warn;
+    console.warn = m => out.push(String(m));
+    try {
+      for (const [id, def] of Object.entries(SONGS)) {
+        try { compileSong(def); } catch (e) { out.push(`曲 ${id}: ${e.message}`); }
+      }
+    } finally { console.warn = warn; }
+    for (const id of MUSIC_ROOM) song(id, 'MUSIC_ROOM');
+    // 画像
+    for (const k of Object.keys(IMAGE_FILES)) if (!Images.get(k)) out.push(`画像 ${IMAGE_FILES[k]} が読めない`);
+    return out;
+  });
+  assert(!problems.length, `データの問題:\n    ${problems.join('\n    ')}`);
+});
+
+test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
+  // 開発用の startBossTest で、すべてのボス・中ボスの攻撃を1つずつ7秒間動かす（無敵）
+  const r = await page.evaluate(() => {
+    const out = [];
+    for (const st of STAGES) {
+      for (const b of st.bosses) {
+        const n = b.phases.filter(ph => 3 >= (ph.minDiff || 0)).length;
+        for (let k = 1; k <= n; k++) {
+          startBossTest({ boss: b.id, phase: k, diff: 3, only: true });
+          const g = G;
+          g.cheat = true;
+          let names = new Set();
+          for (let f = 0; f < 420 && Game.scene === g; f++) {
+            Input.debugHold.add('shot');
+            Game.update();
+            if (g.boss && g.boss.phase) names.add(g.boss.phase.name || g.boss.phase.type);
+            if (f % 20 === 0) Game.draw();
+          }
+          Input.debugHold.delete('shot');
+          const expected = b.phases.filter(ph => 3 >= (ph.minDiff || 0))[k - 1];
+          out.push({ boss: b.id, k, ok: names.has(expected.name || expected.type), names: [...names] });
+        }
+      }
+    }
+    return out;
+  });
+  const bad = r.filter(x => !x.ok);
+  assert(r.length > 0 && !bad.length, `指定した攻撃が始まらない: ${JSON.stringify(bad)}`);
+});
+
+test('URL の ?stage= / ?boss= でボスの攻撃からすぐ始まる', async ({ browser }) => {
+  // stage=1 なら1面のボス。2番目の攻撃だけを Lunatic で
+  const { page, context, errors } = await openGame(browser, {}, '?stage=1&phase=2&diff=3&only=1');
+  try {
+    const r = await page.evaluate(() => {
+      T.step(200);
+      const meta = STAGES[0].bosses.filter(b => !b.mid).pop();
+      const second = meta.phases.filter(ph => 3 >= (ph.minDiff || 0))[1];
+      return {
+        scene: Game.scene.constructor.name, practice: G.practice, diff: DIFF,
+        boss: G.boss && G.boss.id, expectedBoss: meta.id,
+        phase: G.boss && G.boss.phase && G.boss.phase.name, expectedPhase: second.name, phases: G.bossPhases && G.bossPhases.length,
+      };
+    });
+    assert(r.scene === 'GameScene' && r.practice && r.diff === 3, `始まり方がおかしい: ${JSON.stringify(r)}`);
+    assert(r.boss === r.expectedBoss && r.phases === 1 && r.phase === r.expectedPhase, `ボスや攻撃がおかしい: ${JSON.stringify(r)}`);
+    assert(!errors.length, errors.join('\n'));
+  } finally { await context.close(); }
+}, { noPage: true });
 
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
@@ -234,16 +349,16 @@ test('アカウントとランキング', async ({ page }) => {
       return G.records.ranking;
     };
     const res = {};
-    res.normal = play({ difficulty: 1, character: 'reimu', stage: 0 }, 123450);
-    res.cont = play({ difficulty: 1, character: 'reimu', stage: 0 }, 999990, g => { g.continues = 1; });
-    res.practice = play({ difficulty: 1, character: 'reimu', stage: 1, practice: true }, 999990);
+    res.normal = play({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }, 123450);
+    res.cont = play({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }, 999990, g => { g.continues = 1; });
+    res.practice = play({ difficulty: 1, character: PLAYER_IDS[0], stage: 1, practice: true }, 999990);
     Cheats.set('lives', true);
-    res.keys = play({ difficulty: 1, character: 'reimu', stage: 0 }, 999990);
+    res.keys = play({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }, 999990);
     Cheats.set('lives', false);
     Accounts.register('まりさ', 'abcd');
-    res.second = play({ difficulty: 1, character: 'marisa', stage: 0 }, 500000);
+    res.second = play({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }, 500000);
     Accounts.logout();
-    res.guest = play({ difficulty: 1, character: 'marisa', stage: 0 }, 999990);
+    res.guest = play({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }, 999990);
     res.ranking = Accounts.ranking(1).map(x => `${x.name}:${x.score}`);
     res.badLogin = !!Accounts.login('れいむ', 'zzzz').error;
     res.goodLogin = !!Accounts.login('れいむ', 'abcd').ok;
@@ -259,7 +374,7 @@ test('アカウントとランキング', async ({ page }) => {
 test('キーの効果', async ({ page }) => {
   const r = await page.evaluate(() => {
     const res = {};
-    const start = ch => { Game.setScene(new GameScene({ difficulty: 1, character: ch || 'reimu', stage: 0 })); T.step(5); return G; };
+    const start = ch => { Game.setScene(new GameScene({ difficulty: 1, character: ch || PLAYER_IDS[0], stage: 0 })); T.step(5); return G; };
     // H・B
     Cheats.set('lives', true); Cheats.set('bombs', true);
     let g = start();
@@ -275,13 +390,14 @@ test('キーの効果', async ({ page }) => {
     T.step(120);
     res.c = [g.misses, g.lives === lives];
     Cheats.set('noLoss', false);
-    // R：1秒おきにボム（ボムは減らない）
+    // R：1秒おきにボム（ボムは減らない）。自機ごとに確かめる
     Cheats.set('autoBomb', true);
-    g = start('marisa');
-    g.player.invuln = 0;
-    const bombs = g.bombs;
-    T.step(250);
-    res.r = [g.player.extraBombs.length, g.bombs === bombs];
+    res.r = PLAYER_IDS.map(id => {
+      g = start(id);
+      const bombs = g.bombs;
+      T.step(250);
+      return g.player.extraBombs.length >= 1 && g.bombs === bombs;
+    });
     Cheats.set('autoBomb', false);
     // S：2倍速、I：自機2倍速
     Cheats.set('speed', true); Cheats.set('playerSpeed', true);
@@ -296,6 +412,7 @@ test('キーの効果', async ({ page }) => {
     Cheats.toggle('V');
     T.step(120);
     res.v = g.boss ? g.boss.id : null;
+    res.vExpected = STAGES[0].bosses.filter(b => !b.mid).pop().id;
     Cheats.toggle('V');
     // D：パリピ
     Cheats.toggle('D'); T.step(3);
@@ -311,9 +428,9 @@ test('キーの効果', async ({ page }) => {
   });
   assert(r.hb[0] === 8 && r.hb[1] === 8 && r.hb[2], `H・B: ${r.hb}`);
   assert(r.c[0] === 1 && r.c[1], `C: ${r.c}`);
-  assert(r.r[0] >= 2 && r.r[1], `R: ${r.r}`);
+  assert(r.r.every(Boolean), `R: ${r.r}`);
   assert(r.si[0] === 2 && r.si[1] === 18, `S・I: ${r.si}`);
-  assert(r.v === 'rumia', `V: ${r.v}`);
+  assert(r.v === r.vExpected, `V: ${r.v}（予定 ${r.vExpected}）`);
   assert(r.d1 && r.d2, 'D: 画面の色が変わらない、または元に戻らない');
   assert(r.f1 && r.f2, 'F: すべてON / OFF にならない');
 });
@@ -322,7 +439,7 @@ test('マウスはキー「M」のときだけ自機を動かせる', async ({ p
   const box = await page.evaluate(() => { const b = Game.canvas.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; });
   const L = (lx, ly) => [box.x + lx * box.w / 640, box.y + ly * box.h / 480];
   const drag = async () => {
-    await page.evaluate(() => { Game.setScene(new GameScene({ difficulty: 1, character: 'reimu', stage: 0 })); T.step(80); });
+    await page.evaluate(() => { Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 })); T.step(80); });
     const p0 = await page.evaluate(() => [G.player.x, G.player.y]);
     await page.mouse.move(...L(200, 400));
     await page.mouse.down();
@@ -344,7 +461,9 @@ test('1ファイル版が最新', async () => {
 }, { noPage: true });
 
 test('自動操縦で全ステージをクリアできる', async ({ page }) => {
-  for (const [ch, diff] of [['reimu', 1], ['marisa', 3]]) {
+  // 最後の自機は Lunatic、ほかは Normal で通す
+  const ids = await page.evaluate(() => PLAYER_IDS);
+  for (const [ch, diff] of ids.map((id, i) => [id, i === ids.length - 1 ? 3 : 1])) {
     const r = await page.evaluate(([ch, diff]) => {
       Game.setScene(new GameScene({ difficulty: diff, character: ch, stage: 0, seed: 12345 }));
       let f = 0;
@@ -379,7 +498,7 @@ test('自動操縦で全ステージをクリアできる', async ({ page }) => 
     let game = null;
     try {
       if (!t.noPage) game = await openGame(browser);
-      await t.fn(game || {});
+      await t.fn({ ...(game || {}), browser });
       if (game && game.errors.length) throw new Error(`エラーが出た:\n    ${game.errors.join('\n    ')}`);
       console.log(`  ✔ ${t.name}（${((Date.now() - t0) / 1000).toFixed(1)}秒）`);
     } catch (e) {

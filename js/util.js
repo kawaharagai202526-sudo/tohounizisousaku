@@ -50,8 +50,16 @@ function randSign() { return rng.next() < 0.5 ? -1 : 1; }
 function pick(arr) { return arr[Math.floor(rng.next() * arr.length)]; }
 function frand(a = 1, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); }
 
+// ゲームの名前（タイトル画面・右のパネルのロゴ・ブラウザのタブに出る）
+// index.html の <title> と README にも同じ名前が書いてあるので、変えるときはそちらも直す
+const GAME_INFO = {
+  title: '東方星降夜',
+  subtitle: '〜 Night of Falling Stars.',
+  genre: '東方Project 二次創作弾幕シューティング',
+};
+
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.0.0';
+const GAME_VERSION = '1.0.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;

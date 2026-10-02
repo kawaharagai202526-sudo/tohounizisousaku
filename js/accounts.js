@@ -169,7 +169,8 @@ const Accounts = {
     const acc = this.get(g.accountKey);
     if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
     if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
-    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
+    // charName も残しておく（あとで自機のIDや名前が変わっても、ランキングに当時の名前が出るように）
+    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, charName: shortCharaName(g.charId), stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
     acc.plays = (acc.plays || 0) + 1;
     acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
     acc.best = acc.best || {};
@@ -460,8 +461,8 @@ class RankingScene {
       drawDigits(ctx, padScore(r.score), cols.score, y, 10, 'right');
       ctx.textAlign = 'left';
       ctx.font = `13px ${FONT_JP}`;
-      ctx.fillStyle = r.char === 'reimu' ? SELECT_COLOR.reimu : SELECT_COLOR.marisa;
-      ctx.fillText(shortCharaName(r.char), cols.chara, y);
+      ctx.fillStyle = PLAYER_TYPES[r.char] ? PLAYER_TYPES[r.char].color : '#c8c0e8';
+      ctx.fillText(r.charName || shortCharaName(r.char), cols.chara, y);
       ctx.font = `italic 600 14px ${FONT_EN}`;
       ctx.fillStyle = r.clear ? '#ffe070' : '#c8c0e8';
       ctx.fillText(r.clear ? 'All Clear' : `Stage ${r.stage}`, cols.stage, y);

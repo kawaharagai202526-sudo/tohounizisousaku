@@ -239,8 +239,11 @@ STAGES.push({
   nameEn: 'Shooting Stars in the Dusk',
   bg: ForestBG,
   bgm: 'stage1',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'rumia', phases: RUMIA_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'rumia', phases: RUMIA_PHASES, bgm: 'boss1', def: { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread' } },
+  ],
   *script(g) {
     yield 160;
     yield* sideSweep(-1, 8);
@@ -309,7 +312,7 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnBoss('rumia', { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread', x: FIELD_W + 40, y: 40 });
+    const boss = g.spawnStageBoss('rumia', { x: FIELD_W + 40, y: 40 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage1[g.charId].before);
     yield* g.fight(boss, RUMIA_PHASES);

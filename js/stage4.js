@@ -380,8 +380,12 @@ STAGES.push({
   nameEn: 'The Grotto of Stardust',
   bg: CaveBG,
   bgm: 'stage4',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'star', phases: STAR_MID4_PHASES, mid: true }, { id: 'boss4', phases: BOSS4_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'star', phases: STAR_MID4_PHASES, mid: true, def: { spellBg: 'star', circleColor: '140,160,255' } },
+    { id: 'boss4', phases: BOSS4_PHASES, bgm: 'boss4', def: { spellBg: 'lapis', circleColor: '90,140,255', finalDrops: { power: 10, point: 20, bigpower: 1 } } },
+  ],
   // 4面は全難易度で他の面より難しい（弾速・全方位弾の数・ボスの体力）
   speedScale: 1.08,
   densityScale: 1.2,
@@ -413,7 +417,7 @@ STAGES.push({
     yield* waitClear(300);
 
     // 中ボス：スターサファイア
-    const mid = g.spawnBoss('star', { spellBg: 'star', circleColor: '140,160,255', x: FIELD_W / 2, y: -50 });
+    const mid = g.spawnStageBoss('star', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, STAR_MID4_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 6, point: 8, bomb: 1 });
@@ -449,7 +453,7 @@ STAGES.push({
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
     // ボス：瑠璃（ボス曲は会話の途中で始まる）
-    const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
+    const boss = g.spawnStageBoss('boss4', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage4[g.charId].before);
     yield* g.fight(boss, BOSS4_PHASES);

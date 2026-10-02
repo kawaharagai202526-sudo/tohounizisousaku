@@ -3,100 +3,6 @@
 //  タイトル・各種メニュー・エンディング・リザルト
 // ============================================================
 
-class MenuBG {
-  constructor() {
-    this.t = 0;
-    this.stars = [];
-    for (let i = 0; i < 180; i++) this.stars.push({ x: frand(SCREEN_W), y: frand(SCREEN_H * 0.8), s: frand() < 0.1 ? 2 : 1, p: frand(TAU) });
-    this.meteors = [];
-    this.land = MenuBG.makeLand();
-  }
-  static makeLand() {
-    const c = makeCanvas(SCREEN_W, 170);
-    const x = c.getContext('2d');
-    x.fillStyle = '#07051a';
-    x.beginPath();
-    x.moveTo(0, 170);
-    for (let px = 0; px <= SCREEN_W; px += 8) {
-      const y = 70 + Math.sin(px * 0.011) * 22 + Math.sin(px * 0.031 + 1) * 8;
-      x.lineTo(px, y);
-    }
-    x.lineTo(SCREEN_W, 170);
-    x.closePath();
-    x.fill();
-    x.fillStyle = '#040310';
-    x.beginPath();
-    x.moveTo(0, 170);
-    for (let px = 0; px <= SCREEN_W; px += 8) x.lineTo(px, 120 + Math.sin(px * 0.017 + 2) * 14);
-    x.lineTo(SCREEN_W, 170);
-    x.closePath();
-    x.fill();
-    // 鳥居
-    x.fillStyle = '#040310';
-    const tx = 520, ty = 72;
-    x.fillRect(tx - 34, ty - 6, 68, 6);
-    x.fillRect(tx - 28, ty + 4, 56, 4);
-    x.fillRect(tx - 24, ty - 2, 5, 50);
-    x.fillRect(tx + 19, ty - 2, 5, 50);
-    x.beginPath(); x.moveTo(tx - 40, ty - 10); x.quadraticCurveTo(tx, ty - 4, tx + 40, ty - 10); x.lineTo(tx + 38, ty - 5); x.quadraticCurveTo(tx, ty, tx - 38, ty - 5); x.fill();
-    // 木々
-    for (let i = 0; i < 26; i++) {
-      const px = (i * 53) % SCREEN_W, h = 20 + (i * 37) % 30;
-      x.beginPath(); x.moveTo(px - 12, 130); x.lineTo(px, 130 - h - 30); x.lineTo(px + 12, 130); x.fill();
-    }
-    return c;
-  }
-  update() {
-    this.t++;
-    for (const s of this.stars) s.p += 0.04;
-    if (Math.random() < 1 / 40) {
-      const sp = frand(6, 10), a = frand(25, 50) * DEG;
-      this.meteors.push({ x: frand(-60, SCREEN_W * 0.7), y: frand(-30, 150), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: 50 });
-    }
-    for (const m of this.meteors) { m.x += m.vx; m.y += m.vy; m.life--; }
-    this.meteors = this.meteors.filter(m => m.life > 0);
-  }
-  draw(ctx) {
-    const g = ctx.createLinearGradient(0, 0, 0, SCREEN_H);
-    g.addColorStop(0, '#060418');
-    g.addColorStop(0.6, '#1a1240');
-    g.addColorStop(1, '#2a1a50');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    // 月
-    const mg = ctx.createRadialGradient(118, 104, 10, 118, 104, 120);
-    mg.addColorStop(0, 'rgba(255,250,220,0.35)');
-    mg.addColorStop(1, 'rgba(255,250,220,0)');
-    ctx.fillStyle = mg;
-    ctx.fillRect(0, 0, 260, 240);
-    ctx.fillStyle = '#fffbe6';
-    ctx.beginPath(); ctx.arc(118, 104, 42, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(210,200,170,0.35)';
-    ctx.beginPath(); ctx.arc(104, 94, 9, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(132, 118, 6, 0, TAU); ctx.fill();
-    ctx.globalCompositeOperation = 'lighter';
-    for (const s of this.stars) {
-      ctx.fillStyle = `rgba(230,230,255,${0.3 + 0.35 * Math.sin(s.p)})`;
-      ctx.fillRect(s.x, s.y, s.s, s.s);
-    }
-    ctx.lineCap = 'round';
-    for (const m of this.meteors) {
-      const a = Math.min(1, m.life / 15);
-      const gg = ctx.createLinearGradient(m.x, m.y, m.x - m.vx * 10, m.y - m.vy * 10);
-      gg.addColorStop(0, `rgba(255,250,220,${a})`);
-      gg.addColorStop(1, 'rgba(255,250,220,0)');
-      ctx.strokeStyle = gg;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(m.x, m.y); ctx.lineTo(m.x - m.vx * 10, m.y - m.vy * 10); ctx.stroke();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(this.land, 0, SCREEN_H - 170);
-  }
-}
-
-let sharedMenuBG = null;
-function menuBG() { return sharedMenuBG || (sharedMenuBG = new MenuBG()); }
-
 // 縦並びメニュー。rects を返し、タップ判定に使う
 function drawMenuList(ctx, items, sel, x, y, gap, o = {}) {
   const rects = [];
@@ -223,7 +129,7 @@ class TitleScene {
     ctx.textBaseline = 'middle';
     ctx.font = `600 18px ${FONT_JP}`;
     ctx.fillStyle = '#d8c8ff';
-    ctx.fillText('東方Project 二次創作弾幕シューティング', 400, 74);
+    ctx.fillText(GAME_INFO.genre, 400, 74);
     ctx.font = `800 64px ${FONT_JP}`;
     ctx.shadowColor = 'rgba(150,130,255,0.95)';
     ctx.shadowBlur = 24;
@@ -231,11 +137,11 @@ class TitleScene {
     g.addColorStop(0, '#ffffff');
     g.addColorStop(1, '#c4b2ff');
     ctx.fillStyle = g;
-    ctx.fillText('東方星降夜', 400, 134);
+    ctx.fillText(GAME_INFO.title, 400, 134);
     ctx.shadowBlur = 0;
     ctx.font = `italic 600 24px ${FONT_EN}`;
     ctx.fillStyle = '#ecd9a0';
-    ctx.fillText('〜 Night of Falling Stars.', 420, 184);
+    ctx.fillText(GAME_INFO.subtitle, 420, 184);
     ctx.restore();
     this.rects = drawMenuList(ctx, this.items, this.sel, 440, 228, 28);
     ctx.globalAlpha = 1;
@@ -314,24 +220,31 @@ class DifficultyScene {
 // ------------------------------------------------------------
 //  キャラクター選択
 // ------------------------------------------------------------
-// キャラクター選択での色（霊夢はゲーム中の自機に合わせて青）
-const SELECT_COLOR = { reimu: '#7c9cff', marisa: '#ffd860' };
+// 自機の並び・色・絵は PLAYER_TYPES（js/player.js）で決める。
+// 枠の幅は人数に合わせて変わる（中の文字の配置は2人のときの幅 290px に合わせてある）
+function charaPanelRect(i, n) {
+  const w = (SCREEN_W - 40 - (n - 1) * 20) / n;
+  return { x: 20 + i * (w + 20), y: 90, w, h: 360 };
+}
 
 class CharacterScene {
   constructor(mode, diff) {
     this.mode = mode;
     this.diff = diff;
-    this.ids = ['reimu', 'marisa'];
-    this.sel = Math.max(0, this.ids.indexOf(Store.get('lastChar', 'reimu')));
+    this.ids = PLAYER_IDS;
+    this.sel = Math.max(0, this.ids.indexOf(Store.get('lastChar', PLAYER_IDS[0])));
     this.frame = 0;
   }
   update() {
     this.frame++;
     menuBG().update();
-    this.sel = menuMove(this.sel, 2, 'left', 'right');
+    const n = this.ids.length;
+    this.sel = menuMove(this.sel, n, 'left', 'right');
     let tap = -1;
-    if (Input.tapIn(20, 90, 290, 360)) tap = 0;
-    if (Input.tapIn(330, 90, 290, 360)) tap = 1;
+    for (let i = 0; i < n; i++) {
+      const r = charaPanelRect(i, n);
+      if (Input.tapIn(r.x, r.y, r.w, r.h)) tap = i;
+    }
     const tapConfirm = tap >= 0 && tap === this.sel;
     if (tap >= 0 && tap !== this.sel) { this.sel = tap; Sound.se('cursor'); }
     if ((Input.pressed('shot') || tapConfirm) && this.frame > 8) {
@@ -352,14 +265,15 @@ class CharacterScene {
     drawHeading(ctx, 'キャラクター選択', 'Select Player');
     this.ids.forEach((id, i) => {
       const on = i === this.sel;
-      const x = 20 + i * 310, y = 90, w = 290, h = 360;
+      const { x, y, w, h } = charaPanelRect(i, this.ids.length);
+      const pt = PLAYER_TYPES[id];
       ctx.fillStyle = on ? 'rgba(50,34,110,0.8)' : 'rgba(16,12,40,0.6)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = on ? SELECT_COLOR[id] : 'rgba(255,255,255,0.15)';
+      ctx.strokeStyle = on ? pt.color : 'rgba(255,255,255,0.15)';
       ctx.lineWidth = on ? 2 : 1;
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       ctx.globalAlpha = on ? 1 : 0.5;
-      drawPortrait(ctx, id === 'reimu' ? 'reimuBlue' : id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
+      drawPortrait(ctx, pt.portrait || id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
       ctx.globalAlpha = 1;
       const tx = x + 132;
       ctx.textAlign = 'left';
@@ -368,8 +282,7 @@ class CharacterScene {
       ctx.fillStyle = '#d0c8f0';
       ctx.fillText(CHARA_INFO[id].title, tx, y + 36);
       ctx.font = `800 22px ${FONT_JP}`;
-      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? SELECT_COLOR[id] : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
-      const pt = PLAYER_TYPES[id];
+      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? pt.color : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
       ctx.font = `12px ${FONT_JP}`;
       ctx.fillStyle = on ? '#f0eaff' : '#9890b8';
       wrapText(ctx, pt.desc, 140).forEach((ln, k) => ctx.fillText(ln, tx, y + 96 + k * 18));
@@ -642,13 +555,15 @@ class EndingScene {
     ctx.textBaseline = 'middle';
     if (this.page < this.data.pages.length) {
       drawPortrait(ctx, this.g.charId, 130, 372, 3, this.page === 2 ? 'smug' : 'normal', this.frame);
-      if (this.page >= 1 && this.g.charId === 'marisa') drawPortrait(ctx, 'star', 510, 380, 2.6, this.page >= 3 ? 'happy' : 'normal', this.frame, true);
+      // 右側に出るほかのキャラクター（ENDINGS の guest）
+      const guest = this.data.guest;
+      if (guest && this.page >= guest.from) drawPortrait(ctx, guest.id, 510, 380, 2.6, this.page >= guest.happyFrom ? 'happy' : 'normal', this.frame, true);
       ctx.font = `16px ${FONT_JP}`;
       const lines = this.data.pages[this.page].split('\n');
       lines.forEach((ln, i) => strokeText(ctx, ln, SCREEN_W / 2, 150 + (i - (lines.length - 1) / 2) * 32, '#f4f0ff', 'rgba(10,0,30,0.9)', 4));
     } else {
       ctx.font = `italic 700 20px ${FONT_EN}`;
-      strokeText(ctx, `Ending No.${this.g.charId === 'reimu' ? 1 : 2}`, SCREEN_W / 2, 150, '#e8d8a8', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, `Ending No.${PLAYER_IDS.indexOf(this.g.charId) + 1}`, SCREEN_W / 2, 150, '#e8d8a8', 'rgba(0,0,0,0.8)', 3);
       ctx.font = `800 30px ${FONT_JP}`;
       strokeText(ctx, `「${this.data.title}」`, SCREEN_W / 2, 196, '#ffffff', 'rgba(60,20,120,0.9)', 4);
       ctx.font = `italic 600 22px ${FONT_EN}`;

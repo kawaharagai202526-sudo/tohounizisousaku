@@ -210,8 +210,12 @@ STAGES.push({
   nameEn: 'The Great Tree beneath the Falling Stars',
   bg: SkyBG,
   bgm: 'stage3',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true }, { id: 'boss3', phases: BOSS3_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true, def: { circleColor: '255,150,210' } },
+    { id: 'boss3', phases: BOSS3_PHASES, bgm: 'boss3', def: { spellBg: 'dream', circleColor: '255,200,235' } },
+  ],
   *script(g) {
     yield 160;
     g.tasks.add(swirlWave(-1, 8));
@@ -229,7 +233,7 @@ STAGES.push({
     yield* waitClear(300);
 
     // 中ボス（コウモリ羽の子）
-    const mid = g.spawnBoss('midboss3', { circleColor: '255,150,210', x: FIELD_W / 2, y: -50 });
+    const mid = g.spawnStageBoss('midboss3', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, MIDBOSS3_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 5, point: 8, bomb: 1 });
@@ -270,7 +274,7 @@ STAGES.push({
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
     // ボス（会話はあとで追加する）
-    const boss = g.spawnBoss('boss3', { spellBg: 'dream', circleColor: '255,200,235', x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('boss3', { x: FIELD_W / 2, y: -50 });
     Sound.playBgm('boss3');
     g.showBgmTitle('boss3');
     yield* boss.moveTo(FIELD_W / 2, 100, 70);

@@ -63,7 +63,9 @@ const Game = {
 };
 
 function bootGame() {
+  document.title = GAME_INFO.title;
   const canvas = document.getElementById('game');
+  canvas.setAttribute('aria-label', `${GAME_INFO.title}のゲーム画面`);
   Game.canvas = canvas;
   Game.ctx = canvas.getContext('2d');
   Game.resize();
@@ -85,6 +87,15 @@ function bootGame() {
   }
 
   Game.setScene(new TitleScene());
+
+  // 開発用：URL に ?boss=boss4&phase=3 などを付けると、そのボスの攻撃からすぐ始まる（startBossTest）
+  const q = new URLSearchParams(location.search);
+  if (q.has('boss') || q.has('stage')) {
+    startBossTest({
+      boss: q.get('boss'), stage: Number(q.get('stage')) || 0, phase: Number(q.get('phase')) || 1,
+      diff: q.has('diff') ? Number(q.get('diff')) : 1, char: q.get('char'), only: q.get('only') === '1',
+    });
+  }
 
   const STEP = 1000 / 60;
   let last = performance.now(), acc = 0, fpsT = last, fpsN = 0, errShown = false;

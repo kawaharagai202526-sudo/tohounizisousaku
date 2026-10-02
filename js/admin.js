@@ -240,8 +240,8 @@ const Admin = {
     const body = this.subPage('データベース');
     const name = id => (CHARA_INFO[id] ? CHARA_INFO[id].name : id);
     body.append(domEl('h3', 'admin-group', '保存データ（このブラウザ）'));
-    this.table(body, 'ハイスコア', ['難易度', name('reimu'), name('marisa')],
-      DIFF_NAMES.map((d, i) => [d, padScore(Store.get(`hi_${i}_reimu`, 0)), padScore(Store.get(`hi_${i}_marisa`, 0))]));
+    this.table(body, 'ハイスコア', ['難易度', ...PLAYER_IDS.map(name)],
+      DIFF_NAMES.map((d, i) => [d, ...PLAYER_IDS.map(id => padScore(Store.get(`hi_${i}_${id}`, 0)))]));
     const spells = Object.entries(Store.get('spells', {})).map(([k, v]) => {
       const [d, c, ...n] = k.split(':');
       return [n.join(':'), DIFF_NAMES[d] || d, name(c), `${v.got} / ${v.tried}`];
@@ -253,7 +253,7 @@ const Admin = {
       ['ミュート', Sound.muted ? 'オン' : 'オフ'],
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
-      ['最後に選んだキャラクター', name(Store.get('lastChar', 'reimu'))],
+      ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
       ['登録プレイヤー', `${Accounts.all().length}人`],
@@ -398,22 +398,23 @@ const Admin = {
     const dotH = key => (Images.get(key) ? Images.get(key).naturalHeight : 74);
     const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, dotH(CHARA_INFO[id].dot), true));
 
+    // 自機は PLAYER_TYPES、ボスは各ステージの bosses から自動で並べる
+    const crisp = fn => (c, t) => { c.imageSmoothingEnabled = false; fn(c, t); c.imageSmoothingEnabled = true; };
+    const bossPreview = (id, def) => (CHARA_INFO[id] && CHARA_INFO[id].image
+      ? (CHARA_INFO[id].dot ? imageChara(id) : image(CHARA_INFO[id].image, 0, 0, 120))
+      : chibi(id, 0, 16, 2, def && def.pose));
     const groups = [
-      ['自機', [
-        { ...info('reimu'), note: '右はゲーム中の自機', draw: both(chibi('reimuBlue', -30, 14, 1.8), image('player', 46, 6, 46, true)) },
-        { ...info('marisa'), note: '右はゲーム中の自機', draw: both(chibi('marisa', -30, 18, 1.8), at(46, 10, 1.3, (c, t) => drawPlayerBack(c, 'marisa', t, 0))) },
-      ]],
-      ['ボス・中ボス', [
-        { ...info('rumia'), note: '1面ボス', draw: chibi('rumia', 0, 16, 2, 'spread') },
-        { name: '？？？', title: '1面の中ボス', note: '1面中ボス', draw: image('midboss1', 0, 0, 120) },
-        { ...info('daiyousei'), note: '2面中ボス', draw: chibi('daiyousei', 0, 16, 2) },
-        { ...info('cirno'), note: '2面ボス', draw: chibi('cirno', 0, 16, 2) },
-        { ...info('midboss3'), note: '3面中ボス（右はゲーム中のドット絵）', draw: imageChara('midboss3') },
-        { ...info('boss3'), note: '3面ボス（右はゲーム中のドット絵）', draw: imageChara('boss3') },
-        { ...info('star'), note: '3面・4面中ボス', draw: chibi('star', 0, 16, 2) },
-        { ...info('boss4'), note: '4面ボス（右はゲーム中のドット絵）', draw: imageChara('boss4') },
-      ]],
+      ['自機', PLAYER_IDS.map(id => ({
+        ...info(id), note: '右はゲーム中の自機',
+        draw: both(chibi(PLAYER_TYPES[id].portrait || id, -30, 16, 1.8), at(46, 8, 1.8, crisp((c, t) => drawPlayerSprite(c, id, t)))),
+      }))],
+      ['ボス・中ボス', STAGES.flatMap((st, i) => (st.bosses || []).map(b => ({
+        ...info(b.id),
+        note: `${i + 1}面${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot ? '（右はゲーム中のドット絵）' : ''),
+        draw: bossPreview(b.id, b.def),
+      })))],
       ['ザコ・その他', [
+        { name: '？？？', title: '1面の中ボス', note: '1面中ボス（ザコと同じしくみで動く）', draw: image('midboss1', 0, 0, 120) },
         { name: '妖精', title: '', note: '1〜4面', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
         { name: '大妖精（ザコ）', title: '', note: '1〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
         { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },

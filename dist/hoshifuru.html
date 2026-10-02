@@ -461,8 +461,16 @@ function randSign() { return rng.next() < 0.5 ? -1 : 1; }
 function pick(arr) { return arr[Math.floor(rng.next() * arr.length)]; }
 function frand(a = 1, b) { if (b === undefined) { b = a; a = 0; } return a + Math.random() * (b - a); }
 
+// ゲームの名前（タイトル画面・右のパネルのロゴ・ブラウザのタブに出る）
+// index.html の <title> と README にも同じ名前が書いてあるので、変えるときはそちらも直す
+const GAME_INFO = {
+  title: '東方星降夜',
+  subtitle: '〜 Night of Falling Stars.',
+  genre: '東方Project 二次創作弾幕シューティング',
+};
+
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.0.0';
+const GAME_VERSION = '1.0.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;
@@ -3619,20 +3627,99 @@ function dropItems(x, y, spec) {
 //  自機
 // ============================================================
 
+// 自機の種類。自機を変える・増やすときはここを書きかえる（名前と肩書きは CHARA_INFO、会話は STORY）
+//   speed / focusSpeed  移動の速さ（高速 / 低速）     hitR  当たり判定の半径     deathbomb  喰らいボムの猶予（フレーム）
+//   color     キャラクター選択・ランキングでの色       portrait  キャラクター選択とエンディングの絵（CHARA_INFO のID）
+//   sprite    ゲーム中の絵 { image: IMAGE_FILES のキー, h: 高さ, ax, ay: 中心の位置 }。null なら drawPlayerBack で描く
+//   shoot(p, g, f)        ショットを撃つ（f は撃ち始めてからのフレーム数）
+//   drawOption(ctx, o, i, t)  オプション（自機のまわりの玉）を描く
+//   focusLaser            低速時にオプションから貫通しないレーザーを出すか（fireLasers）
+//   makeBomb(p) / bombInvuln / bombName   ボムの本体（クラス）・無敵時間・名前
 const PLAYER_TYPES = {
   reimu: {
     speed: 4.5, focusSpeed: 2.0, hitR: 2.2, deathbomb: 15,
+    color: '#7c9cff',
+    portrait: 'reimuBlue',
+    sprite: { image: 'player', h: 30, ax: 0.3, ay: 0.52 },
     shotDesc: ['高速移動：ホーミングアミュレット', '低速移動：パスウェイジョンニードル'],
     bombName: '霊符「夢想封印」',
     desc: '誘導弾で敵を自動で狙う、扱いやすいタイプ。\nボムは画面中の敵を追いかける光の玉。',
+    bombInvuln: 250,
+    makeBomb: p => new FantasySeal(p),
+    focusLaser: false,
+    shoot(p, g, f) {
+      const shots = g.shots;
+      if (f % 4 === 0) {
+        shots.push(new PShot('amulet', p.x - 6, p.y - 10, 0, -16, 1));
+        shots.push(new PShot('amulet', p.x + 6, p.y - 10, 0, -16, 1));
+      }
+      if (p.focused) {
+        if (f % 4 === 0) for (const o of p.opts) shots.push(new PShot('needle', o.x, o.y - 8, 0, -20, 1.8));
+      } else if (f % 8 === 0) {
+        p.opts.forEach((o, i) => {
+          const a = -Math.PI / 2 + (i - (p.opts.length - 1) / 2) * 0.35;
+          shots.push(new PShot('homing', o.x, o.y, Math.cos(a) * 11, Math.sin(a) * 11, 2));
+        });
+      }
+    },
+    drawOption(ctx, o, i, t) { drawYinYang(ctx, o.x, o.y, 6, t * 0.12 * (i % 2 ? 1 : -1)); },
   },
   marisa: {
     speed: 5.0, focusSpeed: 2.2, hitR: 2.4, deathbomb: 12,
+    color: '#ffd860',
+    portrait: 'marisa',
+    sprite: null,
     shotDesc: ['高速移動：マジックミサイル', '低速移動：イリュージョンレーザー'],
     bombName: '恋符「マスタースパーク」',
     desc: '攻撃力と移動速度に優れたパワータイプ。\nボムは前方を焼き払う極太レーザー。',
+    bombInvuln: 270,
+    makeBomb: p => new MasterSpark(p),
+    focusLaser: true,
+    shoot(p, g, f) {
+      const shots = g.shots;
+      if (f % 4 === 0) {
+        shots.push(new PShot('star', p.x - 6, p.y - 10, 0, -17, 1.2));
+        shots.push(new PShot('star', p.x + 6, p.y - 10, 0, -17, 1.2));
+      }
+      if (!p.focused && f % 10 === 0) {
+        p.opts.forEach((o, i) => {
+          const a = -Math.PI / 2 + (i - (p.opts.length - 1) / 2) * 0.14;
+          shots.push(new PShot('missile', o.x, o.y - 6, Math.cos(a) * 6, Math.sin(a) * 6, 4.5));
+        });
+      }
+    },
+    drawOption(ctx, o, i, t) {
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9);
+      g.addColorStop(0, 'rgba(255,255,220,0.95)');
+      g.addColorStop(0.4, 'rgba(120,255,140,0.7)');
+      g.addColorStop(1, 'rgba(60,200,100,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#fff8c0';
+      ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(t * 0.08); starPath(ctx, 4, 1.8); ctx.fill(); ctx.restore();
+    },
   },
 };
+// 自機のIDの一覧（キャラクター選択の並び順）
+const PLAYER_IDS = Object.keys(PLAYER_TYPES);
+
+// ゲーム中の自機の絵。(0, 0) が自機の中心（Player.draw と管理者ページで使う）
+function drawPlayerSprite(ctx, id, t, tilt = 0) {
+  const sp = PLAYER_TYPES[id].sprite;
+  ctx.save();
+  if (sp && Images.get(sp.image)) {
+    ctx.transform(1, 0, -tilt * 0.12, 1, 0, 0); // 移動方向に少し傾ける
+    drawImageSprite(ctx, sp.image, sp.h, sp.ax, sp.ay);
+  } else {
+    // 図形で描く自機（小さめに縮小）
+    ctx.scale(0.65, 0.65);
+    ctx.translate(0, 3);
+    drawPlayerBack(ctx, id, t, tilt);
+  }
+  ctx.restore();
+}
 
 const OPT_LAYOUT = {
   un: [[], [[0, -30]], [[-26, -6], [26, -6]], [[-30, -2], [0, -32], [30, -2]], [[-34, 4], [-16, -24], [16, -24], [34, 4]]],
@@ -3976,7 +4063,7 @@ class Player {
     if (shooting) this.shoot(g); else this.shotFrame = 0;
     if (Input.pressed('bomb') && g.canShoot()) this.useBomb(g);
     this.updateOptions(g);
-    if (shooting && this.id === 'marisa' && this.focused) this.fireLasers(g);
+    if (shooting && this.type.focusLaser && this.focused) this.fireLasers(g);
   }
 
   updateOptions(g) {
@@ -3996,36 +4083,10 @@ class Player {
   shoot(g) {
     const f = this.shotFrame++;
     if (f % 5 === 0) Sound.se('shot');
-    const shots = g.shots;
-    if (this.id === 'reimu') {
-      if (f % 4 === 0) {
-        shots.push(new PShot('amulet', this.x - 6, this.y - 10, 0, -16, 1));
-        shots.push(new PShot('amulet', this.x + 6, this.y - 10, 0, -16, 1));
-      }
-      if (this.focused) {
-        if (f % 4 === 0) for (const o of this.opts) shots.push(new PShot('needle', o.x, o.y - 8, 0, -20, 1.8));
-      } else if (f % 8 === 0) {
-        this.opts.forEach((o, i) => {
-          const a = -Math.PI / 2 + (i - (this.opts.length - 1) / 2) * 0.35;
-          const s = new PShot('homing', o.x, o.y, Math.cos(a) * 11, Math.sin(a) * 11, 2);
-          shots.push(s);
-        });
-      }
-    } else {
-      if (f % 4 === 0) {
-        shots.push(new PShot('star', this.x - 6, this.y - 10, 0, -17, 1.2));
-        shots.push(new PShot('star', this.x + 6, this.y - 10, 0, -17, 1.2));
-      }
-      if (!this.focused && f % 10 === 0) {
-        this.opts.forEach((o, i) => {
-          const a = -Math.PI / 2 + (i - (this.opts.length - 1) / 2) * 0.14;
-          shots.push(new PShot('missile', o.x, o.y - 6, Math.cos(a) * 6, Math.sin(a) * 6, 4.5));
-        });
-      }
-    }
+    this.type.shoot(this, g, f);
   }
 
-  // 魔理沙の低速レーザー：一番手前の敵で止まる
+  // 低速時のレーザー（focusLaser の自機）：一番手前の敵で止まる
   fireLasers(g) {
     for (const o of this.opts) {
       let best = null, bestY = -Infinity;
@@ -4054,7 +4115,7 @@ class Player {
     this.autoBombTimer = 0;
     g.spellFailed = true;
     this.invuln = Math.max(this.invuln, AUTO_BOMB_INTERVAL + 30);
-    this.extraBombs.push(this.id === 'reimu' ? new FantasySeal(this) : new MasterSpark(this));
+    this.extraBombs.push(this.type.makeBomb(this));
     g.showBombName(this.type.bombName);
     Sound.se('bomb');
   }
@@ -4064,8 +4125,8 @@ class Player {
     g.bombs--;
     g.bombsUsed++;
     g.spellFailed = true;
-    this.invuln = Math.max(this.invuln, this.id === 'reimu' ? 250 : 270);
-    this.bomb = this.id === 'reimu' ? new FantasySeal(this) : new MasterSpark(this);
+    this.invuln = Math.max(this.invuln, this.type.bombInvuln);
+    this.bomb = this.type.makeBomb(this);
     g.showBombName(this.type.bombName);
     g.flash = { color: '255,255,255', a: 0.5 };
     Sound.se('bomb');
@@ -4092,23 +4153,8 @@ class Player {
     if (!this.visible) return;
     const blink = this.invuln > 0 && (this.frame % 6 < 3);
     // オプション
-    for (let i = 0; i < this.opts.length; i++) {
-      const o = this.opts[i];
-      if (this.id === 'reimu') drawYinYang(ctx, o.x, o.y, 6, this.frame * 0.12 * (i % 2 ? 1 : -1));
-      else {
-        ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9);
-        g.addColorStop(0, 'rgba(255,255,220,0.95)');
-        g.addColorStop(0.4, 'rgba(120,255,140,0.7)');
-        g.addColorStop(1, 'rgba(60,200,100,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = '#fff8c0';
-        ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(this.frame * 0.08); starPath(ctx, 4, 1.8); ctx.fill(); ctx.restore();
-      }
-    }
-    // 魔理沙のレーザー
+    this.opts.forEach((o, i) => this.type.drawOption(ctx, o, i, this.frame));
+    // 低速時のレーザー
     if (this.lasers.length) {
       ctx.globalCompositeOperation = 'lighter';
       for (const l of this.lasers) {
@@ -4125,16 +4171,7 @@ class Player {
     if (blink) ctx.globalAlpha = 0.35;
     ctx.save();
     ctx.translate(this.x, this.y + Math.sin(this.frame * 0.1) * 0.6);
-    if (this.id === 'reimu' && Images.get('player')) {
-      // 霊夢は画像の自機（高さ30px）。移動方向に少し傾ける
-      ctx.transform(1, 0, -this.tilt * 0.12, 1, 0, 0);
-      drawImageSprite(ctx, 'player', 30, 0.3, 0.52);
-    } else {
-      // 図形で描く自機（小さめに縮小）
-      ctx.scale(0.65, 0.65);
-      ctx.translate(0, 3);
-      drawPlayerBack(ctx, this.id, this.frame, this.tilt);
-    }
+    drawPlayerSprite(ctx, this.id, this.frame, this.tilt);
     ctx.restore();
     ctx.globalAlpha = 1;
   }
@@ -4657,11 +4694,11 @@ function drawLogo(ctx, x, y, size = 30) {
   g.addColorStop(0, '#ffffff');
   g.addColorStop(1, '#c8b8ff');
   ctx.fillStyle = g;
-  ctx.fillText('東方星降夜', x, y);
+  ctx.fillText(GAME_INFO.title, x, y);
   ctx.shadowBlur = 0;
   ctx.font = `italic 600 ${Math.round(size * 0.46)}px ${FONT_EN}`;
   ctx.fillStyle = '#e8d8a8';
-  ctx.fillText('〜 Night of Falling Stars.', x, y + size * 0.8);
+  ctx.fillText(GAME_INFO.subtitle, x, y + size * 0.8);
   ctx.restore();
 }
 
@@ -4994,6 +5031,25 @@ const SpellHistory = {
 
 let G = null;
 
+// 開発用：ボスの攻撃をすぐ試す（プラクティス扱いなので記録されない）
+//   startBossTest({ boss: 'boss4', phase: 3, diff: 3, char: 'marisa', only: true })
+//   boss: ボスのID（STAGES の bosses）。省略すると stage（1〜）の面のボス
+//   phase: 何番目の攻撃から始めるか（1〜。その難易度で出る攻撃だけを数える）  only: その攻撃だけで終わる
+//   URL に ?boss=boss4&phase=3&diff=3&char=marisa&only=1 を付けて開いても同じ（js/main.js）
+function startBossTest(o = {}) {
+  let stage = o.stage ? o.stage - 1 : STAGES.findIndex(st => (st.bosses || []).some(b => b.id === o.boss));
+  if (!STAGES[stage]) stage = 0;
+  const list = STAGES[stage].bosses;
+  const meta = list.find(b => b.id === o.boss) || list.filter(b => !b.mid).pop();
+  Game.setScene(new GameScene({
+    difficulty: clamp(Number.isFinite(o.diff) ? o.diff : 1, 0, 3),
+    character: PLAYER_TYPES[o.char] ? o.char : PLAYER_IDS[0],
+    stage,
+    practice: true,
+    bossTest: { id: meta.id, phase: Math.max(1, o.phase || 1), only: !!o.only },
+  }));
+}
+
 class GameScene {
   constructor(opts) {
     G = this;
@@ -5080,6 +5136,7 @@ class GameScene {
     Sound.playBgm(this.stage.bgm);
     this.showBgmTitle(this.stage.bgm);
     this.stageTitle = { frame: 0 };
+    if (this.opts.bossTest) { yield* this.bossTestFlow(this.opts.bossTest); return; }
     if (Cheats.on.bossOnly) yield 150;
     else {
       this.inRoad = true;
@@ -5088,6 +5145,19 @@ class GameScene {
     this.inRoad = false;
     yield* this.stage.boss(this);
     yield* this.stageClear();
+  }
+
+  // ボスの攻撃を試すとき（startBossTest）の流れ：会話なしで、すぐ指定のボスと戦う
+  *bossTestFlow(bt) {
+    const meta = this.stage.bosses.find(b => b.id === bt.id);
+    if (meta.bgm) { Sound.playBgm(meta.bgm); this.showBgmTitle(meta.bgm); }
+    yield 30;
+    const boss = this.spawnStageBoss(meta.id, { x: FIELD_W / 2, y: -50 });
+    yield* boss.moveTo(FIELD_W / 2, 100, 40);
+    yield* this.fight(boss, meta.phases);
+    yield* this.bossDown(boss);
+    yield 60;
+    this.finish('practice');
   }
 
   // キー「V」を入れたとき：道中（中ボスを含む）を打ち切ってボス戦へ
@@ -5478,6 +5548,11 @@ class GameScene {
     this.boss = b;
     return b;
   }
+  // その面の bosses に書いた見た目（def）でボスを出す。出す位置などは pos で指定する
+  spawnStageBoss(id, pos) {
+    const meta = (this.stage.bosses || []).find(b => b.id === id);
+    return this.spawnBoss(id, { ...(meta && meta.def), ...pos });
+  }
 
   *talk(lines) {
     this.bullets.cancelAll(true);
@@ -5487,7 +5562,11 @@ class GameScene {
   }
 
   *fight(boss, phases) {
-    this.bossPhases = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    let list = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    // ボスの攻撃を試すとき（opts.bossTest）は、指定した攻撃から始める
+    const bt = this.opts.bossTest;
+    if (bt && bt.id === boss.id) list = list.slice(bt.phase - 1, bt.only ? bt.phase : undefined);
+    this.bossPhases = list;
     for (let i = 0; i < this.bossPhases.length; i++) {
       this.bossPhaseIdx = i;
       yield* this.runPhase(boss, this.bossPhases[i], i, this.bossPhases.length);
@@ -5811,6 +5890,8 @@ const ENDINGS = {
   },
   marisa: {
     title: '星屑の研究室',
+    // 右側に出るほかのキャラクター：from ページ目から出て、happyFrom ページ目から笑顔
+    guest: { id: 'star', from: 1, happyFrom: 3 },
     pages: [
       '異変のあと、魔理沙の家には山のような星のかけらが積まれていた。',
       'ほとんどは朝日を浴びて消えてしまったが、\nスターサファイアから譲り受けたかけらだけは、ほのかに光り続けている。',
@@ -6064,8 +6145,11 @@ STAGES.push({
   nameEn: 'Shooting Stars in the Dusk',
   bg: ForestBG,
   bgm: 'stage1',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'rumia', phases: RUMIA_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'rumia', phases: RUMIA_PHASES, bgm: 'boss1', def: { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread' } },
+  ],
   *script(g) {
     yield 160;
     yield* sideSweep(-1, 8);
@@ -6134,7 +6218,7 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnBoss('rumia', { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread', x: FIELD_W + 40, y: 40 });
+    const boss = g.spawnStageBoss('rumia', { x: FIELD_W + 40, y: 40 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage1[g.charId].before);
     yield* g.fight(boss, RUMIA_PHASES);
@@ -6345,8 +6429,12 @@ STAGES.push({
   nameEn: 'Starlight over the Misty Lake',
   bg: LakeBG,
   bgm: 'stage2',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'daiyousei', phases: DAIYOUSEI_PHASES, mid: true }, { id: 'cirno', phases: CIRNO_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'daiyousei', phases: DAIYOUSEI_PHASES, mid: true, def: { circleColor: '120,255,160' } },
+    { id: 'cirno', phases: CIRNO_PHASES, bgm: 'boss2', def: { spellBg: 'cirno', circleColor: '120,220,255' } },
+  ],
   *script(g) {
     yield 160;
     iceFairyV(5);
@@ -6365,7 +6453,7 @@ STAGES.push({
     yield* waitClear(200);
 
     // 中ボス：大妖精
-    const dai = g.spawnBoss('daiyousei', { circleColor: '120,255,160', x: -40, y: 60 });
+    const dai = g.spawnStageBoss('daiyousei', { x: -40, y: 60 });
     yield* dai.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(dai, DAIYOUSEI_PHASES);
     if (dai.hp <= 0) dropItems(dai.x, dai.y, { power: 5, point: 6, bigpower: DIFF >= 2 ? 1 : 0 });
@@ -6407,7 +6495,7 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnBoss('cirno', { spellBg: 'cirno', circleColor: '120,220,255', x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('cirno', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);
     yield* g.fight(boss, CIRNO_PHASES);
@@ -6630,8 +6718,12 @@ STAGES.push({
   nameEn: 'The Great Tree beneath the Falling Stars',
   bg: SkyBG,
   bgm: 'stage3',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true }, { id: 'boss3', phases: BOSS3_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true, def: { circleColor: '255,150,210' } },
+    { id: 'boss3', phases: BOSS3_PHASES, bgm: 'boss3', def: { spellBg: 'dream', circleColor: '255,200,235' } },
+  ],
   *script(g) {
     yield 160;
     g.tasks.add(swirlWave(-1, 8));
@@ -6649,7 +6741,7 @@ STAGES.push({
     yield* waitClear(300);
 
     // 中ボス（コウモリ羽の子）
-    const mid = g.spawnBoss('midboss3', { circleColor: '255,150,210', x: FIELD_W / 2, y: -50 });
+    const mid = g.spawnStageBoss('midboss3', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, MIDBOSS3_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 5, point: 8, bomb: 1 });
@@ -6690,7 +6782,7 @@ STAGES.push({
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
     // ボス（会話はあとで追加する）
-    const boss = g.spawnBoss('boss3', { spellBg: 'dream', circleColor: '255,200,235', x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('boss3', { x: FIELD_W / 2, y: -50 });
     Sound.playBgm('boss3');
     g.showBgmTitle('boss3');
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
@@ -7084,8 +7176,12 @@ STAGES.push({
   nameEn: 'The Grotto of Stardust',
   bg: CaveBG,
   bgm: 'stage4',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'star', phases: STAR_MID4_PHASES, mid: true }, { id: 'boss4', phases: BOSS4_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'star', phases: STAR_MID4_PHASES, mid: true, def: { spellBg: 'star', circleColor: '140,160,255' } },
+    { id: 'boss4', phases: BOSS4_PHASES, bgm: 'boss4', def: { spellBg: 'lapis', circleColor: '90,140,255', finalDrops: { power: 10, point: 20, bigpower: 1 } } },
+  ],
   // 4面は全難易度で他の面より難しい（弾速・全方位弾の数・ボスの体力）
   speedScale: 1.08,
   densityScale: 1.2,
@@ -7117,7 +7213,7 @@ STAGES.push({
     yield* waitClear(300);
 
     // 中ボス：スターサファイア
-    const mid = g.spawnBoss('star', { spellBg: 'star', circleColor: '140,160,255', x: FIELD_W / 2, y: -50 });
+    const mid = g.spawnStageBoss('star', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, STAR_MID4_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 6, point: 8, bomb: 1 });
@@ -7153,7 +7249,7 @@ STAGES.push({
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
     // ボス：瑠璃（ボス曲は会話の途中で始まる）
-    const boss = g.spawnBoss('boss4', { spellBg: 'lapis', circleColor: '90,140,255', x: FIELD_W / 2, y: -50, finalDrops: { power: 10, point: 20, bigpower: 1 } });
+    const boss = g.spawnStageBoss('boss4', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage4[g.charId].before);
     yield* g.fight(boss, BOSS4_PHASES);
@@ -7163,10 +7259,12 @@ STAGES.push({
 });
 
 </script>
-<script data-file="js/menus.js">
+<script data-file="js/menubg.js">
 'use strict';
 // ============================================================
-//  タイトル・各種メニュー・エンディング・リザルト
+//  メインメニュー（タイトル・各メニュー・エンディング・リザルト）の背景
+//  背景を変えるときは、このファイルの MenuBG を書きかえる。
+//  update() で動かし、draw(ctx) で 640×480 の画面全体を塗る。menuBG() で全画面が同じものを共有する。
 // ============================================================
 
 class MenuBG {
@@ -7262,6 +7360,13 @@ class MenuBG {
 
 let sharedMenuBG = null;
 function menuBG() { return sharedMenuBG || (sharedMenuBG = new MenuBG()); }
+
+</script>
+<script data-file="js/menus.js">
+'use strict';
+// ============================================================
+//  タイトル・各種メニュー・エンディング・リザルト
+// ============================================================
 
 // 縦並びメニュー。rects を返し、タップ判定に使う
 function drawMenuList(ctx, items, sel, x, y, gap, o = {}) {
@@ -7389,7 +7494,7 @@ class TitleScene {
     ctx.textBaseline = 'middle';
     ctx.font = `600 18px ${FONT_JP}`;
     ctx.fillStyle = '#d8c8ff';
-    ctx.fillText('東方Project 二次創作弾幕シューティング', 400, 74);
+    ctx.fillText(GAME_INFO.genre, 400, 74);
     ctx.font = `800 64px ${FONT_JP}`;
     ctx.shadowColor = 'rgba(150,130,255,0.95)';
     ctx.shadowBlur = 24;
@@ -7397,11 +7502,11 @@ class TitleScene {
     g.addColorStop(0, '#ffffff');
     g.addColorStop(1, '#c4b2ff');
     ctx.fillStyle = g;
-    ctx.fillText('東方星降夜', 400, 134);
+    ctx.fillText(GAME_INFO.title, 400, 134);
     ctx.shadowBlur = 0;
     ctx.font = `italic 600 24px ${FONT_EN}`;
     ctx.fillStyle = '#ecd9a0';
-    ctx.fillText('〜 Night of Falling Stars.', 420, 184);
+    ctx.fillText(GAME_INFO.subtitle, 420, 184);
     ctx.restore();
     this.rects = drawMenuList(ctx, this.items, this.sel, 440, 228, 28);
     ctx.globalAlpha = 1;
@@ -7480,24 +7585,31 @@ class DifficultyScene {
 // ------------------------------------------------------------
 //  キャラクター選択
 // ------------------------------------------------------------
-// キャラクター選択での色（霊夢はゲーム中の自機に合わせて青）
-const SELECT_COLOR = { reimu: '#7c9cff', marisa: '#ffd860' };
+// 自機の並び・色・絵は PLAYER_TYPES（js/player.js）で決める。
+// 枠の幅は人数に合わせて変わる（中の文字の配置は2人のときの幅 290px に合わせてある）
+function charaPanelRect(i, n) {
+  const w = (SCREEN_W - 40 - (n - 1) * 20) / n;
+  return { x: 20 + i * (w + 20), y: 90, w, h: 360 };
+}
 
 class CharacterScene {
   constructor(mode, diff) {
     this.mode = mode;
     this.diff = diff;
-    this.ids = ['reimu', 'marisa'];
-    this.sel = Math.max(0, this.ids.indexOf(Store.get('lastChar', 'reimu')));
+    this.ids = PLAYER_IDS;
+    this.sel = Math.max(0, this.ids.indexOf(Store.get('lastChar', PLAYER_IDS[0])));
     this.frame = 0;
   }
   update() {
     this.frame++;
     menuBG().update();
-    this.sel = menuMove(this.sel, 2, 'left', 'right');
+    const n = this.ids.length;
+    this.sel = menuMove(this.sel, n, 'left', 'right');
     let tap = -1;
-    if (Input.tapIn(20, 90, 290, 360)) tap = 0;
-    if (Input.tapIn(330, 90, 290, 360)) tap = 1;
+    for (let i = 0; i < n; i++) {
+      const r = charaPanelRect(i, n);
+      if (Input.tapIn(r.x, r.y, r.w, r.h)) tap = i;
+    }
     const tapConfirm = tap >= 0 && tap === this.sel;
     if (tap >= 0 && tap !== this.sel) { this.sel = tap; Sound.se('cursor'); }
     if ((Input.pressed('shot') || tapConfirm) && this.frame > 8) {
@@ -7518,14 +7630,15 @@ class CharacterScene {
     drawHeading(ctx, 'キャラクター選択', 'Select Player');
     this.ids.forEach((id, i) => {
       const on = i === this.sel;
-      const x = 20 + i * 310, y = 90, w = 290, h = 360;
+      const { x, y, w, h } = charaPanelRect(i, this.ids.length);
+      const pt = PLAYER_TYPES[id];
       ctx.fillStyle = on ? 'rgba(50,34,110,0.8)' : 'rgba(16,12,40,0.6)';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = on ? SELECT_COLOR[id] : 'rgba(255,255,255,0.15)';
+      ctx.strokeStyle = on ? pt.color : 'rgba(255,255,255,0.15)';
       ctx.lineWidth = on ? 2 : 1;
       ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       ctx.globalAlpha = on ? 1 : 0.5;
-      drawPortrait(ctx, id === 'reimu' ? 'reimuBlue' : id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
+      drawPortrait(ctx, pt.portrait || id, x + 70, y + 150, 3.4, on ? 'happy' : 'normal', this.frame);
       ctx.globalAlpha = 1;
       const tx = x + 132;
       ctx.textAlign = 'left';
@@ -7534,8 +7647,7 @@ class CharacterScene {
       ctx.fillStyle = '#d0c8f0';
       ctx.fillText(CHARA_INFO[id].title, tx, y + 36);
       ctx.font = `800 22px ${FONT_JP}`;
-      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? SELECT_COLOR[id] : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
-      const pt = PLAYER_TYPES[id];
+      strokeText(ctx, CHARA_INFO[id].name, tx, y + 62, on ? pt.color : '#b0a8d0', 'rgba(0,0,0,0.8)', 3);
       ctx.font = `12px ${FONT_JP}`;
       ctx.fillStyle = on ? '#f0eaff' : '#9890b8';
       wrapText(ctx, pt.desc, 140).forEach((ln, k) => ctx.fillText(ln, tx, y + 96 + k * 18));
@@ -7808,13 +7920,15 @@ class EndingScene {
     ctx.textBaseline = 'middle';
     if (this.page < this.data.pages.length) {
       drawPortrait(ctx, this.g.charId, 130, 372, 3, this.page === 2 ? 'smug' : 'normal', this.frame);
-      if (this.page >= 1 && this.g.charId === 'marisa') drawPortrait(ctx, 'star', 510, 380, 2.6, this.page >= 3 ? 'happy' : 'normal', this.frame, true);
+      // 右側に出るほかのキャラクター（ENDINGS の guest）
+      const guest = this.data.guest;
+      if (guest && this.page >= guest.from) drawPortrait(ctx, guest.id, 510, 380, 2.6, this.page >= guest.happyFrom ? 'happy' : 'normal', this.frame, true);
       ctx.font = `16px ${FONT_JP}`;
       const lines = this.data.pages[this.page].split('\n');
       lines.forEach((ln, i) => strokeText(ctx, ln, SCREEN_W / 2, 150 + (i - (lines.length - 1) / 2) * 32, '#f4f0ff', 'rgba(10,0,30,0.9)', 4));
     } else {
       ctx.font = `italic 700 20px ${FONT_EN}`;
-      strokeText(ctx, `Ending No.${this.g.charId === 'reimu' ? 1 : 2}`, SCREEN_W / 2, 150, '#e8d8a8', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, `Ending No.${PLAYER_IDS.indexOf(this.g.charId) + 1}`, SCREEN_W / 2, 150, '#e8d8a8', 'rgba(0,0,0,0.8)', 3);
       ctx.font = `800 30px ${FONT_JP}`;
       strokeText(ctx, `「${this.data.title}」`, SCREEN_W / 2, 196, '#ffffff', 'rgba(60,20,120,0.9)', 4);
       ctx.font = `italic 600 22px ${FONT_EN}`;
@@ -8073,7 +8187,8 @@ const Accounts = {
     const acc = this.get(g.accountKey);
     if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
     if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
-    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
+    // charName も残しておく（あとで自機のIDや名前が変わっても、ランキングに当時の名前が出るように）
+    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, charName: shortCharaName(g.charId), stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
     acc.plays = (acc.plays || 0) + 1;
     acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
     acc.best = acc.best || {};
@@ -8364,8 +8479,8 @@ class RankingScene {
       drawDigits(ctx, padScore(r.score), cols.score, y, 10, 'right');
       ctx.textAlign = 'left';
       ctx.font = `13px ${FONT_JP}`;
-      ctx.fillStyle = r.char === 'reimu' ? SELECT_COLOR.reimu : SELECT_COLOR.marisa;
-      ctx.fillText(shortCharaName(r.char), cols.chara, y);
+      ctx.fillStyle = PLAYER_TYPES[r.char] ? PLAYER_TYPES[r.char].color : '#c8c0e8';
+      ctx.fillText(r.charName || shortCharaName(r.char), cols.chara, y);
       ctx.font = `italic 600 14px ${FONT_EN}`;
       ctx.fillStyle = r.clear ? '#ffe070' : '#c8c0e8';
       ctx.fillText(r.clear ? 'All Clear' : `Stage ${r.stage}`, cols.stage, y);
@@ -8718,7 +8833,9 @@ const Game = {
 };
 
 function bootGame() {
+  document.title = GAME_INFO.title;
   const canvas = document.getElementById('game');
+  canvas.setAttribute('aria-label', `${GAME_INFO.title}のゲーム画面`);
   Game.canvas = canvas;
   Game.ctx = canvas.getContext('2d');
   Game.resize();
@@ -8740,6 +8857,15 @@ function bootGame() {
   }
 
   Game.setScene(new TitleScene());
+
+  // 開発用：URL に ?boss=boss4&phase=3 などを付けると、そのボスの攻撃からすぐ始まる（startBossTest）
+  const q = new URLSearchParams(location.search);
+  if (q.has('boss') || q.has('stage')) {
+    startBossTest({
+      boss: q.get('boss'), stage: Number(q.get('stage')) || 0, phase: Number(q.get('phase')) || 1,
+      diff: q.has('diff') ? Number(q.get('diff')) : 1, char: q.get('char'), only: q.get('only') === '1',
+    });
+  }
 
   const STEP = 1000 / 60;
   let last = performance.now(), acc = 0, fpsT = last, fpsN = 0, errShown = false;
@@ -9021,8 +9147,8 @@ const Admin = {
     const body = this.subPage('データベース');
     const name = id => (CHARA_INFO[id] ? CHARA_INFO[id].name : id);
     body.append(domEl('h3', 'admin-group', '保存データ（このブラウザ）'));
-    this.table(body, 'ハイスコア', ['難易度', name('reimu'), name('marisa')],
-      DIFF_NAMES.map((d, i) => [d, padScore(Store.get(`hi_${i}_reimu`, 0)), padScore(Store.get(`hi_${i}_marisa`, 0))]));
+    this.table(body, 'ハイスコア', ['難易度', ...PLAYER_IDS.map(name)],
+      DIFF_NAMES.map((d, i) => [d, ...PLAYER_IDS.map(id => padScore(Store.get(`hi_${i}_${id}`, 0)))]));
     const spells = Object.entries(Store.get('spells', {})).map(([k, v]) => {
       const [d, c, ...n] = k.split(':');
       return [n.join(':'), DIFF_NAMES[d] || d, name(c), `${v.got} / ${v.tried}`];
@@ -9034,7 +9160,7 @@ const Admin = {
       ['ミュート', Sound.muted ? 'オン' : 'オフ'],
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
-      ['最後に選んだキャラクター', name(Store.get('lastChar', 'reimu'))],
+      ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
       ['登録プレイヤー', `${Accounts.all().length}人`],
@@ -9179,22 +9305,23 @@ const Admin = {
     const dotH = key => (Images.get(key) ? Images.get(key).naturalHeight : 74);
     const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, dotH(CHARA_INFO[id].dot), true));
 
+    // 自機は PLAYER_TYPES、ボスは各ステージの bosses から自動で並べる
+    const crisp = fn => (c, t) => { c.imageSmoothingEnabled = false; fn(c, t); c.imageSmoothingEnabled = true; };
+    const bossPreview = (id, def) => (CHARA_INFO[id] && CHARA_INFO[id].image
+      ? (CHARA_INFO[id].dot ? imageChara(id) : image(CHARA_INFO[id].image, 0, 0, 120))
+      : chibi(id, 0, 16, 2, def && def.pose));
     const groups = [
-      ['自機', [
-        { ...info('reimu'), note: '右はゲーム中の自機', draw: both(chibi('reimuBlue', -30, 14, 1.8), image('player', 46, 6, 46, true)) },
-        { ...info('marisa'), note: '右はゲーム中の自機', draw: both(chibi('marisa', -30, 18, 1.8), at(46, 10, 1.3, (c, t) => drawPlayerBack(c, 'marisa', t, 0))) },
-      ]],
-      ['ボス・中ボス', [
-        { ...info('rumia'), note: '1面ボス', draw: chibi('rumia', 0, 16, 2, 'spread') },
-        { name: '？？？', title: '1面の中ボス', note: '1面中ボス', draw: image('midboss1', 0, 0, 120) },
-        { ...info('daiyousei'), note: '2面中ボス', draw: chibi('daiyousei', 0, 16, 2) },
-        { ...info('cirno'), note: '2面ボス', draw: chibi('cirno', 0, 16, 2) },
-        { ...info('midboss3'), note: '3面中ボス（右はゲーム中のドット絵）', draw: imageChara('midboss3') },
-        { ...info('boss3'), note: '3面ボス（右はゲーム中のドット絵）', draw: imageChara('boss3') },
-        { ...info('star'), note: '3面・4面中ボス', draw: chibi('star', 0, 16, 2) },
-        { ...info('boss4'), note: '4面ボス（右はゲーム中のドット絵）', draw: imageChara('boss4') },
-      ]],
+      ['自機', PLAYER_IDS.map(id => ({
+        ...info(id), note: '右はゲーム中の自機',
+        draw: both(chibi(PLAYER_TYPES[id].portrait || id, -30, 16, 1.8), at(46, 8, 1.8, crisp((c, t) => drawPlayerSprite(c, id, t)))),
+      }))],
+      ['ボス・中ボス', STAGES.flatMap((st, i) => (st.bosses || []).map(b => ({
+        ...info(b.id),
+        note: `${i + 1}面${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot ? '（右はゲーム中のドット絵）' : ''),
+        draw: bossPreview(b.id, b.def),
+      })))],
       ['ザコ・その他', [
+        { name: '？？？', title: '1面の中ボス', note: '1面中ボス（ザコと同じしくみで動く）', draw: image('midboss1', 0, 0, 120) },
         { name: '妖精', title: '', note: '1〜4面', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
         { name: '大妖精（ザコ）', title: '', note: '1〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
         { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },

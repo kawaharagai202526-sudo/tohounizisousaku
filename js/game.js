@@ -25,6 +25,25 @@ const SpellHistory = {
 
 let G = null;
 
+// 開発用：ボスの攻撃をすぐ試す（プラクティス扱いなので記録されない）
+//   startBossTest({ boss: 'boss4', phase: 3, diff: 3, char: 'marisa', only: true })
+//   boss: ボスのID（STAGES の bosses）。省略すると stage（1〜）の面のボス
+//   phase: 何番目の攻撃から始めるか（1〜。その難易度で出る攻撃だけを数える）  only: その攻撃だけで終わる
+//   URL に ?boss=boss4&phase=3&diff=3&char=marisa&only=1 を付けて開いても同じ（js/main.js）
+function startBossTest(o = {}) {
+  let stage = o.stage ? o.stage - 1 : STAGES.findIndex(st => (st.bosses || []).some(b => b.id === o.boss));
+  if (!STAGES[stage]) stage = 0;
+  const list = STAGES[stage].bosses;
+  const meta = list.find(b => b.id === o.boss) || list.filter(b => !b.mid).pop();
+  Game.setScene(new GameScene({
+    difficulty: clamp(Number.isFinite(o.diff) ? o.diff : 1, 0, 3),
+    character: PLAYER_TYPES[o.char] ? o.char : PLAYER_IDS[0],
+    stage,
+    practice: true,
+    bossTest: { id: meta.id, phase: Math.max(1, o.phase || 1), only: !!o.only },
+  }));
+}
+
 class GameScene {
   constructor(opts) {
     G = this;
@@ -111,6 +130,7 @@ class GameScene {
     Sound.playBgm(this.stage.bgm);
     this.showBgmTitle(this.stage.bgm);
     this.stageTitle = { frame: 0 };
+    if (this.opts.bossTest) { yield* this.bossTestFlow(this.opts.bossTest); return; }
     if (Cheats.on.bossOnly) yield 150;
     else {
       this.inRoad = true;
@@ -119,6 +139,19 @@ class GameScene {
     this.inRoad = false;
     yield* this.stage.boss(this);
     yield* this.stageClear();
+  }
+
+  // ボスの攻撃を試すとき（startBossTest）の流れ：会話なしで、すぐ指定のボスと戦う
+  *bossTestFlow(bt) {
+    const meta = this.stage.bosses.find(b => b.id === bt.id);
+    if (meta.bgm) { Sound.playBgm(meta.bgm); this.showBgmTitle(meta.bgm); }
+    yield 30;
+    const boss = this.spawnStageBoss(meta.id, { x: FIELD_W / 2, y: -50 });
+    yield* boss.moveTo(FIELD_W / 2, 100, 40);
+    yield* this.fight(boss, meta.phases);
+    yield* this.bossDown(boss);
+    yield 60;
+    this.finish('practice');
   }
 
   // キー「V」を入れたとき：道中（中ボスを含む）を打ち切ってボス戦へ
@@ -509,6 +542,11 @@ class GameScene {
     this.boss = b;
     return b;
   }
+  // その面の bosses に書いた見た目（def）でボスを出す。出す位置などは pos で指定する
+  spawnStageBoss(id, pos) {
+    const meta = (this.stage.bosses || []).find(b => b.id === id);
+    return this.spawnBoss(id, { ...(meta && meta.def), ...pos });
+  }
 
   *talk(lines) {
     this.bullets.cancelAll(true);
@@ -518,7 +556,11 @@ class GameScene {
   }
 
   *fight(boss, phases) {
-    this.bossPhases = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    let list = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    // ボスの攻撃を試すとき（opts.bossTest）は、指定した攻撃から始める
+    const bt = this.opts.bossTest;
+    if (bt && bt.id === boss.id) list = list.slice(bt.phase - 1, bt.only ? bt.phase : undefined);
+    this.bossPhases = list;
     for (let i = 0; i < this.bossPhases.length; i++) {
       this.bossPhaseIdx = i;
       yield* this.runPhase(boss, this.bossPhases[i], i, this.bossPhases.length);

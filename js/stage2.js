@@ -198,8 +198,12 @@ STAGES.push({
   nameEn: 'Starlight over the Misty Lake',
   bg: LakeBG,
   bgm: 'stage2',
-  // この面のボス（管理者ページの一覧やテストで使う。ボスを増やしたらここにも書く）
-  bosses: [{ id: 'daiyousei', phases: DAIYOUSEI_PHASES, mid: true }, { id: 'cirno', phases: CIRNO_PHASES }],
+  // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  bosses: [
+    { id: 'daiyousei', phases: DAIYOUSEI_PHASES, mid: true, def: { circleColor: '120,255,160' } },
+    { id: 'cirno', phases: CIRNO_PHASES, bgm: 'boss2', def: { spellBg: 'cirno', circleColor: '120,220,255' } },
+  ],
   *script(g) {
     yield 160;
     iceFairyV(5);
@@ -218,7 +222,7 @@ STAGES.push({
     yield* waitClear(200);
 
     // 中ボス：大妖精
-    const dai = g.spawnBoss('daiyousei', { circleColor: '120,255,160', x: -40, y: 60 });
+    const dai = g.spawnStageBoss('daiyousei', { x: -40, y: 60 });
     yield* dai.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(dai, DAIYOUSEI_PHASES);
     if (dai.hp <= 0) dropItems(dai.x, dai.y, { power: 5, point: 6, bigpower: DIFF >= 2 ? 1 : 0 });
@@ -260,7 +264,7 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnBoss('cirno', { spellBg: 'cirno', circleColor: '120,220,255', x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('cirno', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);
     yield* g.fight(boss, CIRNO_PHASES);

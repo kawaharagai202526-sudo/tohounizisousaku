@@ -91,11 +91,11 @@ function drawLogo(ctx, x, y, size = 30) {
   g.addColorStop(0, '#ffffff');
   g.addColorStop(1, '#c8b8ff');
   ctx.fillStyle = g;
-  ctx.fillText('東方星降夜', x, y);
+  ctx.fillText(GAME_INFO.title, x, y);
   ctx.shadowBlur = 0;
   ctx.font = `italic 600 ${Math.round(size * 0.46)}px ${FONT_EN}`;
   ctx.fillStyle = '#e8d8a8';
-  ctx.fillText('〜 Night of Falling Stars.', x, y + size * 0.8);
+  ctx.fillText(GAME_INFO.subtitle, x, y + size * 0.8);
   ctx.restore();
 }
 

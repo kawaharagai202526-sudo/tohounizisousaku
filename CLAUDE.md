@@ -6,9 +6,19 @@
 - ユーザーは日本語で話す。返事・コミットメッセージ・コード中のコメント・画面の文字は日本語。
 - 作業ブランチにコミットしてプッシュする。プルリクエストは頼まれたときだけ作る。
 
+## これからの大規模変更（ユーザーの予定）
+
+**ストーリー・キャラクター（ボス）・それに合わせた弾幕・メインメニューの背景・自機・音楽・名前**を大きく変える予定。
+**基本スタイル（自機の大きさ・当たり判定・画面の構成・操作など）はそのまま**にする。
+
+- どこを書きかえるかは `docs/CONTENT_GUIDE.md`（差し替えガイド）にまとめてある。変えないものの一覧もそこにある
+- ボスの攻撃は URL の `?boss=ID&phase=番号&diff=0〜3` ですぐ試せる（`startBossTest`）。スクリーンショットで確かめるときにも使う
+- もらった画像から原画とドット絵を作るのは `python3 tools/make-sprite.py 画像 名前`
+- 内容を入れかえても、管理者ページ・アカウント・ランキング・キーはそのまま動く（自機やボスの一覧はデータから自動で作る）
+
 ## 変更したら必ずやること
 
-1. `node tools/test.js` … ブラウザで実際に動かすテスト（30秒ほど）。大きな変更なら `--full` も（全面の自動クリア）
+1. `node tools/test.js` … ブラウザで実際に動かすテスト（1分ほど）。大きな変更なら `--full` も（全面の自動クリア）
 2. `node tools/build-single.js` … 1ファイル版 `dist/hoshifuru.html` を作り直す（テストは dist が古いと失敗する）
 3. `dist/` も含めてコミットする
 4. 共有ページ（https://claude.ai/artifact/3qirwPi7rszo3v572hnNEV ）も更新する。
@@ -35,14 +45,17 @@
 | メインループ | js/main.js `Game` | `update()`（1/60秒ごと）と `draw()`。画面は `Game.setScene(シーン)` で切り替える |
 | シーン | menus.js / game.js / accounts.js | `update()`・`draw(ctx)` と、あれば `enter()`・`exit()` を持つクラス |
 | ゲーム本編 | js/game.js `GameScene` | 当たり判定・スコア・ボス戦。実行中のものはグローバル変数 `G` |
-| ステージ | js/stage1〜4.js | `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })`。`script` は道中、`boss` はボス戦 |
+| ステージ | js/stage1〜4.js | `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })`。`script` は道中、`boss` はボス戦。`bosses` はその面のボスの一覧（攻撃・曲・見た目） |
 | コルーチン | js/util.js `TaskRunner` | ジェネレータ関数で書き、`yield n` で n フレーム待つ |
-| ボス | game.js `spawnBoss` / `fight` / `bossDown` | 攻撃は `{ type: 'non' か 'spell', name, hp, time, survival, minDiff, *script(b, g) }` の配列 |
+| ボス | game.js `spawnStageBoss` / `fight` / `bossDown` | 攻撃は `{ type: 'non' か 'spell', name, hp, time, survival, minDiff, *script(b, g) }` の配列。`startBossTest` ですぐ試せる |
 | 弾 | js/bullets.js | `fire` / `fireRing` / `fireFan`。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)` |
-| キャラクターの絵 | js/characters.js | `CHARA_INFO`（名前・肩書き・画像）、`drawChibi`（キャンバスで描く絵） |
+| 自機 | js/player.js `PLAYER_TYPES` | 速さ・当たり判定・色・絵・ショット・オプション・ボムを1人ずつまとめてある。`PLAYER_IDS` が並び順 |
+| キャラクターの絵 | js/characters.js | `CHARA_INFO`（名前・肩書き・画像）、`CHARA` と `drawChibi`（キャンバスで描く絵） |
 | 画像 | js/images.js `IMAGE_FILES` | `img/` のPNG。読み込み前は `Images.get()` が null なので、描く側で代わりを用意する |
 | 会話・エンディング | js/story.js | `STORY.stageN[キャラ].before / after`、`ENDINGS` |
 | 曲 | js/music.js | `SONGS`（MML とコード進行）、`MUSIC_ROOM` |
+| ゲームの名前 | js/util.js `GAME_INFO` | タイトル・ロゴ・ブラウザのタブ（index.html の `<title>` と README にも同じ名前） |
+| メニューの背景 | js/menubg.js `MenuBG` | タイトルなどのメニュー画面で共有する背景 |
 | アカウント・ランキング | js/accounts.js | `Accounts`（保存）、`AccountDialog`（HTMLの画面）、`RankingScene` |
 | 管理者ページ | js/admin.js | 画面左上の隠しボタン → PIN → キー入力 → 管理者ページ |
 | キー（特別な機能） | js/cheats.js | `CHEAT_KEYS`（キーの一覧と説明）、`Cheats.on`、`Party`（キーの演出の一つ） |
@@ -57,8 +70,9 @@
 
 ## 何かを足すときに一緒に直すところ
 
-- **ステージ・ボス**：`STAGES` の `bosses`（管理者ページの一覧とテストが使う）、`STORY`、`README.md` のステージ表
-- **キャラクター**：`CHARA_INFO`、管理者ページの `showCharacters()` の一覧
+- **ステージ・ボス**：`STAGES` の `bosses`（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う）、`STORY`、`README.md` のステージ表
+- **自機**：`PLAYER_TYPES`、`CHARA_INFO`、全ステージの `STORY` と `ENDINGS`（書き忘れはテストが見つける）
+- **キャラクター**：`CHARA_INFO`（絵は `CHARA` か画像）。管理者ページの一覧は自動で出る（ザコだけ `showCharacters()` に手で書く）
 - **画像**：`img/` に置いて `IMAGE_FILES` に登録（背景は透明にする）。README の画像の一覧
 - **キー**：`CHEAT_KEYS` に足す（管理者ページのデータベースの一覧に自動で出る）。テストの「キーの効果」
 - **版を上げるとき**：`js/util.js` の `GAME_VERSION` と `package.json` の `version` を同じにする（テストで確かめている）。
@@ -66,12 +80,20 @@
 
 ## ユーザーが決めたこと（変えるときは確認する）
 
+- 基本スタイル（自機の大きさ・当たり判定・画面の構成・操作）は大規模変更のあとも変えない
+- ここから下の「今の内容」についての決めごと（キャラクターの名前や見た目など）は、大規模変更で入れかわるものもある
+
+### 今の内容について
+
 - 霊夢はゲーム中は `img/player.png`（小さいドット絵）。キャラクター選択の霊夢は自機に合わせて青
 - 魔理沙のマスタースパークの範囲は紅魔郷基準（上へ扇状に広がる）
 - 3面・4面のボスと3面中ボスは、ゲーム中はドット絵、スペルカードのカットインと会話は原画（ドット絵にしない）
 - 3面ボスは「羊宮 ラム」、4面ボスは「瑠璃」。4面の中ボスはスターサファイア
 - 道中の大きな星の弾は使わない（スペルカードは別）。かわりに一撃で倒せる回転する星の敵を出す
 - 全体の難易度は低め。Hard と Lunatic（特に Lunatic）と4面は高め
+
+### しくみについて（大規模変更のあとも同じ）
+
 - マウスでは自機を操作できない（メニューのクリックはできる）。管理者ページのキーで許可したときだけ操作できる
 - 管理者ページ：PIN は 114514、3回まちがえると5分間入力できない
 - **キーについての表記は管理者ページの中だけ**。キー入力画面にも説明は出さず（ON/OFFと文字だけ）、一覧はデータベースにだけ出す。

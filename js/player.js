@@ -3,20 +3,99 @@
 //  自機
 // ============================================================
 
+// 自機の種類。自機を変える・増やすときはここを書きかえる（名前と肩書きは CHARA_INFO、会話は STORY）
+//   speed / focusSpeed  移動の速さ（高速 / 低速）     hitR  当たり判定の半径     deathbomb  喰らいボムの猶予（フレーム）
+//   color     キャラクター選択・ランキングでの色       portrait  キャラクター選択とエンディングの絵（CHARA_INFO のID）
+//   sprite    ゲーム中の絵 { image: IMAGE_FILES のキー, h: 高さ, ax, ay: 中心の位置 }。null なら drawPlayerBack で描く
+//   shoot(p, g, f)        ショットを撃つ（f は撃ち始めてからのフレーム数）
+//   drawOption(ctx, o, i, t)  オプション（自機のまわりの玉）を描く
+//   focusLaser            低速時にオプションから貫通しないレーザーを出すか（fireLasers）
+//   makeBomb(p) / bombInvuln / bombName   ボムの本体（クラス）・無敵時間・名前
 const PLAYER_TYPES = {
   reimu: {
     speed: 4.5, focusSpeed: 2.0, hitR: 2.2, deathbomb: 15,
+    color: '#7c9cff',
+    portrait: 'reimuBlue',
+    sprite: { image: 'player', h: 30, ax: 0.3, ay: 0.52 },
     shotDesc: ['高速移動：ホーミングアミュレット', '低速移動：パスウェイジョンニードル'],
     bombName: '霊符「夢想封印」',
     desc: '誘導弾で敵を自動で狙う、扱いやすいタイプ。\nボムは画面中の敵を追いかける光の玉。',
+    bombInvuln: 250,
+    makeBomb: p => new FantasySeal(p),
+    focusLaser: false,
+    shoot(p, g, f) {
+      const shots = g.shots;
+      if (f % 4 === 0) {
+        shots.push(new PShot('amulet', p.x - 6, p.y - 10, 0, -16, 1));
+        shots.push(new PShot('amulet', p.x + 6, p.y - 10, 0, -16, 1));
+      }
+      if (p.focused) {
+        if (f % 4 === 0) for (const o of p.opts) shots.push(new PShot('needle', o.x, o.y - 8, 0, -20, 1.8));
+      } else if (f % 8 === 0) {
+        p.opts.forEach((o, i) => {
+          const a = -Math.PI / 2 + (i - (p.opts.length - 1) / 2) * 0.35;
+          shots.push(new PShot('homing', o.x, o.y, Math.cos(a) * 11, Math.sin(a) * 11, 2));
+        });
+      }
+    },
+    drawOption(ctx, o, i, t) { drawYinYang(ctx, o.x, o.y, 6, t * 0.12 * (i % 2 ? 1 : -1)); },
   },
   marisa: {
     speed: 5.0, focusSpeed: 2.2, hitR: 2.4, deathbomb: 12,
+    color: '#ffd860',
+    portrait: 'marisa',
+    sprite: null,
     shotDesc: ['高速移動：マジックミサイル', '低速移動：イリュージョンレーザー'],
     bombName: '恋符「マスタースパーク」',
     desc: '攻撃力と移動速度に優れたパワータイプ。\nボムは前方を焼き払う極太レーザー。',
+    bombInvuln: 270,
+    makeBomb: p => new MasterSpark(p),
+    focusLaser: true,
+    shoot(p, g, f) {
+      const shots = g.shots;
+      if (f % 4 === 0) {
+        shots.push(new PShot('star', p.x - 6, p.y - 10, 0, -17, 1.2));
+        shots.push(new PShot('star', p.x + 6, p.y - 10, 0, -17, 1.2));
+      }
+      if (!p.focused && f % 10 === 0) {
+        p.opts.forEach((o, i) => {
+          const a = -Math.PI / 2 + (i - (p.opts.length - 1) / 2) * 0.14;
+          shots.push(new PShot('missile', o.x, o.y - 6, Math.cos(a) * 6, Math.sin(a) * 6, 4.5));
+        });
+      }
+    },
+    drawOption(ctx, o, i, t) {
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9);
+      g.addColorStop(0, 'rgba(255,255,220,0.95)');
+      g.addColorStop(0.4, 'rgba(120,255,140,0.7)');
+      g.addColorStop(1, 'rgba(60,200,100,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#fff8c0';
+      ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(t * 0.08); starPath(ctx, 4, 1.8); ctx.fill(); ctx.restore();
+    },
   },
 };
+// 自機のIDの一覧（キャラクター選択の並び順）
+const PLAYER_IDS = Object.keys(PLAYER_TYPES);
+
+// ゲーム中の自機の絵。(0, 0) が自機の中心（Player.draw と管理者ページで使う）
+function drawPlayerSprite(ctx, id, t, tilt = 0) {
+  const sp = PLAYER_TYPES[id].sprite;
+  ctx.save();
+  if (sp && Images.get(sp.image)) {
+    ctx.transform(1, 0, -tilt * 0.12, 1, 0, 0); // 移動方向に少し傾ける
+    drawImageSprite(ctx, sp.image, sp.h, sp.ax, sp.ay);
+  } else {
+    // 図形で描く自機（小さめに縮小）
+    ctx.scale(0.65, 0.65);
+    ctx.translate(0, 3);
+    drawPlayerBack(ctx, id, t, tilt);
+  }
+  ctx.restore();
+}
 
 const OPT_LAYOUT = {
   un: [[], [[0, -30]], [[-26, -6], [26, -6]], [[-30, -2], [0, -32], [30, -2]], [[-34, 4], [-16, -24], [16, -24], [34, 4]]],
@@ -360,7 +439,7 @@ class Player {
     if (shooting) this.shoot(g); else this.shotFrame = 0;
     if (Input.pressed('bomb') && g.canShoot()) this.useBomb(g);
     this.updateOptions(g);
-    if (shooting && this.id === 'marisa' && this.focused) this.fireLasers(g);
+    if (shooting && this.type.focusLaser && this.focused) this.fireLasers(g);
   }
 
   updateOptions(g) {
@@ -380,36 +459,10 @@ class Player {
   shoot(g) {
     const f = this.shotFrame++;
     if (f % 5 === 0) Sound.se('shot');
-    const shots = g.shots;
-    if (this.id === 'reimu') {
-      if (f % 4 === 0) {
-        shots.push(new PShot('amulet', this.x - 6, this.y - 10, 0, -16, 1));
-        shots.push(new PShot('amulet', this.x + 6, this.y - 10, 0, -16, 1));
-      }
-      if (this.focused) {
-        if (f % 4 === 0) for (const o of this.opts) shots.push(new PShot('needle', o.x, o.y - 8, 0, -20, 1.8));
-      } else if (f % 8 === 0) {
-        this.opts.forEach((o, i) => {
-          const a = -Math.PI / 2 + (i - (this.opts.length - 1) / 2) * 0.35;
-          const s = new PShot('homing', o.x, o.y, Math.cos(a) * 11, Math.sin(a) * 11, 2);
-          shots.push(s);
-        });
-      }
-    } else {
-      if (f % 4 === 0) {
-        shots.push(new PShot('star', this.x - 6, this.y - 10, 0, -17, 1.2));
-        shots.push(new PShot('star', this.x + 6, this.y - 10, 0, -17, 1.2));
-      }
-      if (!this.focused && f % 10 === 0) {
-        this.opts.forEach((o, i) => {
-          const a = -Math.PI / 2 + (i - (this.opts.length - 1) / 2) * 0.14;
-          shots.push(new PShot('missile', o.x, o.y - 6, Math.cos(a) * 6, Math.sin(a) * 6, 4.5));
-        });
-      }
-    }
+    this.type.shoot(this, g, f);
   }
 
-  // 魔理沙の低速レーザー：一番手前の敵で止まる
+  // 低速時のレーザー（focusLaser の自機）：一番手前の敵で止まる
   fireLasers(g) {
     for (const o of this.opts) {
       let best = null, bestY = -Infinity;
@@ -438,7 +491,7 @@ class Player {
     this.autoBombTimer = 0;
     g.spellFailed = true;
     this.invuln = Math.max(this.invuln, AUTO_BOMB_INTERVAL + 30);
-    this.extraBombs.push(this.id === 'reimu' ? new FantasySeal(this) : new MasterSpark(this));
+    this.extraBombs.push(this.type.makeBomb(this));
     g.showBombName(this.type.bombName);
     Sound.se('bomb');
   }
@@ -448,8 +501,8 @@ class Player {
     g.bombs--;
     g.bombsUsed++;
     g.spellFailed = true;
-    this.invuln = Math.max(this.invuln, this.id === 'reimu' ? 250 : 270);
-    this.bomb = this.id === 'reimu' ? new FantasySeal(this) : new MasterSpark(this);
+    this.invuln = Math.max(this.invuln, this.type.bombInvuln);
+    this.bomb = this.type.makeBomb(this);
     g.showBombName(this.type.bombName);
     g.flash = { color: '255,255,255', a: 0.5 };
     Sound.se('bomb');
@@ -476,23 +529,8 @@ class Player {
     if (!this.visible) return;
     const blink = this.invuln > 0 && (this.frame % 6 < 3);
     // オプション
-    for (let i = 0; i < this.opts.length; i++) {
-      const o = this.opts[i];
-      if (this.id === 'reimu') drawYinYang(ctx, o.x, o.y, 6, this.frame * 0.12 * (i % 2 ? 1 : -1));
-      else {
-        ctx.globalCompositeOperation = 'lighter';
-        const g = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, 9);
-        g.addColorStop(0, 'rgba(255,255,220,0.95)');
-        g.addColorStop(0.4, 'rgba(120,255,140,0.7)');
-        g.addColorStop(1, 'rgba(60,200,100,0)');
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(o.x, o.y, 9, 0, TAU); ctx.fill();
-        ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = '#fff8c0';
-        ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(this.frame * 0.08); starPath(ctx, 4, 1.8); ctx.fill(); ctx.restore();
-      }
-    }
-    // 魔理沙のレーザー
+    this.opts.forEach((o, i) => this.type.drawOption(ctx, o, i, this.frame));
+    // 低速時のレーザー
     if (this.lasers.length) {
       ctx.globalCompositeOperation = 'lighter';
       for (const l of this.lasers) {
@@ -509,16 +547,7 @@ class Player {
     if (blink) ctx.globalAlpha = 0.35;
     ctx.save();
     ctx.translate(this.x, this.y + Math.sin(this.frame * 0.1) * 0.6);
-    if (this.id === 'reimu' && Images.get('player')) {
-      // 霊夢は画像の自機（高さ30px）。移動方向に少し傾ける
-      ctx.transform(1, 0, -this.tilt * 0.12, 1, 0, 0);
-      drawImageSprite(ctx, 'player', 30, 0.3, 0.52);
-    } else {
-      // 図形で描く自機（小さめに縮小）
-      ctx.scale(0.65, 0.65);
-      ctx.translate(0, 3);
-      drawPlayerBack(ctx, this.id, this.frame, this.tilt);
-    }
+    drawPlayerSprite(ctx, this.id, this.frame, this.tilt);
     ctx.restore();
     ctx.globalAlpha = 1;
   }

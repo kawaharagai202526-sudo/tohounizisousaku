@@ -27,12 +27,13 @@ node tools/build-single.js
 はじめに `npm install` で Playwright を入れてください。
 
 ```
-node tools/test.js          # ふつうのテスト（30秒ほど）
+node tools/test.js          # ふつうのテスト（1分ほど）
 node tools/test.js --full   # 自動操縦で全ステージをクリアするテストも行う
 node tools/test.js --dist   # 1ファイル版を対象にする
 ```
 
-`npm run build` / `npm test` でも同じことができます。開発の決まりごとは `CLAUDE.md`、変更の記録は `CHANGELOG.md` にあります。
+`npm run build` / `npm test` でも同じことができます。開発の決まりごとは `CLAUDE.md`、変更の記録は `CHANGELOG.md`、
+ストーリー・キャラクター・弾幕・背景・自機・音楽・名前を入れかえるときの手順は `docs/CONTENT_GUIDE.md` にあります。
 
 | 操作 | キーボード | ゲームパッド | タッチ |
 | --- | --- | --- | --- |
@@ -108,6 +109,7 @@ js/hud.js         画面右のパネルとフィールド内の表示
 js/game.js        ゲーム本編（当たり判定・スコア・ボス戦の進行）
 js/story.js       会話とエンディングの文章
 js/stage1-4.js    各ステージの道中とボスの弾幕
+js/menubg.js      メニュー画面の背景
 js/menus.js       タイトル・各種メニュー・エンディング・リザルト
 js/accounts.js    アカウント（登録・ログイン・スコア保存）とランキング画面
 js/cheats.js      管理者ページから使う機能
@@ -115,12 +117,17 @@ js/main.js        起動とメインループ
 js/admin.js       管理者ページ（画面左上の隠しボタンから開く）
 tools/build-single.js  1ファイル版を作る
 tools/test.js     自動テスト
+tools/make-sprite.py  キャラクターの画像から原画とドット絵を作る（Python）
+docs/CONTENT_GUIDE.md 差し替えガイド
 ```
 
 ## 改造するには
 
 ステージやボスの弾幕はジェネレータ関数で書いてあり、`yield n` で n フレーム待ちます。
 各ステージは道中の `script` とボス戦の `boss` に分かれています。ボスを増やしたら、ステージの `bosses` にも書いてください（管理者ページの一覧とテストが使います）。
+
+作ったボスの攻撃は、URL のうしろに `?boss=ボスのID&phase=何番目&diff=0〜3` を付けて開くと、会話なしですぐ試せます
+（例：`index.html?boss=boss4&phase=3&diff=3`。プラクティス扱いなので記録は残りません）。
 
 ```js
 // スペルカードの例：自機狙いの5方向弾を40フレームごとに撃つ
