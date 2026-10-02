@@ -22,7 +22,7 @@ const FULL = args.includes('--full');
 const DIST = args.includes('--dist');
 const FILTER = args.find(a => !a.startsWith('--'));
 const TARGET = DIST ? path.join(root, 'dist', 'hoshifuru.html') : path.join(root, 'index.html');
-const URL = pathToFileURL(TARGET).href;
+const GAME_URL = pathToFileURL(TARGET).href;
 
 function loadPlaywright() {
   const candidates = ['playwright'];
@@ -38,8 +38,9 @@ function loadPlaywright() {
 function assert(cond, msg) { if (!cond) throw new Error(msg); }
 
 // ゲームを開く。requestAnimationFrame を止めて、テストからフレームを進める（T.step）
-async function openGame(browser, contextOptions = {}, query = '') {
+async function openGame(browser, contextOptions = {}, query = '', setup = null) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, ...contextOptions });
+  if (setup) await setup(context);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(`pageerror: ${e.message}`));
@@ -52,7 +53,7 @@ async function openGame(browser, contextOptions = {}, query = '') {
     const orig = window.requestAnimationFrame.bind(window);
     window.requestAnimationFrame = cb => orig(t => { if (window.__rafPaused) window.requestAnimationFrame(cb); else cb(t); });
   });
-  await page.goto(URL + query);
+  await page.goto(GAME_URL + query);
   // requestAnimationFrame を止めているので、待つときは時間で調べる（polling）
   await page.waitForFunction(() => typeof Game !== 'undefined' && Game.scene, null, { polling: 50 });
   await page.evaluate(() => {
@@ -260,6 +261,106 @@ test('URL の ?stage= / ?boss= でボスの攻撃からすぐ始まる', async (
   } finally { await context.close(); }
 }, { noPage: true });
 
+const { FakeFirebase, ONLINE_TEST } = require('./fake-firebase.js');
+
+test('オンライン：別のブラウザでも同じアカウント・スコア・ランキング', async ({ browser }) => {
+  const fb = new FakeFirebase(ONLINE_TEST);
+  const opened = [];
+  const open = async () => { const g = await openGame(browser, {}, '', ctx => fb.attach(ctx)); opened.push(g); return g.page; };
+  // ゲームを1回遊んだことにする（スコアを決めて終わらせる）
+  const play = (page, score, ch) => page.evaluate(async ([score, ch]) => {
+    Game.setScene(new GameScene({ difficulty: 1, character: ch || PLAYER_IDS[0], stage: 0 }));
+    T.step(3);
+    G.score = score;
+    G.finish('gameover');
+    T.step(3);
+    const rk = G.records.ranking;
+    await OnlineAccounts.refreshing;
+    return rk;
+  }, [score, ch]);
+  try {
+    // ブラウザA：登録して遊ぶ
+    const a = await open();
+    assert(await a.evaluate(() => Accounts.online), 'オンラインの設定が使われていない');
+    let r = await a.evaluate(() => Accounts.register('れいむ', 'reimu123'));
+    assert(r.ok && !r.warning, `登録できない: ${JSON.stringify(r)}`);
+    let rk = await play(a, 123450);
+    assert(rk.saved && rk.online, `記録されない: ${JSON.stringify(rk)}`);
+    assert(fb.player('れいむ') && fb.player('れいむ').best['1'].score === 123450, 'サーバーにスコアが届いていない');
+
+    // ブラウザB（保存データは空）：同じアカウントでログインすると同じスコア
+    const b = await open();
+    r = await b.evaluate(() => Accounts.login('れいむ', 'ちがうパスワード'));
+    assert(r.error === 'ユーザー名かパスワードがちがいます', `まちがったパスワード: ${JSON.stringify(r)}`);
+    r = await b.evaluate(() => Accounts.login('レイム'.normalize('NFKC') && 'れいむ', 'reimu123'));
+    assert(r.ok, `ログインできない: ${JSON.stringify(r)}`);
+    assert((await b.evaluate(() => Accounts.current().best[1].score)) === 123450, '別のブラウザでスコアが見えない');
+    r = await b.evaluate(() => Accounts.register('れいむ', 'reimu999'));
+    assert(r.error === 'そのユーザー名はもう使われています', `同じ名前で登録できてしまう: ${JSON.stringify(r)}`);
+
+    // ブラウザBで別の人が登録して遊ぶと、ブラウザAのランキングにも出る
+    await b.evaluate(() => Accounts.logout());
+    r = await b.evaluate(() => Accounts.register('まりさ', 'marisa123'));
+    assert(r.ok, `2人目を登録できない: ${JSON.stringify(r)}`);
+    await play(b, 500000, 'marisa');
+    const ranking = await a.evaluate(async () => { await Accounts.refresh(); return Accounts.ranking(1).map(x => `${x.name}:${x.score}`); });
+    assert(ranking.join() === 'まりさ:500000,れいむ:123450', `ランキング: ${ranking}`);
+
+    // 通信できないあいだの記録は、つながったときに送る
+    fb.offline = true;
+    rk = await play(a, 777777);
+    const off = await a.evaluate(() => ({ state: OnlineAccounts.state, dirty: OnlineAccounts.me.dirty, text: Accounts.statusText() }));
+    assert(rk.saved && off.state === 'offline' && off.dirty && off.text.includes('オフライン'), `オフライン: ${JSON.stringify(off)}`);
+    fb.offline = false;
+    await a.evaluate(() => Accounts.refresh());
+    assert(fb.player('れいむ').best['1'].score === 777777, 'つながったあとに記録が送られない');
+    assert((await a.evaluate(() => OnlineAccounts.state)) === 'online', 'つながったのにオンラインにならない');
+
+    // ログインのしるしの期限が切れても、取り直して続けられる
+    await a.evaluate(() => { OnlineAccounts.session.expiresAt = 0; });
+    await play(a, 888888);
+    assert(fb.player('れいむ').best['1'].score === 888888, '期限切れのあとに記録が送られない');
+
+    // 管理者：ほかの人の記録を消せる。管理者でない人は消せない
+    r = await b.evaluate(() => Accounts.remove(Accounts.all().find(p => p.name === 'れいむ').key));
+    assert(r && r.includes('管理者のアカウント'), `管理者でないのに消せた: ${r}`);
+    const c = await open();
+    r = await c.evaluate(() => Accounts.register('かんりしゃ', 'admin123'));
+    assert(r.ok && (await c.evaluate(() => OnlineAccounts.isAdmin())), '管理者として登録できない');
+    r = await c.evaluate(() => Accounts.remove(Accounts.all().find(p => p.name === 'まりさ').key));
+    assert(r === null && !fb.player('まりさ'), `管理者が消せない: ${r}`);
+    // 消された人のブラウザは送り直さずにログアウトする
+    await b.evaluate(() => Accounts.refresh());
+    assert(!fb.player('まりさ') && (await b.evaluate(() => Accounts.current())) === null, '消された記録が送り直された');
+
+    // このブラウザだけのアカウントがあれば、同じ名前・パスワードでオンラインに登録したときに記録を移す
+    const d = await open();
+    r = await d.evaluate(async () => {
+      LocalAccounts.register('ろーかる', 'local123');
+      const acc = LocalAccounts.get(Accounts.keyOf('ろーかる'));
+      acc.best = { 1: { score: 4242, diff: 1, char: PLAYER_IDS[0], stage: 2, clear: false, date: 1 } };
+      acc.plays = 3;
+      LocalAccounts.commit();
+      return Accounts.register('ろーかる', 'local123');
+    });
+    assert(r.ok && r.imported && fb.player('ろーかる').best['1'].score === 4242, `このブラウザの記録が移らない: ${JSON.stringify(r)}`);
+
+    // 画面：アカウント画面とランキング画面にオンラインのようすが出る
+    const ui = await a.evaluate(async () => {
+      AccountDialog.open();
+      const text = document.getElementById('accountOverlay').textContent;
+      AccountDialog.close();
+      Game.setScene(new RankingScene());
+      T.step(30);
+      return text;
+    });
+    assert(ui.includes('保存先：インターネット上') && ui.includes('通信：オンライン'), `アカウント画面: ${ui}`);
+    for (const g of opened) assert(!g.errors.length, `エラー: ${g.errors.join('\n')}`);
+  } finally {
+    for (const g of opened) await g.context.close();
+  }
+}, { noPage: true });
+
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');
@@ -309,7 +410,7 @@ test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => 
   const scripts = await page.evaluate(() => document.querySelectorAll('script[src], script[data-file]').length);
   assert(files === scripts, `プログラムのファイル数 ${files}（スクリプト ${scripts}）`);
   // プレイヤー管理
-  await page.evaluate(() => { Accounts.register('テスト1', 'abcd'); Accounts.register('テスト2', 'abcd'); });
+  await page.evaluate(async () => { await Accounts.register('テスト1', 'abcd12'); await Accounts.register('テスト2', 'abcd12'); });
   await page.click('.admin-back');
   await page.click('.admin-menu button:nth-child(4)');
   const rows = await page.$$eval('.admin-table tr', trs => trs.length - 1);
@@ -327,18 +428,18 @@ test('アカウントとランキング', async ({ page }) => {
   assert(await page.evaluate(() => AccountDialog.isOpen && Input.suspended), 'アカウント画面が開かない');
   await page.click('.acct-tab:nth-child(2)');
   await page.fill('.acct-field:nth-of-type(1) input', 'れいむ');
-  await page.fill('.acct-field:nth-of-type(2) input', 'abcd');
-  await page.fill('.acct-field:nth-of-type(3) input', 'abcx');
+  await page.fill('.acct-field:nth-of-type(2) input', 'abcd12');
+  await page.fill('.acct-field:nth-of-type(3) input', 'abcd13');
   await page.keyboard.press('Enter');
   assert((await page.textContent('.acct-msg')).includes('一致しません'), '確認用パスワードのちがいを見つけられない');
-  await page.fill('.acct-field:nth-of-type(3) input', 'abcd');
+  await page.fill('.acct-field:nth-of-type(3) input', 'abcd12');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.acct-welcome');
   const stored = await page.evaluate(() => localStorage.getItem('hoshifuru.accounts'));
-  assert(!stored.includes('abcd'), 'パスワードがそのまま保存されている');
+  assert(!stored.includes('abcd12'), 'パスワードがそのまま保存されている');
   await page.keyboard.press('Escape');
   // 記録の保存のルール
-  const r = await page.evaluate(() => {
+  const r = await page.evaluate(async () => {
     const play = (opts, score, setup) => {
       Game.setScene(new GameScene(opts));
       T.step(3);
@@ -355,13 +456,13 @@ test('アカウントとランキング', async ({ page }) => {
     Cheats.set('lives', true);
     res.keys = play({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }, 999990);
     Cheats.set('lives', false);
-    Accounts.register('まりさ', 'abcd');
+    await Accounts.register('まりさ', 'abcd12');
     res.second = play({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }, 500000);
     Accounts.logout();
     res.guest = play({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }, 999990);
     res.ranking = Accounts.ranking(1).map(x => `${x.name}:${x.score}`);
-    res.badLogin = !!Accounts.login('れいむ', 'zzzz').error;
-    res.goodLogin = !!Accounts.login('れいむ', 'abcd').ok;
+    res.badLogin = !!(await Accounts.login('れいむ', 'zzzzzz')).error;
+    res.goodLogin = !!(await Accounts.login('れいむ', 'abcd12')).ok;
     Game.setScene(new RankingScene()); T.step(30);
     return res;
   });

@@ -256,6 +256,12 @@ const Admin = {
       ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
+      ['アカウントの保存先', Accounts.online ? `オンライン（Firebase：${onlineConfig().projectId}）` : 'このブラウザ'],
+      ['通信のようす', Accounts.statusText()],
+      ...(Accounts.online ? [
+        ['最後に通信できた時刻', OnlineAccounts.lastSync ? formatDate(OnlineAccounts.lastSync, true) : '―'],
+        ['管理者のユーザー名', (onlineConfig().admins || []).join('、') || '未設定'],
+      ] : []),
       ['登録プレイヤー', `${Accounts.all().length}人`],
       ['ログイン中のプレイヤー', Accounts.current() ? Accounts.current().name : 'なし'],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
@@ -290,14 +296,28 @@ const Admin = {
   },
 
   // ---------------- プレイヤー管理 ----------------
-  showPlayers(notice, isError) {
+  // オンラインのときは開くたびに最新の記録を読みこむ（fresh = false なら読みこまない）
+  async showPlayers(notice, isError, fresh = true) {
     const body = this.subPage('プレイヤー管理');
     const status = domEl('p', 'admin-status' + (isError ? ' is-error' : ''), notice || '');
     status.setAttribute('aria-live', 'polite');
     body.append(status);
-    const players = Accounts.all().sort((a, b) => a.created - b.created);
+    if (Accounts.online && fresh) {
+      const loading = domEl('p', 'admin-empty', '最新の記録を読みこんでいます…');
+      body.append(loading);
+      await Accounts.refresh();
+      if (!body.isConnected) return; // 読みこみのあいだにほかのページへ移った
+      loading.remove();
+    }
+    const players = Accounts.all().sort((a, b) => (a.created || 0) - (b.created || 0));
     const me = Accounts.currentKey();
-    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（このブラウザに保存されているアカウント）`));
+    const where = Accounts.online ? `オンライン（Firebase）のアカウント　通信：${Accounts.statusText()}` : 'このブラウザに保存されているアカウント';
+    body.append(domEl('p', 'admin-empty', `登録プレイヤー：${players.length}人（${where}）`));
+    if (Accounts.online) {
+      const admins = (onlineConfig().admins || []).join('、') || '未設定';
+      body.append(domEl('p', 'admin-empty', `スコアのリセットと削除は、管理者のアカウント（${admins}）でログインしているときだけできます。` +
+        'ログイン用の登録そのものは Firebase の管理画面（Authentication）で消せます。パスワードは本人しか変えられません。'));
+    }
     if (!players.length) {
       body.append(domEl('p', 'admin-empty', 'まだプレイヤーはいません。タイトル画面の「アカウント」から登録できます。'));
       return;
@@ -332,12 +352,21 @@ const Admin = {
       foot.textContent = '';
       foot.append(
         domEl('span', 'admin-optext', `${players.length}人のプレイヤーとスコアをすべて削除します。元に戻せません。`),
-        domButton('admin-mini is-danger', '削除する', () => { Accounts.removeAll(); this.showPlayers('全プレイヤーを削除しました'); }),
-        domButton('admin-mini', 'やめる', () => this.showPlayers()),
+        domButton('admin-mini is-danger', '削除する', () => this.playerAction(foot, () => Accounts.removeAll(), '全プレイヤーを削除しました')),
+        domButton('admin-mini', 'やめる', () => this.showPlayers(undefined, false, false)),
       );
     });
     foot.append(all);
     body.append(foot);
+  },
+
+  // 操作を行い、結果を出してページを作り直す（通信するときは「処理中…」にしておく）
+  async playerAction(box, run, okText) {
+    box.textContent = '';
+    box.append(domEl('span', 'admin-optext', '処理中…'));
+    const err = await run();
+    if (this.root.hidden) return;
+    this.showPlayers(err || okText, !!err, false);
   },
 
   // 1人分の操作ボタン（確認やパスワード入力はその場で切り替える）
@@ -348,12 +377,11 @@ const Admin = {
       box.textContent = '';
       box.append(domEl('span', 'admin-optext', text), domButton('admin-mini is-danger', label, run), domButton('admin-mini', 'やめる', reset));
     };
-    box.append(
-      domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット', () => {
-        Accounts.resetScores(a.key);
-        this.showPlayers(`${a.name} のスコアをリセットしました`);
-      })),
-      domButton('admin-mini', 'パスワード変更', () => {
+    box.append(domButton('admin-mini', 'スコアをリセット', () => confirm(`${a.name} のスコアを消しますか？`, 'リセット',
+      () => this.playerAction(box, () => Accounts.resetScores(a.key), `${a.name} のスコアをリセットしました`))));
+    // オンラインのアカウントのパスワードは本人しか変えられない
+    if (Accounts.canSetOthersPassword || a.key === Accounts.currentKey()) {
+      box.append(domButton('admin-mini', 'パスワード変更', () => {
         box.textContent = '';
         const input = domEl('input');
         input.type = 'text';
@@ -361,20 +389,14 @@ const Admin = {
         input.maxLength = PASS_MAX;
         input.autocomplete = 'off';
         input.setAttribute('aria-label', `${a.name} の新しいパスワード`);
-        const save = () => {
-          const err = Accounts.setPassword(a.key, input.value);
-          if (err) this.showPlayers(err, true);
-          else this.showPlayers(`${a.name} のパスワードを変更しました`);
-        };
+        const save = () => this.playerAction(box, () => Accounts.setPassword(a.key, input.value), `${a.name} のパスワードを変更しました`);
         input.addEventListener('keydown', e => { if (e.key === 'Enter') save(); });
         box.append(input, domButton('admin-mini', '保存', save), domButton('admin-mini', 'やめる', reset));
         input.focus();
-      }),
-      domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する', () => {
-        Accounts.remove(a.key);
-        this.showPlayers(`${a.name} を削除しました`);
-      })),
-    );
+      }));
+    }
+    box.append(domButton('admin-mini is-danger', '削除', () => confirm(`${a.name} を削除しますか？`, '削除する',
+      () => this.playerAction(box, () => Accounts.remove(a.key), `${a.name} を削除しました`))));
     return box;
   },
 

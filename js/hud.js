@@ -154,6 +154,10 @@ function drawSidePanel(ctx, g) {
   ctx.fillText(acc ? `プレイヤー：${acc.name}` : 'ゲスト（ログインしていません）', x0, 286, vx - x0);
   ctx.fillStyle = block ? '#ff9aa8' : '#9af0b8';
   ctx.fillText(!block ? 'ランキング対象' : block.short ? `ランキング対象外（${block.short}）` : 'ランキング対象外', x0, 303, vx - x0);
+  if (acc && Accounts.online && OnlineAccounts.state !== 'online' && OnlineAccounts.state !== 'connecting') {
+    ctx.fillStyle = '#ffd27a';
+    ctx.fillText(Accounts.statusText(), x0, 320, vx - x0);
+  }
 
   if (Input.isTouch) {
     if (!Party.active) drawLogo(ctx, 528, 344, 18);

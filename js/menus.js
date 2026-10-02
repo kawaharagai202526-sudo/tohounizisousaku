@@ -149,7 +149,8 @@ class TitleScene {
     ctx.textBaseline = 'middle';
     const acc = Accounts.current();
     ctx.font = `600 13px ${FONT_JP}`;
-    strokeText(ctx, acc ? `プレイヤー：${acc.name}` : 'ゲスト（「アカウント」からログインするとランキングに載ります）', 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
+    const where = Accounts.online ? `（${Accounts.statusText()}）` : '';
+    strokeText(ctx, acc ? `プレイヤー：${acc.name}${where}` : `ゲスト（「アカウント」からログインすると${Accounts.online ? 'オンライン' : ''}ランキングに載ります）`, 16, 416, acc ? '#fff3c8' : '#c8c0e8', 'rgba(10,5,30,0.9)', 3);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
@@ -634,13 +635,18 @@ class ResultScene {
     ctx.font = `700 15px ${FONT_JP}`;
     if (rk.saved) {
       const text = `ランキング（${DIFF_NAMES[rk.diff]}）：${rk.rank}位 / ${rk.total}人` + (rk.best ? '　自己ベスト更新！' : '');
-      strokeText(ctx, text, SCREEN_W / 2, 396, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, text, SCREEN_W / 2, 386, '#9af0b8', 'rgba(0,0,0,0.8)', 3);
+      if (rk.online) {
+        ctx.font = `12px ${FONT_JP}`;
+        ctx.fillStyle = OnlineAccounts.state === 'online' ? 'rgba(220,210,255,0.8)' : '#ff9aa8';
+        ctx.fillText(OnlineAccounts.busy ? '記録を送っています…' : OnlineAccounts.state === 'online' ? 'オンラインのランキングに送りました' : Accounts.statusText(), SCREEN_W / 2, 406);
+      }
     } else {
       strokeText(ctx, rk.reason ? `ランキングには載りません（${rk.reason}）` : 'ランキングには載りません', SCREEN_W / 2, 396, '#c8c0e8', 'rgba(0,0,0,0.8)', 3);
     }
     if (this.newRecord) {
       ctx.font = `800 18px ${FONT_JP}`;
-      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 424, '#ffe070', 'rgba(0,0,0,0.8)', 3);
+      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 432, '#ffe070', 'rgba(0,0,0,0.8)', 3);
     }
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT_JP}`;

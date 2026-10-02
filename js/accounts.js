@@ -1,13 +1,13 @@
 'use strict';
 // ============================================================
 //  アカウント（ユーザー名・パスワード・スコア）とランキング
-//  データはこのブラウザの localStorage に保存する（サーバーは使わない）。
-//  パスワードはそのまま保存せず、ソルトを付けて SHA-256 を繰り返したハッシュだけを保存する。
-//  ※ ブラウザの中のデータなので、本当に大事なパスワードは使わないこと。
+//  Accounts が窓口。オンラインの設定（js/online-config.js）があれば OnlineAccounts（js/online.js、Firebase）、
+//  なければ LocalAccounts（このブラウザの localStorage）にアカウントとスコアを保存する。
+//  LocalAccounts はパスワードをそのまま保存せず、ソルトを付けて SHA-256 を繰り返したハッシュだけを保存する。
 // ============================================================
 
 const NAME_MAX = 12;
-const PASS_MIN = 4;
+const PASS_MIN = 6;   // Firebase の決まりに合わせる
 const PASS_MAX = 32;
 const HASH_ROUNDS = 2000;
 const HISTORY_MAX = 20; // 1人あたり残すプレイ記録の数
@@ -83,12 +83,13 @@ function formatDate(t, withTime = false) {
 function shortCharaName(id) { return CHARA_INFO[id] ? CHARA_INFO[id].name.split(' ').pop() : id; }
 
 // ------------------------------------------------------------
-//  保存データ
+//  このブラウザだけに保存するアカウント
 //  accounts: { [キー]: { name, salt, hash, created, lastLogin, plays,
-//              best: { [難易度]: 記録 }, history: [記録...] } }
-//  記録: { score, diff, char, stage, clear, date }
+//              best: { [難易度]: 記録 }, history: [記録...], migrated } }
+//  記録: { score, diff, char, charName, stage, clear, date }
+//  migrated：オンラインのアカウントに記録を移したもの
 // ------------------------------------------------------------
-const Accounts = {
+const LocalAccounts = {
   db: Store.get('accounts', {}),
   cur: Store.get('currentUser', null),
 
@@ -151,35 +152,8 @@ const Accounts = {
   },
 
   logout() { this.setCurrent(null); },
-
-  // 難易度ごとのランキング（1人1件、そのプレイヤーのベスト）
-  ranking(diff) {
-    return this.all()
-      .filter(a => a.best && a.best[diff])
-      .map(a => ({ key: a.key, name: a.name, ...a.best[diff] }))
-      .sort((x, y) => y.score - x.score || x.date - y.date);
-  },
-  rankOf(key, diff) {
-    const i = this.ranking(diff).findIndex(r => r.key === key);
-    return i < 0 ? null : i + 1;
-  },
-
-  // ゲーム終了時に呼ぶ。ランキングに載せられるプレイかどうかは呼ぶ側で確かめる
-  record(g, kind) {
-    const acc = this.get(g.accountKey);
-    if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
-    if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
-    // charName も残しておく（あとで自機のIDや名前が変わっても、ランキングに当時の名前が出るように）
-    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, charName: shortCharaName(g.charId), stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
-    acc.plays = (acc.plays || 0) + 1;
-    acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
-    acc.best = acc.best || {};
-    const prev = acc.best[DIFF];
-    const best = !prev || entry.score > prev.score;
-    if (best) acc.best[DIFF] = entry;
-    this.commit();
-    return { saved: true, best, diff: DIFF, rank: this.rankOf(g.accountKey, DIFF), total: this.ranking(DIFF).length };
-  },
+  // 記録を書きかえたあとに呼ぶ
+  saved() { this.commit(); },
 
   // ---------- 管理者ページから使う ----------
   remove(key) {
@@ -209,6 +183,94 @@ const Accounts = {
     acc.hash = hashPassword(pw, acc.salt);
     this.commit();
     return null;
+  },
+};
+
+// 難易度ごとのランキング（1人1件、そのプレイヤーのベスト）
+function rankingOf(list, diff) {
+  return list
+    .filter(a => a.best && a.best[diff])
+    .map(a => ({ key: a.key, name: a.name, ...a.best[diff] }))
+    .sort((x, y) => y.score - x.score || x.date - y.date);
+}
+
+// ------------------------------------------------------------
+//  アカウントの窓口（画面やゲームからはこれを使う）
+//  ログイン・登録・管理者の操作は通信することがあるので Promise を返す
+// ------------------------------------------------------------
+const Accounts = {
+  backend: LocalAccounts,
+  get online() { return this.backend === OnlineAccounts; },
+
+  init() {
+    LocalAccounts.init();
+    const cfg = onlineConfig();
+    if (cfg) {
+      this.backend = OnlineAccounts;
+      OnlineAccounts.init(cfg);
+    }
+  },
+
+  keyOf(name) { return LocalAccounts.keyOf(name); },
+  checkName(raw) { return LocalAccounts.checkName(raw); },
+  checkPassword(pw) { return LocalAccounts.checkPassword(pw); },
+
+  currentKey() { return this.backend.currentKey(); },
+  current() { return this.backend.current(); },
+  get(key) { return this.backend.get(key); },
+  all() { return this.backend.all(); },
+  ranking(diff) { return rankingOf(this.all(), diff); },
+  rankOf(key, diff) {
+    const i = this.ranking(diff).findIndex(r => r.key === key);
+    return i < 0 ? null : i + 1;
+  },
+  // 画面に出す、保存先と通信のようす
+  statusText() { return this.online ? OnlineAccounts.statusText() : 'このブラウザに保存'; },
+  // 最新の記録を読み直す（オンラインのときだけ通信する）
+  refresh() { return this.online ? OnlineAccounts.refresh() : Promise.resolve(); },
+
+  async register(rawName, pw) {
+    const { name, error } = this.checkName(rawName);
+    if (error) return { error };
+    const pwError = this.checkPassword(pw);
+    if (pwError) return { error: pwError };
+    return this.backend.register(name, pw);
+  },
+  async login(rawName, pw) {
+    const { name, error } = this.checkName(rawName);
+    if (error) return { error };
+    if (!pw) return { error: 'パスワードを入力してください' };
+    return this.backend.login(name, pw);
+  },
+  logout() { this.backend.logout(); },
+
+  // ゲーム終了時に呼ぶ。ランキングに載せられるプレイかどうかは呼ぶ側（GameScene.rankBlock）で確かめる
+  record(g, kind) {
+    if (this.online && g.accountKey !== this.currentKey()) return { saved: false, reason: 'ログインし直したため' };
+    const acc = this.get(g.accountKey);
+    if (!acc) return { saved: false, reason: 'アカウントが見つからないため' };
+    if (g.score <= 0) return { saved: false, reason: 'スコアが0のため' };
+    // charName も残しておく（あとで自機のIDや名前が変わっても、ランキングに当時の名前が出るように）
+    const entry = { score: Math.floor(g.score), diff: DIFF, char: g.charId, charName: shortCharaName(g.charId), stage: g.stageIndex + 1, clear: kind === 'clear', date: Date.now() };
+    acc.plays = (acc.plays || 0) + 1;
+    acc.history = [entry, ...(acc.history || [])].slice(0, HISTORY_MAX);
+    acc.best = acc.best || {};
+    const prev = acc.best[DIFF];
+    const best = !prev || entry.score > prev.score;
+    if (best) acc.best[DIFF] = entry;
+    this.backend.saved(g.accountKey);
+    return { saved: true, best, diff: DIFF, rank: this.rankOf(g.accountKey, DIFF), total: this.ranking(DIFF).length, online: this.online };
+  },
+
+  // ---------- 管理者ページから使う（うまくいかなければ理由の文章を返す） ----------
+  get canSetOthersPassword() { return !this.online; },
+  async remove(key) { return (await this.backend.remove(key)) || null; },
+  async removeAll() { return (await this.backend.removeAll()) || null; },
+  async resetScores(key) { return (await this.backend.resetScores(key)) || null; },
+  async setPassword(key, pw) {
+    const err = this.checkPassword(pw);
+    if (err) return err;
+    return (await this.backend.setPassword(key, pw)) || null;
   },
 };
 Accounts.init();
@@ -273,8 +335,8 @@ const AccountDialog = {
     return p;
   },
 
-  render(welcome) {
-    if (Accounts.current()) this.renderUser(welcome);
+  render(welcome, warning) {
+    if (Accounts.current()) this.renderUser(welcome, warning);
     else this.renderForm();
   },
 
@@ -311,15 +373,30 @@ const AccountDialog = {
     const submit = domEl('button', 'admin-btn acct-submit', reg ? '登録してログイン' : 'ログイン');
     submit.type = 'submit';
     form.append(msg, submit);
-    form.addEventListener('submit', e => {
+    let busy = false;
+    form.addEventListener('submit', async e => {
       e.preventDefault();
+      if (busy) return;
       if (reg && pass.value !== pass2.value) return this.fail(msg, form, 'パスワード（確認）が一致しません');
-      const r = reg ? Accounts.register(name.value, pass.value) : Accounts.login(name.value, pass.value);
+      // オンラインのときは通信するので、終わるまで入力できないようにする
+      busy = true;
+      for (const el of form.elements) el.disabled = true;
+      msg.className = 'admin-msg acct-msg';
+      msg.textContent = Accounts.online ? '通信中…' : '';
+      const r = reg ? await Accounts.register(name.value, pass.value) : await Accounts.login(name.value, pass.value);
+      busy = false;
+      if (this.root.hidden) return;
+      for (const el of form.elements) el.disabled = false;
       if (r.error) return this.fail(msg, form, r.error);
       Sound.se('ok');
-      this.render(reg ? `登録しました。ようこそ、${r.name} さん` : `おかえりなさい、${r.name} さん`);
+      let text = reg ? `登録しました。ようこそ、${r.name} さん` : `おかえりなさい、${r.name} さん`;
+      if (r.imported) text += '（このブラウザの記録もオンラインに移しました）';
+      this.render(text, r.warning);
     });
-    p.append(tabs, form, domEl('p', 'acct-note', 'アカウントとスコアはこのブラウザの中に保存されます。ほかのサイトで使っているパスワードは使わないでください。'));
+    p.append(tabs, form, domEl('p', 'acct-note', Accounts.online
+      ? 'アカウントとスコアはインターネット上（Firebase）に保存されます。どのブラウザ・端末からでも、同じユーザー名とパスワードでログインできます。ほかのサイトで使っているパスワードは使わないでください。'
+      : 'アカウントとスコアはこのブラウザの中に保存されます。ほかのサイトで使っているパスワードは使わないでください。'));
+    if (Accounts.online) p.append(domEl('p', 'acct-note', `通信：${Accounts.statusText()}`));
     setTimeout(() => name.focus(), 0);
   },
 
@@ -332,11 +409,18 @@ const AccountDialog = {
     Sound.se('cancel');
   },
 
-  renderUser(welcome) {
+  renderUser(welcome, warning, fresh = true) {
     const p = this.panel();
     const key = Accounts.currentKey();
     const acc = Accounts.get(key);
     if (welcome) p.append(domEl('p', 'acct-welcome', welcome));
+    if (warning) p.append(domEl('p', 'admin-msg acct-msg is-error', warning));
+    // オンラインのときは開いたときに最新の記録を読み直し、表示を作り直す
+    if (Accounts.online && fresh) {
+      Accounts.refresh().then(() => {
+        if (!this.root.hidden && p.isConnected && Accounts.current()) this.renderUser(welcome, warning, false);
+      });
+    }
     const who = domEl('p', 'acct-who');
     who.append(domEl('span', '', 'ログイン中のプレイヤー'), domEl('strong', 'acct-name', acc.name));
     p.append(who);
@@ -353,6 +437,7 @@ const AccountDialog = {
     });
     p.append(t, domEl('p', 'acct-note', `プレイ回数：${acc.plays || 0}回　登録日：${formatDate(acc.created)}`));
     p.append(domEl('p', 'acct-note', 'コンティニューしたプレイとプラクティスは記録されません。'));
+    p.append(domEl('p', 'acct-note', Accounts.online ? `保存先：インターネット上（Firebase）　通信：${Accounts.statusText()}` : '保存先：このブラウザ'));
     const row = domEl('div', 'acct-row');
     row.append(
       domButton('admin-btn acct-submit', 'ログアウト', () => { Accounts.logout(); Sound.se('cancel'); this.tab = 'login'; this.renderForm(); }),
@@ -376,6 +461,7 @@ class RankingScene {
     this.frame = 0;
     this.list = Accounts.ranking(this.diff);
   }
+  enter() { Accounts.refresh(); }
   tabRect(i) { return { x: 80 + i * 122, y: 88, w: 114, h: 30 }; }
   update() {
     this.frame++;
@@ -386,7 +472,8 @@ class RankingScene {
       const r = this.tabRect(i);
       if (Input.tapIn(r.x, r.y, r.w, r.h) && this.diff !== i) { this.diff = i; Sound.se('cursor'); }
     }
-    if (this.diff !== before || this.frame % 60 === 0) {
+    if (Accounts.online && this.frame % Math.round(ONLINE_REFRESH_MS / (1000 / 60)) === 0) Accounts.refresh();
+    if (this.diff !== before || this.frame % 30 === 0) {
       if (this.diff !== before) this.scroll = 0;
       this.list = Accounts.ranking(this.diff);
     }
@@ -402,7 +489,14 @@ class RankingScene {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(6,4,20,0.7)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, 'ランキング', 'Ranking');
+    drawHeading(ctx, Accounts.online ? 'オンラインランキング' : 'ランキング', 'Ranking');
+    // 保存先と通信のようす
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.font = `11px ${FONT_JP}`;
+    ctx.fillStyle = Accounts.online && OnlineAccounts.state !== 'online' && OnlineAccounts.state !== 'connecting' ? '#ff9aa8' : 'rgba(220,210,255,0.8)';
+    const sync = Accounts.online && OnlineAccounts.lastSync ? `　最終更新 ${new Date(OnlineAccounts.lastSync).toLocaleTimeString('ja-JP')}` : '';
+    ctx.fillText(Accounts.online ? `${Accounts.statusText()}${sync}` : 'このブラウザのランキング', SCREEN_W - 14, 18, 360);
     ctx.textBaseline = 'middle';
     // 難易度のタブ
     for (let i = 0; i < 4; i++) {
@@ -484,7 +578,7 @@ class RankingScene {
     ctx.font = `600 14px ${FONT_JP}`;
     const acc = Accounts.current();
     let mine;
-    if (!acc) mine = 'ログインしていません（タイトルの「アカウント」からログインできます）';
+    if (!acc) mine = Accounts.online ? 'ログインするとランキングに参加できます（タイトルの「アカウント」から）' : 'ログインしていません（タイトルの「アカウント」からログインできます）';
     else {
       const rank = Accounts.rankOf(me, this.diff);
       mine = rank ? `${acc.name} さんの順位：${rank}位 / ${list.length}人` : `${acc.name} さんは ${DIFF_NAMES[this.diff]} の記録がまだありません`;

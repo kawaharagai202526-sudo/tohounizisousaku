@@ -16,6 +16,19 @@
 - もらった画像から原画とドット絵を作るのは `python3 tools/make-sprite.py 画像 名前`
 - 内容を入れかえても、管理者ページ・アカウント・ランキング・キーはそのまま動く（自機やボスの一覧はデータから自動で作る）
 
+## オンラインのアカウント・ランキング（Firebase）
+
+ユーザーの希望：**claude.ai を使わない人も参加できる**、ブラウザが変わっても消えない共有ランキング。
+
+- `js/online-config.js` に `apiKey`・`projectId`・`admins`（管理者のユーザー名）を書くとオンラインになる。空ならこのブラウザだけ（LocalAccounts）
+- ユーザーが Firebase を準備する手順は `docs/ONLINE_SETUP.md`。**ユーザーから apiKey・projectId・管理者名をもらったら**、
+  `js/online-config.js` に書き、`node tools/firestore-rules.js` でルールを作り直して、ユーザーに `firebase/firestore.rules` を貼ってもらう
+- しくみ：`js/online.js`（ライブラリなしで Firebase のウェブ API を fetch で呼ぶ）。ログインは Authentication（ユーザー名から作った
+  `p<ハッシュ>@hoshifuru.example.com`）、記録は Firestore の `players/<ユーザーID>`。画面やゲームからは `Accounts`（js/accounts.js）を通す
+- 記録の形（`recordBody`）を変えたら、`tools/firestore-rules.js` の `validPlayer` と `tools/fake-firebase.js` の `validPlayer` も直す
+- テストは `tools/fake-firebase.js`（にせものの Firebase）を使う。本物の Firebase には、ここ（作業環境）からはつなげない
+- claude.ai の共有ページの中では外と通信できない可能性がある。オンラインで遊ぶ人には1ファイル版か、ふつうの Web ページで配る
+
 ## 変更したら必ずやること
 
 1. `node tools/test.js` … ブラウザで実際に動かすテスト（1分ほど）。大きな変更なら `--full` も（全面の自動クリア）
@@ -56,14 +69,16 @@
 | 曲 | js/music.js | `SONGS`（MML とコード進行）、`MUSIC_ROOM` |
 | ゲームの名前 | js/util.js `GAME_INFO` | タイトル・ロゴ・ブラウザのタブ（index.html の `<title>` と README にも同じ名前） |
 | メニューの背景 | js/menubg.js `MenuBG` | タイトルなどのメニュー画面で共有する背景 |
-| アカウント・ランキング | js/accounts.js | `Accounts`（保存）、`AccountDialog`（HTMLの画面）、`RankingScene` |
+| アカウント・ランキング | js/accounts.js | `Accounts`（窓口）、`LocalAccounts`（このブラウザ）、`AccountDialog`（HTMLの画面）、`RankingScene` |
+| オンライン | js/online.js / js/online-config.js | `OnlineAccounts`（Firebase）。設定が空なら使われない |
 | 管理者ページ | js/admin.js | 画面左上の隠しボタン → PIN → キー入力 → 管理者ページ |
 | キー（特別な機能） | js/cheats.js | `CHEAT_KEYS`（キーの一覧と説明）、`Cheats.on`、`Party`（キーの演出の一つ） |
 
 ### 保存データ（localStorage、頭に `hoshifuru.` が付く）
 
 `hi_{難易度}_{キャラ}`（ハイスコア）、`spells`（スペルカード履歴）、`lives` `bgmVol` `seVol` `muted` `lastDiff` `lastChar`（設定）、
-`accounts` `currentUser`（アカウント）、`adminLock` `adminFails`（管理者ページのPIN）、`saveVersion`（保存データの形式）。
+`accounts` `currentUser`（このブラウザだけのアカウント）、`onlineSession` `onlineMe` `onlinePlayers`（オンラインのログインと記録の控え）、
+`adminLock` `adminFails`（管理者ページのPIN）、`saveVersion`（保存データの形式）。
 
 保存データの形を変えるときは、`js/util.js` の `SAVE_VERSION` を上げて `migrateSave()` に古い形からの変換を書く。
 変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる。
@@ -100,6 +115,7 @@
   タイトル・ゲーム中・リザルトなどには、キーを使ったことも理由も出さない。README などの文書にもキーの一覧や説明は書かない
   （説明はコードの `CHEAT_KEYS` にだけある）
 - ランキングに載らない（スコアも保存しない）のは：キーを使ったプレイ、コンティニューしたプレイ、プラクティス、ログインしていないプレイ
+- ランキングは claude.ai を使わない人も参加できるオンライン（Firebase）にする
 - ユーザーが「5面」と言ったときは4面（最後の面）のことだった
 
 ## まだできていないこと
