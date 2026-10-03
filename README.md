@@ -10,3 +10,4 @@
 - [化物屋敷異変 会話集](docs/bakemono_yashiki_dialogue.md)（[PDF](docs/pdf/bakemono_yashiki_dialogue.pdf)） — 1〜6面とExtraの戦闘前・戦闘後の会話、各10パターン
 - [化物屋敷異変 キャラクター資料](docs/bakemono_yashiki_characters.md)（[PDF](docs/pdf/bakemono_yashiki_characters.pdf)） — ボス7人の行動・役割、種族、会話シーン、元ネタ、能力（名前は未定のため記載なし）
 - [化物屋敷異変 セリフ決定稿](docs/bakemono_yashiki_script_final.md)（[PDF](docs/pdf/bakemono_yashiki_script_final.pdf)） — 霊夢ルート・魔理沙ルートの1〜6面とExtraの採用セリフ
+- [化物屋敷異変 スペルカード・弾幕案](docs/bakemono_yashiki_spellcards.md)（[PDF](docs/pdf/bakemono_yashiki_spellcards.pdf)） — ボス7人の通常弾幕とスペルカード
