@@ -13,3 +13,4 @@
 - [化物屋敷異変 スペルカード・弾幕案](docs/bakemono_yashiki_spellcards.md)（[PDF](docs/pdf/bakemono_yashiki_spellcards.pdf)） — ボス7人の通常弾幕とスペルカード
 - [化物屋敷異変 キャラクター名前案](docs/bakemono_yashiki_names.md)（[PDF](docs/pdf/bakemono_yashiki_names.pdf)） — ボス7人の名前案、各60個（計420個）とおすすめ3
 - [化物屋敷異変 キャラクター名前案（漢字版）](docs/bakemono_yashiki_names_kanji.md)（[PDF](docs/pdf/bakemono_yashiki_names_kanji.pdf)） — 名前案60個から30個ずつ選び、下の名前も漢字にした版（計210個）
+- [化物屋敷異変 二つ名案](docs/bakemono_yashiki_epithets.md)（[PDF](docs/pdf/bakemono_yashiki_epithets.pdf)） — ボス7人の二つ名案、各30個（計210個）とおすすめ3
