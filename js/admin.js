@@ -7,7 +7,7 @@
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
 
-const ADMIN_PIN = '114514';
+const ADMIN_PIN = '114514810';
 const ADMIN_MAX_TRIES = 3;               // この回数まちがえると
 const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
 
@@ -87,7 +87,7 @@ const Admin = {
     const p = this.panel('admin-square');
     p.append(domEl('h2', 'admin-title', 'PINを入力'));
     const box = domEl('label', 'admin-pinbox');
-    const slots = domEl('div', 'admin-slots', '______');
+    const slots = domEl('div', 'admin-slots', '_'.repeat(ADMIN_PIN.length));
     const input = domEl('input', 'admin-pininput');
     input.id = 'adminPin';
     input.type = 'password';

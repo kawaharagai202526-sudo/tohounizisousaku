@@ -59,7 +59,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.2.0';
+const GAME_VERSION = '1.2.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;

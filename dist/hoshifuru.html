@@ -180,9 +180,9 @@
   .admin-pinbox:focus-within { box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.6); }
   .admin-slots {
     font-family: ui-monospace, Menlo, Consolas, monospace;
-    font-size: 30px;
-    letter-spacing: 0.38em;
-    padding-left: 0.38em;
+    font-size: 26px;
+    letter-spacing: 0.26em;
+    padding-left: 0.26em;
   }
   .admin-pininput {
     position: absolute;
@@ -422,7 +422,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.2.0';
+const GAME_VERSION = '1.2.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
 let DIFF = 1;
@@ -8326,7 +8326,7 @@ else bootGame();
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
 
-const ADMIN_PIN = '114514';
+const ADMIN_PIN = '114514810';
 const ADMIN_MAX_TRIES = 3;               // この回数まちがえると
 const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
 
@@ -8406,7 +8406,7 @@ const Admin = {
     const p = this.panel('admin-square');
     p.append(domEl('h2', 'admin-title', 'PINを入力'));
     const box = domEl('label', 'admin-pinbox');
-    const slots = domEl('div', 'admin-slots', '______');
+    const slots = domEl('div', 'admin-slots', '_'.repeat(ADMIN_PIN.length));
     const input = domEl('input', 'admin-pininput');
     input.id = 'adminPin';
     input.type = 'password';

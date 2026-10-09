@@ -264,13 +264,15 @@ test('URL の ?stage= / ?boss= でボスの攻撃からすぐ始まる', async (
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');
-  // 3回まちがえるとロック
-  for (let i = 0; i < 3; i++) { await page.focus('#adminPin'); await page.keyboard.type('123456'); }
+  // 3回まちがえるとロック（まちがいのPINは、正しいPINの1けた目を変えたもの）
+  const pin = await page.evaluate(() => ADMIN_PIN);
+  const wrong = (pin[0] === '9' ? '0' : '9') + pin.slice(1);
+  for (let i = 0; i < 3; i++) { await page.focus('#adminPin'); await page.keyboard.type(wrong); }
   assert(await page.evaluate(() => document.getElementById('adminPin').disabled), 'PINを3回まちがえてもロックされない');
   await page.evaluate(() => { localStorage.removeItem('hoshifuru.adminLock'); Admin.memLock = 0; });
   await page.waitForFunction(() => !document.getElementById('adminPin').disabled, null, { polling: 100, timeout: 3000 });
   await page.focus('#adminPin');
-  await page.keyboard.type('114514');
+  await page.keyboard.type(pin);
   await page.waitForSelector('#adminKey');
   const key = async ch => { await page.focus('#adminKey'); await page.keyboard.type(ch); return page.evaluate(() => ({ msg: document.querySelector('.admin-keymsg').textContent, all: Cheats.allOn(), any: Cheats.anyOn() })); };
   let k = await key('f');
