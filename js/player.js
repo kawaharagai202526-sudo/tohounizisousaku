@@ -5,8 +5,8 @@
 
 // 自機の種類。自機を変える・増やすときはここを書きかえる（名前と肩書きは CHARA_INFO、会話は STORY）
 //   speed / focusSpeed  移動の速さ（高速 / 低速）     hitR  当たり判定の半径     deathbomb  喰らいボムの猶予（フレーム）
-//   color     キャラクター選択・ランキングでの色       portrait  キャラクター選択とエンディングの絵（CHARA_INFO のID）
-//   sprite    ゲーム中の絵 { image: IMAGE_FILES のキー, h: 高さ, ax, ay: 中心の位置 }。null なら drawPlayerBack で描く
+//   color     キャラクター選択での色       portrait  キャラクター選択・ボムのカットイン・エンディングの絵（CHARA_INFO のID）
+//   sprite    ゲーム中の絵 { image: IMAGE_FILES のキー, h: 高さ, ax, ay: 当たり判定の中心の位置（0〜1） }。null なら drawPlayerBack で描く
 //   shoot(p, g, f)        ショットを撃つ（f は撃ち始めてからのフレーム数）
 //   drawOption(ctx, o, i, t)  オプション（自機のまわりの玉）を描く
 //   focusLaser            低速時にオプションから貫通しないレーザーを出すか（fireLasers）
@@ -15,7 +15,7 @@ const PLAYER_TYPES = {
   reimu: {
     speed: 4.5, focusSpeed: 2.0, hitR: 2.2, deathbomb: 15,
     color: '#7c9cff',
-    portrait: 'reimuBlue',
+    portrait: 'reimu',
     sprite: { image: 'player', h: 30, ax: 0.3, ay: 0.52 },
     shotDesc: ['高速移動：ホーミングアミュレット', '低速移動：パスウェイジョンニードル'],
     bombName: '霊符「夢想封印」',
@@ -44,7 +44,7 @@ const PLAYER_TYPES = {
     speed: 5.0, focusSpeed: 2.2, hitR: 2.4, deathbomb: 12,
     color: '#ffd860',
     portrait: 'marisa',
-    sprite: null,
+    sprite: { image: 'marisaPlayer', h: 30, ax: 0.58, ay: 0.5 },
     shotDesc: ['高速移動：マジックミサイル', '低速移動：イリュージョンレーザー'],
     bombName: '恋符「マスタースパーク」',
     desc: '攻撃力と移動速度に優れたパワータイプ。\nボムは前方を焼き払う極太レーザー。',

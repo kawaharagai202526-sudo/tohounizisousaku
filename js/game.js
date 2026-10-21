@@ -3,11 +3,22 @@
 //  ゲーム本編シーン
 // ============================================================
 
+// 本編の面（js/stage1.js〜 が STAGES.push で1面ずつ足す）
 const STAGES = [];
+// 本編の面の数。STAGES にまだ書いていない面は「準備中」になり、いまある最後の面をクリアするとエンディングになる
+const MAIN_STAGE_COUNT = 6;
+// エキストラステージ。本編の面と同じ形で EXTRA_STAGES.push({ ... }) と書く（まだ作っていない）。
+// 難易度は Extra（EXTRA_DIFF）で、コンティニューはできない
+const EXTRA_STAGES = [];
+// エキストラステージが遊べるようになる条件。本編の最後の面（MAIN_STAGE_COUNT 面）をクリアしたときに調べる
+//   minDiff：この難易度以上（1 = Normal）  noContinue：コンティニューしていない
+//   練習（プラクティス）や管理者ページのキーを使ったプレイでは解放しない
+const EXTRA_UNLOCK = { minDiff: 1, noContinue: true };
 const EXTEND_POINTS = [50, 125, 250, 400, 600];
 const Settings = { lives: Store.get('lives', 3) };
-const PRACTICE_POWER = [100, 250, 400, 400]; // プラクティス開始時の霊力
-const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'bigfairy']);
+const PRACTICE_POWER = [100, 250, 400, 400, 400, 400]; // プラクティス開始時の霊力（面ごと）
+const EXTRA_POWER = 400;                               // エキストラステージ開始時の霊力
+const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bigfairy']);
 
 // スペルカード取得履歴
 const SpellHistory = {
@@ -25,23 +36,41 @@ const SpellHistory = {
 
 let G = null;
 
+// 本編とエキストラの、いま遊べるすべての面（管理者ページ・ボスの攻撃を試す機能・テストが使う）
+//   { st: 面のデータ, i: その一覧での番号, extra: エキストラか, label: 'Stage 1' / 'Extra Stage', short: '1面' / 'Extra' }
+function allStages() {
+  return [
+    ...STAGES.map((st, i) => ({ st, i, extra: false, label: `Stage ${i + 1}`, short: `${i + 1}面` })),
+    ...EXTRA_STAGES.map((st, i) => ({ st, i, extra: true, label: 'Extra Stage', short: 'Extra' })),
+  ];
+}
+// エキストラステージを遊べるか（解放ずみで、面のデータもある）
+function extraPlayable() { return EXTRA_STAGES.length > 0 && Store.get('extraUnlocked', false); }
+
 // 開発用：ボスの攻撃をすぐ試す（プラクティス扱いなので記録されない）
 //   startBossTest({ boss: 'boss4', phase: 3, diff: 3, char: 'marisa', only: true })
-//   boss: ボスのID（STAGES の bosses）。省略すると stage（1〜）の面のボス
+//   boss: ボスのID（STAGES・EXTRA_STAGES の bosses）。省略すると stage（1〜、'extra' でエキストラ）の面のボス
 //   phase: 何番目の攻撃から始めるか（1〜。その難易度で出る攻撃だけを数える）  only: その攻撃だけで終わる
 //   URL に ?boss=boss4&phase=3&diff=3&char=marisa&only=1 を付けて開いても同じ（js/main.js）
+//   エキストラの面がまだないのに stage: 'extra' を指定したときは何もしない（false を返す）
 function startBossTest(o = {}) {
-  let stage = o.stage ? o.stage - 1 : STAGES.findIndex(st => (st.bosses || []).some(b => b.id === o.boss));
-  if (!STAGES[stage]) stage = 0;
-  const list = STAGES[stage].bosses;
-  const meta = list.find(b => b.id === o.boss) || list.filter(b => !b.mid).pop();
+  const hasBoss = st => (st.bosses || []).some(b => b.id === o.boss);
+  const extra = o.stage === 'extra' || (!o.stage && !STAGES.some(hasBoss) && EXTRA_STAGES.some(hasBoss));
+  const list = extra ? EXTRA_STAGES : STAGES;
+  let stage = extra ? Math.max(0, list.findIndex(hasBoss)) : o.stage ? o.stage - 1 : list.findIndex(hasBoss);
+  if (!list[stage]) stage = 0;
+  if (!list[stage]) return false;
+  const bosses = list[stage].bosses;
+  const meta = bosses.find(b => b.id === o.boss) || bosses.filter(b => !b.mid).pop();
   Game.setScene(new GameScene({
-    difficulty: clamp(Number.isFinite(o.diff) ? o.diff : 1, 0, 3),
+    difficulty: extra ? EXTRA_DIFF : clamp(Number.isFinite(o.diff) ? o.diff : 1, 0, 3),
     character: PLAYER_TYPES[o.char] ? o.char : PLAYER_IDS[0],
     stage,
+    extra,
     practice: true,
     bossTest: { id: meta.id, phase: Math.max(1, o.phase || 1), only: !!o.only },
   }));
+  return true;
 }
 
 class GameScene {
@@ -52,6 +81,9 @@ class GameScene {
     this.opts = opts;
     this.charId = opts.character;
     this.practice = !!opts.practice;
+    this.extra = !!opts.extra;                // エキストラステージ
+    this.stages = this.extra ? EXTRA_STAGES : STAGES;
+    this.extraUnlockedNow = false;            // このプレイでエキストラステージが遊べるようになったか
     this.score = 0;
     this.hiKey = `hi_${DIFF}_${this.charId}`;
     this.hiScore = Math.max(Store.get(this.hiKey, 0), 1000000);
@@ -59,7 +91,7 @@ class GameScene {
     this.lives = this.initialLives;
     this.bombs = 3;
     const startStage = opts.stage || 0;
-    this.power = this.practice ? PRACTICE_POWER[startStage] : 100;
+    this.power = this.extra ? EXTRA_POWER : this.practice ? PRACTICE_POWER[startStage] : 100;
     this.graze = 0;
     this.pointItems = 0;
     this.extendIdx = 0;
@@ -113,9 +145,13 @@ class GameScene {
     this.tasks = new TaskRunner();
   }
 
+  // 面の番号（スコアのボーナスに使う。エキストラは本編の最後の面の次）と、画面に出す名前
+  get stageNo() { return this.extra ? MAIN_STAGE_COUNT + 1 : this.stageIndex + 1; }
+  get stageLabel() { return this.extra ? 'Extra Stage' : `Stage ${this.stageIndex + 1}`; }
+
   startStage(i) {
     this.stageIndex = i;
-    this.stage = STAGES[i];
+    this.stage = this.stages[i];
     this.resetStageState();
     this.bg = new this.stage.bg();
     this.stageFrame = 0;
@@ -180,22 +216,40 @@ class GameScene {
     this.bullets.cancelAll(true);
     for (const it of this.items) it.auto = true;
     yield 60;
-    const bonus = (this.stageIndex + 1) * 1000000 + this.power * 1000 + this.graze * 500;
+    const bonus = this.stageNo * 1000000 + this.power * 1000 + this.graze * 500;
     this.score += bonus;
     this.clearInfo = { bonus, frame: 0 };
     Sound.se('bonus');
     yield 240;
     this.clearInfo = null;
     if (this.practice) this.finish('practice');
-    else if (this.stageIndex >= STAGES.length - 1) this.finish('clear');
-    else this.pendingStage = this.stageIndex + 1;
+    else if (this.stageIndex < this.stages.length - 1) this.pendingStage = this.stageIndex + 1;
+    else if (this.extra) this.finish('extra');
+    else {
+      this.unlockExtra();
+      this.finish('clear');
+    }
   }
 
+  // kind：'clear'（本編クリア → エンディング）/ 'extra'（エキストラクリア）/ 'gameover' / 'practice'
   finish(kind) {
     this.saveHiScore();
     Sound.stopBgm(1.5);
     if (kind === 'clear') Game.setScene(new EndingScene(this));
     else Game.setScene(new ResultScene(this, kind));
+  }
+
+  // 本編をクリアしたとき：条件（EXTRA_UNLOCK）を満たしていれば、エキストラステージを遊べるようにする。
+  // 本編の面が MAIN_STAGE_COUNT 面そろうまでは、最後までクリアしても解放しない
+  unlockExtra() {
+    const ok = !this.extra && !this.practice && !this.cheat && !this.usedKeys
+      && this.stageIndex + 1 >= MAIN_STAGE_COUNT
+      && DIFF >= EXTRA_UNLOCK.minDiff
+      && !(EXTRA_UNLOCK.noContinue && this.continues > 0);
+    if (!ok) return false;
+    this.extraUnlockedNow = !Store.get('extraUnlocked', false);
+    Store.set('extraUnlocked', true);
+    return true;
   }
 
   // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティスは保存しない）。更新したら true
@@ -459,6 +513,8 @@ class GameScene {
   }
 
   onOutOfLives() {
+    // エキストラステージはコンティニューできない
+    if (this.extra) { this.finish('gameover'); return; }
     this.continueMenu = { sel: 0, frame: 0 };
     Sound.se('pause');
   }
@@ -564,7 +620,7 @@ class GameScene {
     boss.untouchable = !!ph.survival;
     boss.invincible = spell ? 60 : 30;
     this.spellFailed = false;
-    const base = ph.bonus ?? (this.stageIndex + 1) * 1000000 + index * 200000;
+    const base = ph.bonus ?? this.stageNo * 1000000 + index * 200000;
     if (spell) {
       this.spellsSeen++;
       this.spellBonus = base;
@@ -661,6 +717,7 @@ class GameScene {
       drawSpellBG(ctx, this.lastSpellBg, this.frame);
       ctx.globalAlpha = 1;
     }
+    drawPlayerCutin(ctx, this);
     if (this.boss) this.boss.draw(ctx);
     for (const e of this.enemies) e.draw(ctx);
     for (const it of this.items) it.draw(ctx);

@@ -3,11 +3,11 @@
 //  敵弾・レーザー
 // ============================================================
 
-// 全体の難しさの調整（Easy / Normal / Hard / Lunatic）
+// 全体の難しさの調整（Easy / Normal / Hard / Lunatic / Extra）
 // 敵弾の移動速度と、リング弾（全方位弾）の数にこの倍率を掛ける
 // さらにステージごとの倍率（STAGES の speedScale / densityScale）も掛かる
-const BULLET_SPEED_SCALE = [0.78, 0.86, 1.0, 1.12];
-const RING_DENSITY_SCALE = [0.72, 0.8, 1.05, 1.25];
+const BULLET_SPEED_SCALE = [0.78, 0.86, 1.0, 1.12, 1.12];
+const RING_DENSITY_SCALE = [0.72, 0.8, 1.05, 1.25, 1.25];
 function bulletSpeedK() { return BULLET_SPEED_SCALE[DIFF] * ((G && G.stage && G.stage.speedScale) || 1); }
 function ringDensityK() { return RING_DENSITY_SCALE[DIFF] * ((G && G.stage && G.stage.densityScale) || 1); }
 

@@ -59,13 +59,15 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.2.1';
+const GAME_VERSION = '1.3.0';
 
-// 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic
+// 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
-const DIFF_NAMES = ['Easy', 'Normal', 'Hard', 'Lunatic'];
-const DIFF_COLORS = ['#7cf29a', '#7cc8ff', '#ffb35c', '#ff6fd8'];
-function dv(e, n, h, l) { return [e, n, h, l][DIFF]; }
+const DIFF_NAMES = ['Easy', 'Normal', 'Hard', 'Lunatic', 'Extra'];
+const DIFF_COLORS = ['#7cf29a', '#7cc8ff', '#ffb35c', '#ff6fd8', '#c99cff'];
+const EXTRA_DIFF = 4;
+// 難易度ごとの値。5つ目はエキストラの値で、書かなければ Lunatic と同じ
+function dv(e, n, h, l, x = l) { return [e, n, h, l, x][DIFF]; }
 
 // localStorage は使えない環境もあるので必ず try で包む
 const Store = {

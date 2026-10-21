@@ -256,6 +256,7 @@ const Admin = {
       ['初期残機', Settings.lives],
       ['最後に選んだ難易度', DIFF_NAMES[Store.get('lastDiff', 1)]],
       ['最後に選んだキャラクター', name(Store.get('lastChar', PLAYER_IDS[0]))],
+      ['エキストラステージ', (Store.get('extraUnlocked', false) ? '解放ずみ' : '未解放') + (EXTRA_STAGES.length ? '' : '（面はまだない）')],
       ['ゲームの版', GAME_VERSION],
       ['保存データの形式', `${Store.get('saveVersion', 0)}（最新：${SAVE_VERSION}）`],
       ['使用中のキー', Cheats.activeLetters() || 'なし'],
@@ -270,9 +271,13 @@ const Admin = {
       ]);
 
     body.append(domEl('h3', 'admin-group', 'ゲームのデータ'));
-    this.table(body, 'ステージ', ['面', '名前', '英語名', 'BGM'],
-      STAGES.map((s, i) => [`Stage ${i + 1}`, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm]));
-    const bosses = STAGES.flatMap((st, i) => (st.bosses || []).map(b => [`${i + 1}面${b.mid ? ' 中ボス' : ''}`, b.id, b.phases]));
+    // 本編は MAIN_STAGE_COUNT 面、そのあとにエキストラ。まだない面は「準備中」
+    const stageRow = (label, s) => (s ? [label, s.name, s.nameEn, SONGS[s.bgm] ? SONGS[s.bgm].title : s.bgm] : [label, '（準備中）', '―', '―']);
+    this.table(body, `ステージ（本編 ${MAIN_STAGE_COUNT} 面 ＋ エキストラ）`, ['面', '名前', '英語名', 'BGM'], [
+      ...Array.from({ length: MAIN_STAGE_COUNT }, (_, i) => stageRow(`Stage ${i + 1}`, STAGES[i])),
+      stageRow('Extra Stage', EXTRA_STAGES[0]),
+    ]);
+    const bosses = allStages().flatMap(({ st, short }) => (st.bosses || []).map(b => [`${short}${b.mid ? ' 中ボス' : ''}`, b.id, b.phases]));
     const rows = [];
     for (const [where, id, phases] of bosses) {
       phases.forEach((ph, i) => rows.push([
@@ -314,23 +319,26 @@ const Admin = {
     const bossPreview = (id, def) => (CHARA_INFO[id] && CHARA_INFO[id].image
       ? (CHARA_INFO[id].dot ? imageChara(id) : image(CHARA_INFO[id].image, 0, 0, 120))
       : chibi(id, 0, 16, 2, def && def.pose));
+    // 自機の絵：原画（CHARA_INFO の image）があればそれを、なければキャンバスで描く絵
+    const portrait = (id, x) => (CHARA_INFO[id] && CHARA_INFO[id].image ? image(CHARA_INFO[id].image, x, 0, 124) : chibi(id, x, 16, 1.8));
     const groups = [
       ['自機', PLAYER_IDS.map(id => ({
         ...info(id), note: '右はゲーム中の自機',
-        draw: both(chibi(PLAYER_TYPES[id].portrait || id, -30, 16, 1.8), at(46, 8, 1.8, crisp((c, t) => drawPlayerSprite(c, id, t)))),
+        draw: both(portrait(PLAYER_TYPES[id].portrait || id, -30), at(46, 8, 1.8, crisp((c, t) => drawPlayerSprite(c, id, t)))),
       }))],
-      ['ボス・中ボス', STAGES.flatMap((st, i) => (st.bosses || []).map(b => ({
+      ['ボス・中ボス', allStages().flatMap(({ st, short }) => (st.bosses || []).map(b => ({
         ...info(b.id),
-        note: `${i + 1}面${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot ? '（右はゲーム中のドット絵）' : ''),
+        note: `${short}${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot ? '（右はゲーム中のドット絵）' : ''),
         draw: bossPreview(b.id, b.def),
       })))],
       ['ザコ・その他', [
         { name: '？？？', title: '1面の中ボス', note: '1面中ボス（ザコと同じしくみで動く）', draw: image('midboss1', 0, 0, 120) },
-        { name: '妖精', title: '', note: '1〜4面', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
-        { name: '大妖精（ザコ）', title: '', note: '1〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
+        { name: '妖精', title: '', note: '1・2面（3面以降は一つ目の手の絵）', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
+        { name: '大妖精（ザコ）', title: '', note: '2〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
         { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },
         { name: '足の妖精', title: '', note: '各面でいちばん弱い妖精', draw: image('footFairy', 0, 0, 110) },
-        { name: '緑の手', title: '', note: '2面以降', draw: image('hand', 0, 0, 100) },
+        { name: '緑の手', title: '', note: '2面（3面以降は一つ目の手の絵）', draw: image('hand', 0, 0, 100) },
+        { name: '一つ目の手', title: '', note: '3面以降の道中のザコ', draw: image('handEye', 0, 0, 104) },
         { name: '青い蝶', title: '', note: '4面（弾は撃たない）', draw: at(0, 0, 3, (c, t) => drawBlueButterfly(c, 4 + t, 0, -Math.PI / 2)) },
         { name: '回転する星', title: '', note: '道中（一撃で倒せる）', draw: at(0, 0, 2.6, (c, t) => { const s = BTYPES.bigstar.size; c.rotate(t * 0.05); c.drawImage(getBulletSprite('bigstar', 'yellow'), -s / 2, -s / 2, s, s); }) },
         { name: '水晶', title: '', note: '4面の壁', draw: at(-6, 0, 2.4, (c, t) => drawCrystal(c, t, 1)) },

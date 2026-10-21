@@ -45,10 +45,11 @@
 | メインループ | js/main.js `Game` | `update()`（1/60秒ごと）と `draw()`。画面は `Game.setScene(シーン)` で切り替える |
 | シーン | menus.js / game.js | `update()`・`draw(ctx)` と、あれば `enter()`・`exit()` を持つクラス |
 | ゲーム本編 | js/game.js `GameScene` | 当たり判定・スコア・ボス戦。実行中のものはグローバル変数 `G` |
-| ステージ | js/stage1〜4.js | `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })`。`script` は道中、`boss` はボス戦。`bosses` はその面のボスの一覧（攻撃・曲・見た目） |
+| ステージ | js/stage1〜4.js | `STAGES.push({ name, nameEn, bg, bgm, bosses, zako, *script(g), *boss(g) })`。`script` は道中、`boss` はボス戦。`bosses` はその面のボスの一覧（攻撃・曲・見た目）、`zako` は道中のザコの絵 |
+| 面の数・エキストラ | js/game.js | `MAIN_STAGE_COUNT`（本編6面。ない面は「準備中」）、`EXTRA_STAGES`（まだ空）、`EXTRA_UNLOCK`（解放の条件）、`allStages()`（本編＋エキストラの一覧） |
 | コルーチン | js/util.js `TaskRunner` | ジェネレータ関数で書き、`yield n` で n フレーム待つ |
 | ボス | game.js `spawnStageBoss` / `fight` / `bossDown` | 攻撃は `{ type: 'non' か 'spell', name, hp, time, survival, minDiff, *script(b, g) }` の配列。`startBossTest` ですぐ試せる |
-| 弾 | js/bullets.js | `fire` / `fireRing` / `fireFan`。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)` |
+| 弾 | js/bullets.js | `fire` / `fireRing` / `fireFan`。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)`（5つ目に書けば Extra の値） |
 | 自機 | js/player.js `PLAYER_TYPES` | 速さ・当たり判定・色・絵・ショット・オプション・ボムを1人ずつまとめてある。`PLAYER_IDS` が並び順 |
 | キャラクターの絵 | js/characters.js | `CHARA_INFO`（名前・肩書き・画像）、`CHARA` と `drawChibi`（キャンバスで描く絵） |
 | 画像 | js/images.js `IMAGE_FILES` | `img/` のPNG。読み込み前は `Images.get()` が null なので、描く側で代わりを用意する |
@@ -62,14 +63,16 @@
 ### 保存データ（localStorage、頭に `hoshifuru.` が付く）
 
 `hi_{難易度}_{キャラ}`（ハイスコア）、`spells`（スペルカード履歴）、`lives` `bgmVol` `seVol` `muted` `lastDiff` `lastChar`（設定）、
-`adminLock` `adminFails`（管理者ページのPIN）、`saveVersion`（保存データの形式。2 でアカウントの記録を消した）。
+`adminLock` `adminFails`（管理者ページのPIN）、`extraUnlocked`（エキストラステージを解放したか）、
+`saveVersion`（保存データの形式。2 でアカウントの記録を消した）。エキストラのハイスコアは難易度 4 として `hi_4_{キャラ}`。
 
 保存データの形を変えるときは、`js/util.js` の `SAVE_VERSION` を上げて `migrateSave()` に古い形からの変換を書く。
 変換しないと、前の版で遊んでいた人のスコアや設定が読めなくなる。
 
 ## 何かを足すときに一緒に直すところ
 
-- **ステージ・ボス**：`STAGES` の `bosses`（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う）、`STORY`、`README.md` のステージ表
+- **ステージ・ボス**：`STAGES` の `bosses`（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う）、`STORY`、`README.md` のステージ表。
+  5面・6面・エキストラの足し方は `docs/CONTENT_GUIDE.md` の「面の数とエキストラステージ」
 - **自機**：`PLAYER_TYPES`、`CHARA_INFO`、全ステージの `STORY` と `ENDINGS`（書き忘れはテストが見つける）
 - **キャラクター**：`CHARA_INFO`（絵は `CHARA` か画像）。管理者ページの一覧は自動で出る（ザコだけ `showCharacters()` に手で書く）
 - **画像**：`img/` に置いて `IMAGE_FILES` に登録（背景は透明にする）。README の画像の一覧
@@ -84,10 +87,14 @@
 
 ### 今の内容について
 
-- 霊夢はゲーム中は `img/player.png`（小さいドット絵）。キャラクター選択の霊夢は自機に合わせて青
+- 霊夢はゲーム中は `img/player.png`（小さいドット絵）。キャラクター選択・ボムのカットイン・会話・エンディングは原画 `img/reimu.png`（青い霊夢）
+- 魔理沙はゲーム中は `img/marisa_player.png`（ほうきに乗った後ろ姿）、キャラクター選択などは原画 `img/marisa.png`（赤い服の魔理沙）
+- ボムを使うと自機の原画のカットインが出る（1.3.0 で追加。敵や弾の下にうすく描く）
 - 魔理沙のマスタースパークの範囲は紅魔郷基準（上へ扇状に広がる）
 - 3面・4面のボスと3面中ボスは、ゲーム中はドット絵、スペルカードのカットインと会話は原画（ドット絵にしない）
+- 2面の中ボスは提供画像のキャラクター（1.3.0 で大妖精から変えた。名前は未定で「？？？」、攻撃は大妖精のまま）
 - 3面ボスは「羊宮 ラム」、4面ボスは「瑠璃」。4面の中ボスはスターサファイア
+- 3面以降の道中のザコ（妖精と緑の手）は「一つ目の手」の絵（`zako: 'handEye'`）。2面の緑の手と足の妖精はそのまま
 - 道中の大きな星の弾は使わない（スペルカードは別）。かわりに一撃で倒せる回転する星の敵を出す
 - 全体の難易度は低め。Hard と Lunatic（特に Lunatic）と4面は高め
 
@@ -100,10 +107,15 @@
   （説明はコードの `CHEAT_KEYS` にだけある）
 - アカウント・ランキングは作らない（一度作ったが、ユーザーの希望で 1.2.0 で完全に消した）
 - ハイスコアを保存しないのは：キーを使ったプレイ、コンティニューしたプレイ、プラクティス
-- ユーザーが「5面」と言ったときは4面（最後の面）のことだった
+- ユーザーが「5面」と言ったときは4面（最後の面）のことだった（1.3.0 より前の話。いまは本編6面の予定）
+- 本編は全6面＋エキストラステージ（1.3.0 でしくみだけ作った。5面・6面・エキストラの中身はまだ）。
+  エキストラは「Normal 以上・コンティニューなしで本編（6面）をクリア」で解放。ユーザーの言葉は
+  「ノーマル難易度でかつコンプリートせずにクリアした場合のみ解放」で、「コンプリート」はコンティニューのことと解釈した。
+  Normal だけに限るなら `EXTRA_UNLOCK` を変える（ユーザーに確認していない）
 
 ## まだできていないこと
 
-- 3面の会話（ボス戦の前後）、3面中ボスの名前（いまは「？？？」）
+- 5面・6面・エキストラステージの中身（しくみはある。足し方は `docs/CONTENT_GUIDE.md`）
+- 3面の会話（ボス戦の前後）、2面中ボス・3面中ボスの名前（いまは「？？？」）
 - 3面・4面のスペルカード名と曲名は仮
 - エンディングの文章はまだ4面（瑠璃）の内容に合わせていない（スターサファイアの話のまま）

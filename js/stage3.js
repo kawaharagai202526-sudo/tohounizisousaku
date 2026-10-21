@@ -210,6 +210,7 @@ STAGES.push({
   nameEn: 'The Great Tree beneath the Falling Stars',
   bg: SkyBG,
   bgm: 'stage3',
+  zako: 'handEye', // 道中の妖精と緑の手は「一つ目の手」の絵にする
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [

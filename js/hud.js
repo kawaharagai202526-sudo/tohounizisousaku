@@ -270,7 +270,27 @@ function drawCutin(ctx, g) {
   drawPortrait(ctx, c.id, x + 100, 250, 4.2, 'smug', f);
   ctx.restore();
 }
-const CHARA_CUTIN_COLOR = { rumia: '120,20,60', cirno: '60,140,255', star: '90,90,230', daiyousei: '60,200,110', boss3: '200,150,190', boss4: '40,80,220', midboss3: '200,90,160' };
+const CHARA_CUTIN_COLOR = { rumia: '120,20,60', cirno: '60,140,255', star: '90,90,230', midboss2: '70,70,150', boss3: '200,150,190', boss4: '40,80,220', midboss3: '200,90,160' };
+
+// 自機のボムのカットイン。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が左下から上がってくる。
+// 敵や弾の下にうすく描くので、よけるじゃまにはならない
+function drawPlayerCutin(ctx, g) {
+  const bn = g.bombName;
+  if (!bn || bn.frame >= 100) return;
+  const f = bn.frame;
+  const a = f < 12 ? f / 12 : f > 64 ? Math.max(0, (100 - f) / 36) : 1;
+  const y = lerp(FIELD_H + 160, FIELD_H - 150, Ease.outCubic(Math.min(1, f / 26))) - Math.max(0, f - 26) * 0.6;
+  const pt = PLAYER_TYPES[g.charId];
+  ctx.save();
+  ctx.globalAlpha = a * 0.22;
+  ctx.fillStyle = pt.color;
+  ctx.beginPath();
+  ctx.moveTo(0, FIELD_H - 330); ctx.lineTo(FIELD_W, FIELD_H - 250); ctx.lineTo(FIELD_W, FIELD_H - 60); ctx.lineTo(0, FIELD_H - 140); ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = a * 0.65;
+  drawPortrait(ctx, pt.portrait || g.charId, 120, y, 5.2, 'smug', f);
+  ctx.restore();
+}
 
 function drawStageTitle(ctx, g) {
   const st = g.stageTitle;
@@ -281,7 +301,7 @@ function drawStageTitle(ctx, g) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.font = `italic 700 30px ${FONT_EN}`;
-  strokeText(ctx, `Stage ${g.stageIndex + 1}`, FIELD_W / 2, 150, '#ffffff', 'rgba(40,20,90,0.9)', 4);
+  strokeText(ctx, g.stageLabel, FIELD_W / 2, 150, '#ffffff', 'rgba(40,20,90,0.9)', 4);
   ctx.font = `700 22px ${FONT_JP}`;
   strokeText(ctx, g.stage.name, FIELD_W / 2, 188, '#ffe8b0', 'rgba(40,20,90,0.9)', 4);
   ctx.font = `italic 600 15px ${FONT_EN}`;

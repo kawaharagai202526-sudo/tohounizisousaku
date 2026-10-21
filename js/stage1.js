@@ -110,7 +110,7 @@ function* zigzag(n, color = 'blue', bcolor = 'cyan', type = 'rice') {
   }
 }
 
-// 緑の手（2面以降の道中のザコ）。降りてきて、5本の指に合わせて5方向の弾を撃つ
+// 緑の手（道中のザコ。3面以降は面の zako の絵になる）。降りてきて、5本の指に合わせて5方向の弾を撃つ
 function handEnemy(x, o = {}) {
   return spawnEnemy({
     x, y: -20, kind: 'hand', hp: o.hp ?? 24, r: 14, color: 'green', score: 2000, drops: { power: 2, point: 1 },

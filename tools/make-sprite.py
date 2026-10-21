@@ -9,6 +9,9 @@
   python3 tools/make-sprite.py 画像ファイル 名前 [オプション]
 
   --crop x0,y0,x1,y1  画像の一部だけ使う（ピクセルで指定）
+  --mask x0,y0,x1,y1  その範囲を白でぬりつぶしてから切り抜く（お絵かきアプリのボタンなどを消す。何回でも書ける）
+                      座標は --crop する前の元の画像のもの
+  --fade 60           絵が切り抜く範囲のふちで切れているとき（胸から上の絵など）、そのふちを 60px かけて透明にする
   --art 440           原画の高さ（0 なら原画を作らない）
   --dot 78            ドット絵の高さ（0 ならドット絵を作らない）。ボスは 72〜82 くらい
   --dark 0.28         ドット絵で線画を残す強さ（小さいほど線が太く残る）
@@ -61,6 +64,21 @@ def drop_specks(alpha, min_area=40):
     sizes = ndimage.sum(np.ones_like(alpha), lab, range(1, n + 1))
     keep = np.isin(lab, [i + 1 for i, s in enumerate(sizes) if s >= min_area])
     return np.where(keep, alpha, 0.0)
+
+
+def fade_edges(alpha, px):
+    """絵が画像のふちで切れている辺を、px ピクセルかけてなめらかに透明にする"""
+    h, w = alpha.shape
+    ramp = lambda n: np.clip(np.arange(n) / px, 0, 1)
+    if (alpha[-1] > 0.5).any():
+        alpha = alpha * ramp(h)[::-1, None]
+    if (alpha[0] > 0.5).any():
+        alpha = alpha * ramp(h)[:, None]
+    if (alpha[:, 0] > 0.5).any():
+        alpha = alpha * ramp(w)[None, :]
+    if (alpha[:, -1] > 0.5).any():
+        alpha = alpha * ramp(w)[None, ::-1]
+    return alpha
 
 
 def crop_rgba(rgb, alpha, pad=4):
@@ -125,6 +143,8 @@ def main():
     ap.add_argument('src', help='元の画像ファイル')
     ap.add_argument('name', help='出力する名前（img/<名前>.png と img/<名前>_dot.png）')
     ap.add_argument('--crop', help='x0,y0,x1,y1')
+    ap.add_argument('--mask', action='append', default=[], help='x0,y0,x1,y1（白でぬりつぶす範囲）')
+    ap.add_argument('--fade', type=int, default=0)
     ap.add_argument('--art', type=int, default=440)
     ap.add_argument('--dot', type=int, default=78)
     ap.add_argument('--dark', type=float, default=0.28)
@@ -135,6 +155,11 @@ def main():
     o = ap.parse_args()
 
     src = Image.open(o.src)
+    if o.mask:
+        src = src.convert('RGB')
+        for m in o.mask:
+            x0, y0, x1, y1 = (int(v) for v in m.split(','))
+            src.paste((255, 255, 255), (x0, y0, x1, y1))
     if o.crop:
         x0, y0, x1, y1 = (int(v) for v in o.crop.split(','))
         src = src.crop((x0, y0, x1, y1))
@@ -144,7 +169,10 @@ def main():
     else:
         rgb = np.array(src.convert('RGB')).astype(float)
         alpha = cutout(rgb)
-    full = crop_rgba(rgb, drop_specks(alpha))
+    alpha = drop_specks(alpha)
+    if o.fade:
+        alpha = fade_edges(alpha, o.fade)
+    full = crop_rgba(rgb, alpha)
     os.makedirs(o.out, exist_ok=True)
     if o.art:
         art = resize(full, o.art)

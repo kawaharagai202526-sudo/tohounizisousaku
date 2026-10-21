@@ -4,15 +4,16 @@
 //  原点は胴体の中心。頭の中心は (0,-18)、全高はおよそ 56px。
 // ============================================================
 
+// image：カットイン・立ち絵用の原画（IMAGE_FILES のキー）、dot：ゲーム中のドット絵。
+// image がないキャラクターは CHARA の設定でキャンバスに描く。未定の名前・二つ名は「？？？」
 const CHARA_INFO = {
-  reimu: { name: '博麗 霊夢', title: '楽園の素敵な巫女', color: '#ff5a6a' },
-  marisa: { name: '霧雨 魔理沙', title: '普通の魔法使い', color: '#ffd860' },
+  // 自機（ゲーム中の絵は PLAYER_TYPES の sprite）
+  reimu: { name: '博麗 霊夢', title: '楽園の素敵な巫女', color: '#ff5a6a', image: 'reimu' },
+  marisa: { name: '霧雨 魔理沙', title: '普通の魔法使い', color: '#ffd860', image: 'marisa' },
   rumia: { name: 'ルーミア', title: '宵闇の妖怪', color: '#ffe070' },
-  daiyousei: { name: '大妖精', title: '湖に棲む妖精', color: '#7ae08a' },
+  midboss2: { name: '？？？', title: '？？？', color: '#9aa0d8', image: 'midboss2', dot: 'midboss2Dot' },
   cirno: { name: 'チルノ', title: '湖上の氷精', color: '#7ad0ff' },
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
-  // 提供画像のキャラクター（未定の名前・二つ名は「？？？」）
-  // image：カットイン・立ち絵用の原画、dot：ゲーム中のドット絵
   boss3: { name: '羊宮 ラム', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
   midboss3: { name: '？？？', title: '？？？', color: '#f4a8d8', image: 'midboss3', dot: 'midboss3Dot' },
   boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
@@ -40,23 +41,11 @@ const CHARA = {
     back: 'short', dress: '#3572e6', top: '#3572e6', trim: '#ffffff', collar: '#ffffff', neck: '#e02838',
     sleeve: 'puff', legs: '#ffffff', shoes: '#28408a', acc: 'bigBow', wings: 'ice',
   },
-  daiyousei: {
-    skin: '#ffeee4', hair: '#5ccf6e', hairDark: '#3ea850', hairHi: '#c0f5c8', eye: '#2f8c44',
-    back: 'sidetail', dress: '#3a62cc', top: '#3a62cc', trim: '#ffffff', collar: '#ffffff', neck: '#f2d23a',
-    sleeve: 'puff', legs: '#ffffff', shoes: '#28408a', acc: 'yellowBow', wings: 'fairy',
-  },
   star: {
     skin: '#ffeee4', hair: '#2c2640', hairDark: '#1c182c', hairHi: '#6a5c9a', eye: '#3a5ed6',
     back: 'longStraight', dress: '#2a4cc4', top: '#2a4cc4', trim: '#ffffff', collar: '#ffffff', neck: '#f2d23a',
     sleeve: 'puff', legs: '#ffffff', shoes: '#1c2a6a', acc: 'starRibbon', wings: 'fairy',
   },
-};
-
-// キャラクター選択で使う、ゲーム中の自機（青い霊夢）に合わせた配色
-CHARA.reimuBlue = {
-  ...CHARA.reimu,
-  hair: '#3a3846', hairDark: '#26242e', hairHi: '#8a8ca0',
-  dress: '#5b7fd8', top: '#5b7fd8', accent: '#4a6cd0', eye: '#4a5cb8',
 };
 
 function ell(ctx, x, y, rx, ry, rot = 0) {

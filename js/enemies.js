@@ -3,12 +3,17 @@
 //  ザコ敵・ボス
 // ============================================================
 
+// 面ごとのザコの見た目：STAGES に zako: '種類' を書くと、その面の妖精と緑の手がその種類の絵になる
+const ZAKO_KINDS = new Set(['fairy', 'hand']);
+
 class Enemy {
   constructor(o) {
     this.x = o.x;
     this.y = o.y;
     this.hp = this.maxHp = o.hp ?? 12;
     this.kind = o.kind || 'fairy';
+    const zako = G && G.stage && G.stage.zako;
+    if (zako && ZAKO_KINDS.has(this.kind)) this.kind = zako;
     this.color = o.color || 'blue';
     this.r = o.r ?? (this.kind === 'bigfairy' ? 18 : this.kind === 'kedama' ? 10 : 12);
     this.speed = o.speed || 0;
@@ -101,6 +106,12 @@ class Enemy {
       case 'hand':
         ctx.rotate(Math.sin(this.frame * 0.08 + this.phase) * 0.15);
         if (!drawImageSprite(ctx, 'hand', 34)) drawFairy(ctx, 'green', this.frame, false);
+        break;
+      case 'handEye':
+        // 一つ目の手（3面以降のザコ）。ゆらゆら揺れながら少し伸び縮みする
+        ctx.rotate(Math.sin(this.frame * 0.08 + this.phase) * 0.18);
+        ctx.scale(1, 1 + Math.sin(this.frame * 0.15 + this.phase) * 0.04);
+        if (!drawImageSprite(ctx, 'handEye', 30)) drawFairy(ctx, 'green', this.frame, false);
         break;
       default: drawFairy(ctx, this.color, this.frame, false);
     }

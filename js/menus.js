@@ -14,10 +14,10 @@ function drawMenuList(ctx, items, sel, x, y, gap, o = {}) {
     ctx.font = `${on ? 700 : 500} ${o.size || 19}px ${FONT_JP}`;
     ctx.textAlign = o.align || 'left';
     const px = x + (on ? (o.shift ?? 10) : 0);
-    const col = disabled ? '#5a5478' : on ? '#fff3c8' : '#a8a0cc';
+    const col = disabled ? (on ? '#8c86ac' : '#5a5478') : on ? '#fff3c8' : '#a8a0cc';
     if (on) {
       ctx.save();
-      ctx.shadowColor = 'rgba(255,220,140,0.9)';
+      ctx.shadowColor = disabled ? 'rgba(0,0,0,0)' : 'rgba(255,220,140,0.9)';
       ctx.shadowBlur = 10;
       strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3);
       ctx.restore();
@@ -82,6 +82,7 @@ function drawHeading(ctx, text, en) {
 // ------------------------------------------------------------
 const TITLE_ITEMS = [
   { id: 'start', label: 'ゲームスタート' },
+  { id: 'extra', label: 'エキストラスタート' }, // 遊べないあいだは暗く表示して、選んでも始まらない（extraPlayable）
   { id: 'practice', label: 'プラクティス' },
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
@@ -93,9 +94,9 @@ class TitleScene {
   constructor(sel = 0) {
     this.sel = typeof sel === 'string' ? Math.max(0, TITLE_ITEMS.findIndex(it => it.id === sel)) : sel;
     this.frame = 0;
-    this.items = TITLE_ITEMS.map(it => it.label);
     this.rects = [];
   }
+  get items() { return TITLE_ITEMS.map(it => ({ label: it.label, disabled: it.id === 'extra' && !extraPlayable() })); }
   enter() { Sound.playBgm('title'); }
   update() {
     this.frame++;
@@ -104,9 +105,11 @@ class TitleScene {
     const tap = menuTapIndex(this.rects);
     if (tap >= 0) this.sel = tap;
     if ((Input.pressed('shot') || tap >= 0) && this.frame > 10) {
+      if (this.items[this.sel].disabled) { Sound.se('cancel'); return; }
       Sound.se('ok');
       switch (TITLE_ITEMS[this.sel].id) {
         case 'start': Game.setScene(new DifficultyScene('game')); break;
+        case 'extra': Game.setScene(new CharacterScene('extra', EXTRA_DIFF)); break;
         case 'practice': Game.setScene(new DifficultyScene('practice')); break;
         case 'music': Game.setScene(new MusicRoomScene()); break;
         case 'manual': Game.setScene(new ManualScene()); break;
@@ -146,11 +149,23 @@ class TitleScene {
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.75)';
     ctx.fillText(Input.isTouch ? 'タップで選択' : '↑↓：選択　Z：決定　X：戻る　M：ミュート', 16, 440);
+    if (TITLE_ITEMS[this.sel].id === 'extra' && !extraPlayable()) {
+      ctx.textAlign = 'right';
+      ctx.fillStyle = 'rgba(255,230,170,0.9)';
+      ctx.fillText(extraLockedText(), SCREEN_W - 16, 440);
+    }
     ctx.textAlign = 'center';
     ctx.font = `11px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(200,190,240,0.7)';
     ctx.fillText('本作品は上海アリス幻樂団「東方Project」の二次創作です。公式とは関係ありません。', SCREEN_W / 2, 466);
   }
+}
+
+// エキストラスタートを選んだときに出す説明（遊べないとき）
+function extraLockedText() {
+  if (!EXTRA_STAGES.length) return 'エキストラステージは準備中です';
+  const d = EXTRA_UNLOCK.minDiff;
+  return `${DIFF_NAMES[d]}${d < 3 ? ' 以上' : ''}${EXTRA_UNLOCK.noContinue ? '・コンティニューなし' : ''}で本編をクリアすると遊べます`;
 }
 
 // ------------------------------------------------------------
@@ -245,17 +260,19 @@ class CharacterScene {
       const id = this.ids[this.sel];
       Store.set('lastChar', id);
       if (this.mode === 'practice') Game.setScene(new StageSelectScene(this.diff, id));
+      else if (this.mode === 'extra') Game.setScene(new GameScene({ difficulty: EXTRA_DIFF, character: id, stage: 0, extra: true }));
       else Game.setScene(new GameScene({ difficulty: this.diff, character: id, stage: 0 }));
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new DifficultyScene(this.mode));
+      // エキストラは難易度選択を通らないので、タイトルへ戻る
+      Game.setScene(this.mode === 'extra' ? new TitleScene('extra') : new DifficultyScene(this.mode));
     }
   }
   draw(ctx) {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, 'キャラクター選択', 'Select Player');
+    drawHeading(ctx, this.mode === 'extra' ? 'キャラクター選択（エキストラ）' : 'キャラクター選択', 'Select Player');
     this.ids.forEach((id, i) => {
       const on = i === this.sel;
       const { x, y, w, h } = charaPanelRect(i, this.ids.length);
@@ -299,6 +316,7 @@ class CharacterScene {
 
 // ------------------------------------------------------------
 //  プラクティスのステージ選択
+//  本編の MAIN_STAGE_COUNT 面を並べる。まだ STAGES にない面は「準備中」で選べない
 // ------------------------------------------------------------
 class StageSelectScene {
   constructor(diff, charId) {
@@ -311,10 +329,11 @@ class StageSelectScene {
   update() {
     this.frame++;
     menuBG().update();
-    this.sel = menuMove(this.sel, STAGES.length);
+    this.sel = menuMove(this.sel, MAIN_STAGE_COUNT);
     const tap = menuTapIndex(this.rects);
     if (tap >= 0) this.sel = tap;
     if ((Input.pressed('shot') || tap >= 0) && this.frame > 8) {
+      if (!STAGES[this.sel]) { Sound.se('cancel'); return; }
       Sound.se('ok');
       Game.setScene(new GameScene({ difficulty: this.diff, character: this.charId, stage: this.sel, practice: true }));
     } else if (backPressed()) {
@@ -327,16 +346,18 @@ class StageSelectScene {
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     drawHeading(ctx, 'ステージ選択', 'Stage Practice');
-    const items = STAGES.map((s, i) => `Stage ${i + 1}　${s.name}`);
-    this.rects = drawMenuList(ctx, items, this.sel, 200, 160, 60, { size: 22, hitW: 340 });
+    const items = Array.from({ length: MAIN_STAGE_COUNT }, (_, i) => (STAGES[i]
+      ? `Stage ${i + 1}　${STAGES[i].name}`
+      : { label: `Stage ${i + 1}　（準備中）`, disabled: true }));
+    this.rects = drawMenuList(ctx, items, this.sel, 200, 116, 42, { size: 21, hitW: 340 });
     const st = STAGES[this.sel];
     ctx.textAlign = 'center';
     ctx.font = `italic 600 16px ${FONT_EN}`;
     ctx.fillStyle = '#d8c89a';
-    ctx.fillText(st.nameEn, SCREEN_W / 2, 360);
+    ctx.fillText(st ? st.nameEn : 'Coming soon', SCREEN_W / 2, 384);
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = '#c8c0e8';
-    ctx.fillText(`開始時の霊力：${(PRACTICE_POWER[this.sel] / 100).toFixed(2)}`, SCREEN_W / 2, 386);
+    ctx.fillText(st ? `開始時の霊力：${(PRACTICE_POWER[this.sel] / 100).toFixed(2)}` : 'この面はまだ遊べません', SCREEN_W / 2, 410);
     drawBackButton(ctx);
   }
 }
@@ -594,7 +615,7 @@ class ResultScene {
     ctx.fillStyle = 'rgba(0,0,10,0.6)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     const g = this.g;
-    const title = { clear: 'All Clear!', practice: 'Practice Result', gameover: 'Game Over' }[this.kind];
+    const title = { clear: 'All Clear!', extra: 'Extra Clear!', practice: 'Practice Result', gameover: 'Game Over' }[this.kind];
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `italic 700 36px ${FONT_EN}`;
@@ -603,7 +624,7 @@ class ResultScene {
       ['キャラクター', CHARA_INFO[g.charId].name],
       ['難易度', DIFF_NAMES[DIFF]],
       ['スコア', padScore(g.score)],
-      ['到達ステージ', `Stage ${g.stageIndex + 1}`],
+      ['到達ステージ', g.stageLabel],
       ['ミス回数', String(g.misses)],
       ['ボム使用', String(g.bombsUsed)],
       ['スペルカード取得', `${g.spellsGot} / ${g.spellsSeen}`],
@@ -621,11 +642,14 @@ class ResultScene {
       ctx.fillStyle = '#ffffff';
       ctx.fillText(v, 470, y);
     });
-    if (this.newRecord) {
+    const notes = [];
+    if (this.newRecord) notes.push(['★ ハイスコア更新！ ★', '#ffe070']);
+    if (g.extraUnlockedNow) notes.push(['エキストラステージが遊べるようになりました！', '#d8b8ff']);
+    notes.forEach(([text, color], i) => {
       ctx.textAlign = 'center';
       ctx.font = `800 18px ${FONT_JP}`;
-      strokeText(ctx, '★ ハイスコア更新！ ★', SCREEN_W / 2, 408, '#ffe070', 'rgba(0,0,0,0.8)', 3);
-    }
+      strokeText(ctx, text, SCREEN_W / 2, 410 + (i - (notes.length - 1) / 2) * 28, color, 'rgba(0,0,0,0.8)', 3);
+    });
     ctx.textAlign = 'center';
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.8)';

@@ -81,7 +81,7 @@ test('起動してタイトルが出る', async ({ page }) => {
     return { scene: Game.scene.constructor.name, items: TITLE_ITEMS.map(i => i.id), version: GAME_VERSION, save: Store.get('saveVersion', 0), saveLatest: SAVE_VERSION };
   });
   assert(r.scene === 'TitleScene', `最初の画面がタイトルではない: ${r.scene}`);
-  assert(r.items.join() === 'start,practice,music,manual,option', `タイトルの項目: ${r.items}`);
+  assert(r.items.join() === 'start,extra,practice,music,manual,option', `タイトルの項目: ${r.items}`);
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert(r.version === pkg.version, `GAME_VERSION（${r.version}）と package.json の version（${pkg.version}）がちがう`);
   assert(r.save === r.saveLatest, `保存データの形式が最新になっていない: ${r.save}`);
@@ -166,9 +166,9 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
       if (!e || !e.title || !e.pages || !e.pages.length) out.push(`ENDINGS.${id} がない`);
       else if (e.guest) drawable(e.guest.id);
     }
-    // ステージとボス
-    STAGES.forEach((st, i) => {
-      const w = `${i + 1}面`;
+    // ステージとボス（本編とエキストラ）
+    if (STAGES.length > MAIN_STAGE_COUNT) out.push(`STAGES が ${STAGES.length} 面あり、MAIN_STAGE_COUNT（${MAIN_STAGE_COUNT}）より多い`);
+    allStages().forEach(({ st, short: w }) => {
       song(st.bgm, w);
       if (typeof st.script !== 'function' || typeof st.boss !== 'function') out.push(`${w}: script か boss がない`);
       if (!st.bosses || !st.bosses.length) out.push(`${w}: bosses がない`);
@@ -215,7 +215,7 @@ test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page
   // 開発用の startBossTest で、すべてのボス・中ボスの攻撃を1つずつ7秒間動かす（無敵）
   const r = await page.evaluate(() => {
     const out = [];
-    for (const st of STAGES) {
+    for (const { st } of allStages()) {
       for (const b of st.bosses) {
         const n = b.phases.filter(ph => 3 >= (ph.minDiff || 0)).length;
         for (let k = 1; k <= n; k++) {
@@ -260,6 +260,114 @@ test('URL の ?stage= / ?boss= でボスの攻撃からすぐ始まる', async (
     assert(!errors.length, errors.join('\n'));
   } finally { await context.close(); }
 }, { noPage: true });
+
+test('本編6面とエキストラステージのしくみ（まだない面は準備中）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    const scene = () => Game.scene.constructor.name;
+    const press = () => { Input.just.shot = true; T.step(2); };
+    const run = (max = 8000) => { const g = Game.scene; let f = 0; while (Game.scene === g && f < max) { Game.update(); f++; } Game.draw(); return scene(); };
+    // テスト用の小さな面（道中はすぐ終わり、ボスは3秒の攻撃が1つだけ）
+    const mini = name => ({
+      name, nameEn: name, bg: STAGES[0].bg, bgm: STAGES[0].bgm,
+      bosses: [{ id: 'rumia', phases: [{ type: 'non', hp: 50, time: 3, *script() { for (;;) yield; } }] }],
+      *script() { yield 30; },
+      *boss(g) {
+        const b = g.spawnStageBoss('rumia', { x: FIELD_W / 2, y: -50 });
+        yield* b.moveTo(FIELD_W / 2, 100, 20);
+        yield* g.fight(b, this.bosses[0].phases);
+        yield* g.bossDown(b);
+      },
+    });
+    out.real = { stages: STAGES.length, main: MAIN_STAGE_COUNT, extra: EXTRA_STAGES.length };
+    // エキストラの面がないうちは、URL の ?stage=extra（startBossTest）は何もしない
+    out.bossTestNoExtra = startBossTest({ stage: 'extra' });
+    // プラクティス：まだない面（5面）は選べない
+    Game.setScene(new StageSelectScene(1, PLAYER_IDS[0]));
+    T.step(12);
+    Game.scene.sel = STAGES.length;
+    press();
+    out.practiceMissing = scene();
+    // タイトル：エキストラスタートは選べない
+    Game.setScene(new TitleScene('extra'));
+    T.step(12);
+    out.titleLocked = Game.scene.items[1].disabled;
+    press();
+    out.titleLockedScene = scene();
+    // いまある最後の面をクリアするとエンディング。6面までそろっていないので解放しない
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: STAGES.length - 1 }));
+    G.tasks.clear();
+    G.tasks.add(G.stageClear());
+    out.lastClear = run();
+    out.unlockedEarly = Store.get('extraUnlocked', false);
+
+    // 5面・6面を足したつもりで、解放の条件を確かめる
+    while (STAGES.length < MAIN_STAGE_COUNT) STAGES.push(mini(`仮の${STAGES.length + 1}面`));
+    const tryUnlock = (diff, mod) => {
+      Store.remove('extraUnlocked');
+      Game.setScene(new GameScene({ difficulty: diff, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 1, practice: false }));
+      if (mod) mod(G);
+      G.unlockExtra();
+      return Store.get('extraUnlocked', false);
+    };
+    out.cond = {
+      easy: tryUnlock(0), normal: tryUnlock(1), lunatic: tryUnlock(3),
+      continued: tryUnlock(1, g => { g.continues = 1; }), keys: tryUnlock(1, g => { g.usedKeys = true; }),
+      practice: tryUnlock(1, g => { g.practice = true; }),
+    };
+    Store.remove('extraUnlocked');
+    // 5面から通しで遊んで6面をクリア → エンディング → リザルトに「遊べるようになりました」
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 2 }));
+    const g6 = G;
+    out.fullClear = run();
+    out.reached = g6.stageIndex + 1;
+    out.unlocked = Store.get('extraUnlocked', false);
+    out.unlockedNow = g6.extraUnlockedNow;
+    Game.setScene(new ResultScene(g6, 'clear'));
+    T.step(5);
+    // 解放ずみでも、エキストラの面がまだなければ選べない
+    Game.setScene(new TitleScene('extra'));
+    T.step(12);
+    out.titleNoStage = Game.scene.items[1].disabled;
+
+    // エキストラの面を足したつもりで、タイトル → キャラクター選択 → エキストラ → リザルト
+    EXTRA_STAGES.push(mini('仮のエキストラ'));
+    Game.setScene(new TitleScene('extra'));
+    T.step(12);
+    out.titleReady = !Game.scene.items[1].disabled;
+    press();
+    out.afterTitle = `${scene()}:${Game.scene.mode}`;
+    T.step(12);
+    press();
+    const gx = G;
+    out.extraGame = { scene: scene(), extra: gx.extra, diff: DIFF, label: gx.stageLabel, power: gx.power, hiKey: gx.hiKey };
+    out.extraEnd = `${run()}:${Game.scene.kind}`;
+    out.extraHi = Store.get(gx.hiKey, 0) > 0;
+    // エキストラはコンティニューできない
+    Game.setScene(new GameScene({ difficulty: EXTRA_DIFF, character: PLAYER_IDS[0], stage: 0, extra: true }));
+    G.onOutOfLives();
+    out.extraOut = `${scene()}:${Game.scene.kind}`;
+    // ボスの攻撃を試す機能もエキストラに使える
+    out.bossTestExtra = startBossTest({ stage: 'extra' }) && G.extra && DIFF === EXTRA_DIFF;
+    // 管理者ページの一覧もエキストラを含めて作れる
+    out.all = allStages().map(x => x.short).join(',');
+    return out;
+  });
+  const want = {
+    bossTestNoExtra: false, practiceMissing: 'StageSelectScene', titleLocked: true, titleLockedScene: 'TitleScene',
+    lastClear: 'EndingScene', unlockedEarly: false,
+    fullClear: 'EndingScene', reached: 6, unlocked: true, unlockedNow: true, titleNoStage: true,
+    titleReady: true, afterTitle: 'CharacterScene:extra', extraEnd: 'ResultScene:extra', extraHi: true,
+    extraOut: 'ResultScene:gameover', bossTestExtra: true,
+  };
+  for (const [k, v] of Object.entries(want)) assert(r[k] === v, `${k} が ${JSON.stringify(r[k])}（予定 ${JSON.stringify(v)}）\n${JSON.stringify(r)}`);
+  assert(r.real.main === 6 && r.real.stages <= 6, `本編の面の数: ${JSON.stringify(r.real)}`);
+  const c = r.cond;
+  assert(!c.easy && c.normal && c.lunatic && !c.continued && !c.keys && !c.practice, `解放の条件がおかしい: ${JSON.stringify(c)}`);
+  const x = r.extraGame;
+  assert(x.scene === 'GameScene' && x.extra && x.diff === 4 && x.label === 'Extra Stage' && x.power === 400 && x.hiKey.startsWith('hi_4_'), `エキストラの始まり方: ${JSON.stringify(x)}`);
+  assert(r.all.endsWith(',5面,6面,Extra'), `面の一覧: ${r.all}`);
+});
 
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);

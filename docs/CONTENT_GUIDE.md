@@ -42,8 +42,11 @@
    並び順がキャラクター選択の順になる。ショットは `shoot(p, g, f)`、ボムは `makeBomb(p)` で作るクラス
    （`FantasySeal` / `MasterSpark` が例）
 2. `js/characters.js` の `CHARA_INFO` に名前・肩書き・色を書く。
-   絵は `CHARA`（キャンバスで描くちびキャラ）か、画像（`image` / `dot`）。キャラクター選択の絵は `portrait` で選べる
-3. ゲーム中の絵を画像にするなら `sprite: { image: 'キー', h: 30, ax: 0.5, ay: 0.5 }`（高さ30pxは変えない）
+   絵は `CHARA`（キャンバスで描くちびキャラ）か、画像（`image`）。
+   `PLAYER_TYPES` の `portrait` に書いたキャラクターの絵が、キャラクター選択・ボムのカットイン・エンディングに出る
+   （会話は `CHARA_INFO` の同じIDの絵）。いまは霊夢・魔理沙とも原画（`img/reimu.png` / `img/marisa.png`）
+3. ゲーム中の絵を画像にするなら `sprite: { image: 'キー', h: 30, ax: 0.5, ay: 0.5 }`（高さ30pxは変えない）。
+   `ax` / `ay` は当たり判定の中心が絵のどこに来るか（0〜1の割合）
 4. `js/story.js` の `STORY` の全ステージと `ENDINGS` に、その自機の分を書く（テストが書き忘れを見つける）
 5. 自機の人数が2人でなくなると、キャラクター選択の枠の幅が変わる（`charaPanelRect`）。中の文字の配置を確かめる
 
@@ -66,6 +69,30 @@
 
 管理者ページの「キャラクター一覧」には、自機は `PLAYER_TYPES`、ボスは `bosses` から自動で並ぶ。
 ザコの一覧は `js/admin.js` の `showCharacters()` に手で書いてある。
+
+### お絵かきアプリの画面写真から作るとき
+
+アプリのボタンや広告が絵の上にかかっているときは、`--crop` で絵のまわりだけを使い、
+キャンバスの上にかかっているボタンは `--mask` で白くぬりつぶす（座標は元の画像のもの）。
+胸から上の絵のように、絵が画面のふちで切れているときは `--fade` でふちをなめらかに透明にする。
+まず `--preview 確認用フォルダ` を付けて仕上がりを見るとよい。
+
+```
+# 1.3.0 で使ったもの
+python3 tools/make-sprite.py 13.jpg marisa_player --crop 125,136,942,1313 --art 96 --dot 0       # ゲーム中の魔理沙（小さい絵）
+python3 tools/make-sprite.py 14.jpg marisa --crop 95,158,943,1330 --mask 630,158,780,228 --mask 645,1290,943,1330 --dot 0
+python3 tools/make-sprite.py 15.jpg hand_eye --crop 125,136,942,1313 --art 100 --dot 0            # ザコ
+python3 tools/make-sprite.py 16.jpg midboss2 --crop 78,230,940,1296 --fade 70 --dot 70             # 中ボス（原画とドット絵）
+python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
+```
+
+## ザコの見た目
+
+- ザコの絵は `js/enemies.js` の `Enemy.draw` にある（`kind` ごと）。画像なら `drawImageSprite(ctx, '画像のキー', 高さ)`
+- 面のデータに `zako: '種類'` を書くと、その面の妖精（`fairy`）と緑の手（`hand`）がその種類の絵になる。
+  いまは3面・4面が `zako: 'handEye'`（一つ目の手）。足の妖精・大妖精・毛玉などはそのまま
+- 新しい種類を足したら、Lunatic の撃ち返し弾を出すかどうか（`js/game.js` の `REVENGE_KINDS`）と、
+  管理者ページのザコの一覧（`showCharacters()`）も直す
 
 ## 弾幕
 
@@ -96,6 +123,37 @@ index.html?stage=2&phase=1&only=1
 | `only` | `1` ならその攻撃だけで終わる |
 
 テストの「ボスの攻撃をひとつずつ動かせる」は、すべてのボスの攻撃を Lunatic で1つずつ動かして、エラーが出ないか確かめる。
+
+## 面の数とエキストラステージ
+
+本編は全6面＋エキストラステージにする予定で、そのしくみはできている（いまある面は4面まで）。
+
+| もの | 場所 | ひとこと |
+| --- | --- | --- |
+| 本編の面の数 | js/game.js の `MAIN_STAGE_COUNT`（6） | プラクティスはこの数だけ並び、まだない面は「準備中」で選べない |
+| 本編の面 | `STAGES`（js/stage1〜4.js） | いまある最後の面をクリアするとエンディング |
+| エキストラステージ | js/game.js の `EXTRA_STAGES`（いまは空） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
+| 解放の条件 | js/game.js の `EXTRA_UNLOCK` | いまは Normal 以上・コンティニューなしで、本編の最後（6面）をクリア |
+| 解放したかどうか | 保存データ `extraUnlocked` | 管理者ページのデータベースで見られる |
+
+### 5面・6面を作るとき
+
+1. `js/stage5.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
+2. `index.html` の `stage4.js` の次に `<script src="js/stage5.js"></script>` を足す（1ファイル版は自動で入る）
+3. `js/story.js` に `STORY.stage5`、`README.md` のステージの表を書く
+4. 6面までそろうと、6面をクリアしたときにエンディングになり、条件を満たせばエキストラが解放される
+
+### エキストラステージを作るとき
+
+1. `js/extra.js` を作り、`EXTRA_STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
+   （`index.html` で `game.js` より後に読む）。会話は `STORY.extra` を作って `g.talk(STORY.extra[g.charId].before)` のように使う
+2. 弾の値は `dv(Easy, Normal, Hard, Lunatic, Extra)` の5つ目に書ける（書かなければ Lunatic と同じ）。
+   全体の倍率は `BULLET_SPEED_SCALE` / `RING_DENSITY_SCALE` の5つ目
+3. 面ができると、タイトルの「エキストラスタート」が解放ずみのときだけ選べるようになる（キャラクター選択 → エキストラ → リザルト）
+4. ボスの攻撃は `index.html?stage=extra&phase=2` か、`?boss=ボスのID` ですぐ試せる
+5. エキストラのハイスコアは難易度 4（Extra）として `hi_4_自機のID` に保存される
+
+テストの「本編6面とエキストラステージのしくみ」は、仮の5面・6面・エキストラを足して、解放の条件と流れを確かめている。
 
 ## ストーリー
 
