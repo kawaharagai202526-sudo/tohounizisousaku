@@ -6,6 +6,9 @@
 //  演出:     { bgm: '曲ID' } / { title: 'キャラID' } / { event: '名前' }（背景の event(名前) を呼ぶ）
 // ============================================================
 
+// 立ち絵の大きさ（drawPortrait の scale。高さはおよそ scale×56px。会話の枠の後ろに足もとが隠れる）
+const DIALOGUE_PORTRAIT_SCALE = 5;
+
 class Dialogue {
   constructor(lines, g) {
     this.lines = lines;
@@ -69,7 +72,7 @@ class Dialogue {
       const active = this.who === id;
       ctx.globalAlpha = alphaIn * (active ? 1 : 0.45);
       const slide = (1 - alphaIn) * 30 * (flip ? 1 : -1);
-      drawPortrait(ctx, id, x + slide, active ? 318 : 326, 3.2, this.faces[id] || 'normal', t, flip);
+      drawPortrait(ctx, id, x + slide, active ? 296 : 304, DIALOGUE_PORTRAIT_SCALE, this.faces[id] || 'normal', t, flip);
       ctx.globalAlpha = 1;
     };
     // 話していない方を奥に
