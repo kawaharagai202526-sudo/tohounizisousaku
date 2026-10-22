@@ -422,7 +422,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.1.0';
+const GAME_VERSION = '2.1.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -6818,7 +6818,7 @@ class GameScene {
 //  [話者, 表情, 台詞]  表情: normal / happy / angry / surprised / sad / smug
 //  { narration: '文' } はト書き（話者なし）。{ title: 'ID' } でボスの名前、{ bgm: '曲ID' } で曲が変わる
 //  { event: '名前' } は背景の演出（3面の 'mansion'：隠れていた屋敷が姿を現す）
-//  台詞はユーザーが書いたもの（1〜5面は 2.0.0、6面は 2.1.0）。あらすじとエンディングは Claude が書いた仮のもの
+//  台詞はユーザーが書いたもの（1〜5面は 2.0.0、6面は 2.1.0。誤字は 2.1.1 で直した）。あらすじとエンディングは Claude が書いた仮のもの
 // ============================================================
 
 const INTRO_TEXT = [
@@ -6885,7 +6885,7 @@ const STORY = {
         { title: 'hamishiro' },
         ['reimu', 'angry', 'いらない！返すわよ！'],
         ['hamishiro', 'normal', 'なんでそんなに嫌なのよ'],
-        ['reimu', 'angry', '嫌よ！人里の家がこんなに虫だらけじゃ済めたもんじゃないわ'],
+        ['reimu', 'angry', '嫌よ！人里の家がこんなに虫だらけじゃ住めたもんじゃないわ'],
         ['hamishiro', 'happy', 'えー虫がいれば私がいる。私がいれば家は守られる。いいことずくめよ'],
         { bgm: 'boss2' },
         ['reimu', 'normal', '家守がいても住む人がいなきゃ意味ないでしょ'],
@@ -6967,7 +6967,7 @@ const STORY = {
         { event: 'mansion' },
         { narration: '（滑沢が手をかけた戸口から、隠れていた屋敷がゆっくりと姿を現す）' },
         ['reimu', 'surprised', '立派な屋敷ね。この屋敷について全部吐きなさい'],
-        ['namesawa', 'sad', 'すまんが何わしゃも知らんぞ'],
+        ['namesawa', 'sad', 'すまんがわしゃ何も知らんぞ'],
         ['reimu', 'angry', 'つかえないわね'],
       ],
     },
@@ -7100,7 +7100,7 @@ const STORY = {
         ['reimu', 'normal', 'あんなたいそうな屋敷をたてて、そこらじゅうの家を古びさせたことにはかわりないでしょ'],
         ['zashiki', 'surprised', '古びさせたってなに？もう何言ってるのかわかんない！'],
         { bgm: 'boss6' },
-        ['reimu', 'smug', '今ら逃げようとしても無駄よ'],
+        ['reimu', 'smug', '今さら逃げようとしても無駄よ'],
         ['zashiki', 'angry', '千客万来、家運隆盛……百の部屋に積もった福の重み、受け止めてみなさい！'],
       ],
       after: [
@@ -7112,7 +7112,7 @@ const STORY = {
     },
     marisa: {
       before: [
-        ['marisa', 'normal', 'ようやく見つけたぜ、屋敷さまとやら'],
+        ['marisa', 'normal', 'ようやく見つけたぜ、座敷さまとやら'],
         ['zashiki', 'surprised', 'あ……その帽子。霧雨のお店にいた子だ'],
         { title: 'zashiki' },
         ['marisa', 'surprised', '……覚えてるのかよ'],
