@@ -4,25 +4,28 @@
 //  原点は胴体の中心。頭の中心は (0,-18)、全高はおよそ 56px。
 // ============================================================
 
-// image：カットイン・立ち絵用の原画（IMAGE_FILES のキー）、dot：ゲーム中のドット絵。
+// image：カットイン・立ち絵用の原画（IMAGE_FILES のキー）、dot：ゲーム中のドット絵。kana：名前の読み仮名（ボスの名前が出るときと会話で使う）。
+// portraitScale：会話・カットインの原画の大きさ（ふつうは 1。小さい子は小さく。ゲーム中の大きさはドット絵の高さで決まる）。
 // image がないキャラクターは CHARA の設定でキャンバスに描く。未定の名前・二つ名は「？？？」
 const CHARA_INFO = {
   // 自機（ゲーム中の絵は PLAYER_TYPES の sprite）
   reimu: { name: '博麗 霊夢', title: '楽園の巫女', color: '#ff5a6a', image: 'reimu' },
   marisa: { name: '霧雨 魔理沙', title: '東洋の魔法使い', color: '#ffd860', image: 'marisa' },
   // ボス・中ボス（中ボスは戦っているあいだ名前を出さない。STAGES の bosses の mid）
-  nokiba: { name: '軒端 鬼乃', title: '焼きたての反逆児', color: '#f0c890', image: 'nokiba', dot: 'nokibaDot' },
+  nokiba: { name: '軒端 鬼乃', kana: 'のきば きの', title: '焼きたての反逆児', color: '#f0c890', image: 'nokiba', dot: 'nokibaDot' },
   ruri: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'ruri', dot: 'ruriDot' },
-  hamishiro: { name: '喰代 守子', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'hamishiro', dot: 'hamishiroDot' },
-  // 3面の中ボス（名前は未定。会話でも「？？？」と出る）
-  midboss3: { name: '？？？', title: '？？？', color: '#9ae0c0', image: 'midboss3', dot: 'midboss3Dot' },
-  namesawa: { name: '滑沢 瓢', title: 'すれ違いざまの暴露魔', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
-  star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
-  toganoo: { name: '栂尾 芯', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
-  yanariMid: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
-  yanari: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
-  yanari6: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
-  zashiki: { name: '座敷 宿美', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot' },
+  kuraishiro: { name: '喰代 守子', kana: 'くらいしろ もりこ', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'kuraishiro', dot: 'kuraishiroDot' },
+  // 3面の中ボスは正体を隠した滑沢（会話でも「？？？」と出るので、読み仮名もつけない）
+  namesawaMask: { name: '？？？', title: '？？？', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
+  namesawa: { name: '滑沢 瓢', kana: 'なめさわ ひさご', title: 'すれ違いざまの暴露魔', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
+  // 4面の中ボス（赤いパーカーの子。名前は未定）
+  midboss4: { name: '？？？', title: '？？？', color: '#f08aa8', image: 'midboss4', dot: 'midboss4Dot' },
+  toganoo: { name: '栂尾 芯', kana: 'とがのお しん', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
+  yanariMid: { name: '家鳴 鳴音', kana: 'やなり めいおん', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  yanari: { name: '家鳴 鳴音', kana: 'やなり めいおん', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  yanari6: { name: '家鳴 鳴音', kana: 'やなり めいおん', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  // 座敷わらしなので小さく表示する（ドット絵も高さ 60px で作ってある）
+  zashiki: { name: '座敷 宿美', kana: 'ざしき すずみ', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot', portraitScale: 0.8 },
 };
 
 const CHARA = {
@@ -35,11 +38,6 @@ const CHARA = {
     skin: '#ffe9dc', hair: '#f5d65c', hairDark: '#d8b440', hairHi: '#fff4b0', eye: '#d69a1c',
     back: 'long', dress: '#22202c', top: '#22202c', trim: '#ffffff', collar: '#ffffff', apron: '#ffffff',
     neck: '#ffffff', sleeve: 'puff', legs: '#ffffff', shoes: '#3a2a20', acc: 'witchHat', braid: true,
-  },
-  star: {
-    skin: '#ffeee4', hair: '#2c2640', hairDark: '#1c182c', hairHi: '#6a5c9a', eye: '#3a5ed6',
-    back: 'longStraight', dress: '#2a4cc4', top: '#2a4cc4', trim: '#ffffff', collar: '#ffffff', neck: '#f2d23a',
-    sleeve: 'puff', legs: '#ffffff', shoes: '#1c2a6a', acc: 'starRibbon', wings: 'fairy',
   },
 };
 
@@ -589,10 +587,14 @@ function drawKedama(ctx, color, t) {
 function drawPortrait(ctx, id, x, y, scale, face = 'normal', t = 0, flip = false) {
   ctx.save();
   ctx.translate(x, y);
-  const image = CHARA_INFO[id] && CHARA_INFO[id].image;
+  const info = CHARA_INFO[id];
+  const image = info && info.image;
   if (image) {
     // 画像のキャラクターは原画をそのまま使う（ドット絵にせず、左右反転もしない）
-    drawImageSprite(ctx, image, scale * 56, 0.5, 0.55);
+    // portraitScale で小さくするときは、足もとの高さをそろえる
+    const h = scale * 56, ps = info.portraitScale || 1;
+    ctx.translate(0, h * (1 - ps) * 0.45);
+    drawImageSprite(ctx, image, h * ps, 0.5, 0.55);
   } else {
     ctx.scale(flip ? -scale : scale, scale);
     drawChibi(ctx, id, { t, face, pose: 'stand' });

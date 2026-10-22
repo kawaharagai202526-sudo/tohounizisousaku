@@ -1475,35 +1475,29 @@ function drawSpellBG(ctx, kind, t) {
       }
       break;
     }
-    case 'star': {
-      ctx.fillStyle = '#060320';
+    case 'ichimatsu': {
+      // 4面中ボス：ゆっくり流れる市松模様（チェックの柄）と、ぶかぶかのパーカーの赤
+      ctx.fillStyle = '#16080e';
       ctx.fillRect(0, 0, FIELD_W, FIELD_H);
-      const ng = ctx.createRadialGradient(192, 200, 20, 192, 200, 260);
-      ng.addColorStop(0, 'rgba(90,70,200,0.35)');
-      ng.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = ng;
-      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
-      ctx.translate(192, 200);
-      for (let ring = 0; ring < 4; ring++) {
-        const rad = 50 + ring * 55;
-        const n = 8 + ring * 6;
-        ctx.save();
-        ctx.rotate(t * 0.003 * (ring % 2 ? -1 : 1) * (1 + ring * 0.3));
-        ctx.strokeStyle = 'rgba(150,170,255,0.14)';
-        ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(0, 0, rad, 0, TAU); ctx.stroke();
-        for (let i = 0; i < n; i++) {
-          const a = (i / n) * TAU;
-          const tw = 0.4 + 0.4 * Math.sin(t * 0.05 + i * 1.3 + ring);
-          ctx.fillStyle = `rgba(220,230,255,${tw})`;
-          ctx.fillRect(Math.cos(a) * rad - 1.2, Math.sin(a) * rad - 1.2, 2.4, 2.4);
+      const cell = 32, ox = (t * 0.3) % (cell * 2), oy = (t * 0.2) % (cell * 2);
+      ctx.fillStyle = 'rgba(120,30,60,0.32)';
+      for (let y = -cell * 2 + oy; y < FIELD_H; y += cell) {
+        for (let x = -cell * 2 + ox; x < FIELD_W; x += cell) {
+          if ((Math.round((x - ox) / cell) + Math.round((y - oy) / cell)) % 2 === 0) ctx.fillRect(x, y, cell, cell);
         }
-        ctx.restore();
       }
-      ctx.rotate(-t * 0.002);
-      ctx.fillStyle = 'rgba(160,180,255,0.07)';
-      starPath(ctx, 190, 70, 6);
-      ctx.fill();
+      const g = ctx.createRadialGradient(192, 180, 30, 192, 180, 280);
+      g.addColorStop(0, 'rgba(200,50,90,0.22)');
+      g.addColorStop(1, 'rgba(0,0,0,0.5)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      // 緑の髪の色をした細い線が横切る
+      ctx.strokeStyle = 'rgba(80,220,170,0.18)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const y = (i * 120 + t * 0.6) % (FIELD_H + 40) - 20;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(FIELD_W, y + 30); ctx.stroke();
+      }
       break;
     }
     default: {

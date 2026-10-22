@@ -174,6 +174,9 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
       if (!st.bosses || !st.bosses.length) out.push(`${w}: bosses がない`);
       for (const b of st.bosses || []) {
         chara(b.id);
+        // 名前が決まっているボスには読み仮名をつける（ボスの名前が出るときと会話で使う）
+        const info = CHARA_INFO[b.id];
+        if (info && !b.mid && info.name !== '？？？' && !info.kana) out.push(`${w} ${b.id}: 読み仮名（CHARA_INFO の kana）がない`);
         if (b.bgm) song(b.bgm, `${w} ${b.id}`);
         if (!b.phases || !b.phases.length) out.push(`${w} ${b.id}: 攻撃がない`);
         for (const ph of b.phases || []) if (typeof ph.script !== 'function' || !ph.time) out.push(`${w} ${b.id}: 攻撃 ${ph.name || ph.type} に script か time がない`);

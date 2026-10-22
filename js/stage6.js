@@ -111,7 +111,7 @@ const YANARI6_PHASES = [
           });
         }
         Sound.se('tan');
-        yield dv(50, 42, 34, 28);
+        yield dv(46, 38, 30, 25);
       }
     },
   },
@@ -142,7 +142,7 @@ const ZASHIKI_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let f = 0; ; f++) {
-        if (f % dv(8, 6, 5, 4) === 0) zashikiGuest(b);
+        if (f % dv(7, 5, 4, 3) === 0) zashikiGuest(b);
         if (f % dv(90, 75, 60, 50) === 0) fireRing({ x: b.x, y: b.y, n: dv(8, 12, 16, 20), angle: rand(TAU), speed: 1.3, type: 'rice', color: 'white' });
         if (f % 20 === 0) Sound.se('tan');
         if (f % 300 === 299) b.wander(60, 40);
@@ -157,7 +157,7 @@ const ZASHIKI_PHASES = [
       yield 30;
       for (let loop = 0; ; loop++) {
         zashikiFlowers(b, dv(3, 4, 5, 6), b.aim());
-        yield dv(60, 50, 40, 34);
+        yield dv(54, 44, 36, 30);
         if (loop % 2) b.wander(60, 50);
       }
     },
@@ -182,7 +182,7 @@ const ZASHIKI_PHASES = [
           });
         }
         Sound.se('kira');
-        yield dv(70, 58, 48, 40);
+        yield dv(62, 50, 42, 34);
         if (loop % 3 === 2) b.wander(60, 50);
       }
     },
@@ -194,7 +194,7 @@ const ZASHIKI_PHASES = [
       yield 30;
       for (let loop = 0; ; loop++) {
         zashikiCrescent(b, b.aim() + (loop % 2 ? 0.25 : -0.25));
-        yield dv(26, 22, 18, 14);
+        yield dv(24, 20, 16, 12);
         if (loop % 4 === 3) {
           fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 24), angle: rand(TAU), speed: 1.5, type: 'small', color: 'blue' });
           b.wander(50, 60);
@@ -248,7 +248,7 @@ const ZASHIKI_PHASES = [
             });
           }
           Sound.se('tan');
-          yield dv(40, 34, 28, 24);
+          yield dv(36, 30, 25, 21);
         }
       }
     },
@@ -274,7 +274,7 @@ const ZASHIKI_PHASES = [
             },
           }));
         }
-        if (f % dv(60, 50, 42, 36) === 30) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.5, angle: b.aim(), speed: 2.4, type: 'rice', color: 'pink' });
+        if (f % dv(54, 44, 36, 30) === 30) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.5, angle: b.aim(), speed: 2.4, type: 'rice', color: 'pink' });
         if (f % 20 === 0) Sound.se('tan');
         yield;
       }
@@ -293,7 +293,7 @@ const ZASHIKI_PHASES = [
         if (m === 3) {
           for (let k = 0; k < 3; k++) { zashikiCrescent(b, b.aim() + (k - 1) * 0.3); yield 16; }
         }
-        yield dv(60, 50, 42, 36);
+        yield dv(54, 44, 36, 30);
         if (m === 3) b.wander(50, 50);
       }
     },
@@ -336,9 +336,9 @@ STAGES.push({
     { id: 'zashiki', phases: ZASHIKI_PHASES, bgm: 'boss6', def: { spellBg: 'zashiki', circleColor: '255,220,150', finalDrops: { power: 10, point: 24, bigpower: 1 } } },
   ],
   // 最後の面なので、いちばん難しい
-  speedScale: 1.12,
-  densityScale: 1.3,
-  hpScale: 1.2,
+  speedScale: 1.2,
+  densityScale: 1.45,
+  hpScale: 1.25,
   *script(g) {
     yield 160;
     // 前半：大群 → 降ってくるがれき → 鈴の妖精 → 紙きれと狙撃
@@ -346,11 +346,11 @@ STAGES.push({
     yield 50;
     g.tasks.add(swarmStream(1, 16, { color: 'blue' }));
     yield 120;
-    g.tasks.add(tileShower(420, dv(16, 24, 34, 46), ['purple', 'blue', 'white'], true));
+    g.tasks.add(tileShower(420, dv(20, 30, 42, 56), ['purple', 'blue', 'white'], true));
     yield 100;
     [96, 288].forEach(x => bellFairy(x, 90));
     yield 160;
-    g.tasks.add(paperRain(300, dv(24, 34, 46, 58)));
+    g.tasks.add(paperRain(300, dv(30, 42, 56, 70)));
     yield 60;
     [80, 192, 304].forEach(x => sniperFairy(x, 100));
     yield 160;
@@ -379,7 +379,7 @@ STAGES.push({
     yield 200;
     [70, 314].forEach(x => laserFairy(x, 110));
     yield 120;
-    g.tasks.add(tileShower(480, dv(24, 36, 50, 68), ['purple', 'blue', 'white'], true));
+    g.tasks.add(tileShower(480, dv(30, 44, 60, 80), ['purple', 'blue', 'white'], true));
     for (let w = 0; w < 3; w++) {
       g.tasks.add(swarmStream(-1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
       g.tasks.add(swarmStream(1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));

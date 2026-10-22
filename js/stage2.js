@@ -54,7 +54,7 @@ const RURI_MID_PHASES = [
 // ------------------------------------------------------------
 //  ボス：喰代 守子（家を守るやもり。虫が大好物）
 // ------------------------------------------------------------
-const HAMISHIRO_PHASES = [
+const KURAISHIRO_PHASES = [
   {
     // 虫の群れと、まっすぐ伸びる舌
     type: 'non', hp: 1000, time: 30,
@@ -258,7 +258,7 @@ STAGES.push({
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
     { id: 'ruri', phases: RURI_MID_PHASES, mid: true, def: { spellBg: 'ruri', circleColor: '90,140,255' } },
-    { id: 'hamishiro', phases: HAMISHIRO_PHASES, bgm: 'boss2', def: { spellBg: 'yamori', circleColor: '110,200,255' } },
+    { id: 'kuraishiro', phases: KURAISHIRO_PHASES, bgm: 'boss2', def: { spellBg: 'yamori', circleColor: '110,200,255' } },
   ],
   *script(g) {
     yield 160;
@@ -322,10 +322,10 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnStageBoss('hamishiro', { x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('kuraishiro', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);
-    yield* g.fight(boss, HAMISHIRO_PHASES);
+    yield* g.fight(boss, KURAISHIRO_PHASES);
     yield* g.bossDown(boss);
     yield* g.talk(STORY.stage2[g.charId].after);
   },

@@ -365,6 +365,7 @@ const Admin = {
         const cv = this.charaCanvas(it, 180, 150, 1, 0);
         const cap = domEl('span', 'admin-cardcap');
         cap.append(domEl('strong', '', it.name));
+        if (it.kana) cap.append(domEl('span', 'admin-sub', it.kana));
         if (it.title && it.title !== '？？？') cap.append(domEl('span', 'admin-sub', it.title));
         cap.append(domEl('span', 'admin-note', it.note));
         card.append(cv, cap);
@@ -430,6 +431,7 @@ const Admin = {
     const z = this.zoom, it = z.list[z.index];
     z.cap.textContent = '';
     z.cap.append(domEl('strong', 'admin-zoomname', it.name));
+    if (it.kana) z.cap.append(domEl('span', 'admin-sub', it.kana));
     if (it.title && it.title !== '？？？') z.cap.append(domEl('span', 'admin-sub', it.title));
     z.cap.append(domEl('span', 'admin-note', it.note));
     z.count.textContent = `${z.index + 1} / ${z.list.length}`;

@@ -14,17 +14,17 @@ const IMAGE_FILES = {
   midboss1: 'img/midboss1.png',    // 1面の中ボス
   ruri: 'img/boss4.png',           // 2面中ボス 瑠璃（原画。前のゲームの4面ボスと同じ絵）
   ruriDot: 'img/boss4_dot.png',    // 2面中ボス 瑠璃（ゲーム中のドット絵）
-  midboss3: 'img/midboss3b.png',   // 3面中ボス ？？？（原画）
-  midboss3Dot: 'img/midboss3b_dot.png', // 3面中ボス ？？？（ゲーム中のドット絵）
   hand: 'img/hand.png',            // 2面の道中のザコ（緑の手）
   handEye: 'img/hand_eye.png',     // 3面以降の道中のザコ（一つ目の手。面の zako で指定）
   // ボス（原画はスペルカードのカットインと会話、_dot はゲーム中のドット絵）
   nokiba: 'img/nokiba.png',        // 1面ボス 軒端 鬼乃
   nokibaDot: 'img/nokiba_dot.png',
-  hamishiro: 'img/hamishiro.png',  // 2面ボス 喰代 守子
-  hamishiroDot: 'img/hamishiro_dot.png',
+  kuraishiro: 'img/kuraishiro.png',  // 2面ボス 喰代 守子
+  kuraishiroDot: 'img/kuraishiro_dot.png',
   namesawa: 'img/namesawa.png',    // 3面中ボス・ボス 滑沢 瓢
   namesawaDot: 'img/namesawa_dot.png',
+  midboss4: 'img/midboss4.png',    // 4面中ボス ？？？（赤いパーカーの子。2.1.0 では3面の中ボス）
+  midboss4Dot: 'img/midboss4_dot.png',
   toganoo: 'img/toganoo.png',      // 4面ボス 栂尾 芯
   toganooDot: 'img/toganoo_dot.png',
   yanari: 'img/yanari.png',        // 5面中ボス・ボス、6面中ボス 家鳴 鳴音

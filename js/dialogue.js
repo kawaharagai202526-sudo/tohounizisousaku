@@ -88,6 +88,12 @@ class Dialogue {
       const info = CHARA_INFO[this.who] || { name: this.who, color: '#fff' };
       ctx.font = `bold 13px ${FONT_JP}`;
       strokeText(ctx, info.name, bx + 12, by + 8, info.color, 'rgba(0,0,0,0.9)', 3);
+      // 読み仮名は名前の右に小さく
+      if (info.kana) {
+        const w = ctx.measureText(info.name).width;
+        ctx.font = `10px ${FONT_JP}`;
+        strokeText(ctx, `（${info.kana}）`, bx + 14 + w, by + 10, '#d8d0f0', 'rgba(0,0,0,0.9)', 2);
+      }
     }
     ctx.font = `15px ${FONT_JP}`;
     ctx.fillStyle = this.who ? '#f4f0ff' : '#e8d8b0';

@@ -1,69 +1,51 @@
 'use strict';
 // ============================================================
-//  4面：借りものの間 ― 中ボス：スターサファイア（名前は出さない）／ボス：栂尾 芯
+//  4面：借りものの間 ― 中ボス：？？？（赤いパーカーの子。名前は未定）／ボス：栂尾 芯
 //  人里の家から借りてきた部屋を次々に突き抜けて進む（背景 RoomsBG）
 //  道中は紺珠伝（狙いを定めた弾・レーザー）と妖々夢（弱い妖精の大群）を参考にしている
 // ============================================================
 
-// 星座のかたち（座標は -1〜1、edges は結ぶ星の番号）
-const CONSTELLATIONS = [
-  { name: '北斗七星', pts: [[-1, -0.3], [-0.6, -0.36], [-0.25, -0.2], [0.05, 0], [0.2, 0.45], [0.78, 0.55], [0.88, 0.05]], edges: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 3]] },
-  { name: 'カシオペヤ', pts: [[-1, -0.4], [-0.5, 0.4], [0, -0.1], [0.5, 0.4], [1, -0.4]], edges: [[0, 1], [1, 2], [2, 3], [3, 4]] },
-  { name: 'オリオン', pts: [[-0.5, -1], [0.5, -0.9], [-0.22, 0], [0, 0.05], [0.22, 0.1], [-0.55, 0.95], [0.5, 1]], edges: [[0, 2], [1, 4], [2, 3], [3, 4], [2, 5], [4, 6]] },
-  { name: '夏の大三角', pts: [[-0.85, -0.5], [0.85, -0.7], [0.1, 0.85]], edges: [[0, 1], [1, 2], [2, 0]] },
-];
-
-// 中ボス：スターサファイア
-const STAR_MID4_PHASES = [
+// ------------------------------------------------------------
+//  中ボス：？？？（ぶかぶかの赤いパーカーの子。2.1.0 では3面の中ボスだった。名前は出さない）
+// ------------------------------------------------------------
+const MIDBOSS4_PHASES = [
   {
-    type: 'non', hp: 900, time: 25,
+    // ぶかぶかの袖：左右の袖口から、振り子のように弾がこぼれ出す。ときどき自機を狙う
+    type: 'non', hp: 1000, time: 25,
     *script(b) {
       yield 30;
-      let a = 0;
       for (let f = 0; ; f++) {
-        if (f % dv(5, 4, 3, 2) === 0) {
-          for (const arm of [0, Math.PI]) {
-            const curl = function* (bl) { yield 70; bl.angVel = 0; };
-            fire({ x: b.x, y: b.y, angle: a + arm, speed: 2.4, accel: -0.02, minSpeed: 1.2, angVel: 0.012, type: 'small', color: 'purple', silent: true, script: curl });
-            if (DIFF >= 1) fire({ x: b.x, y: b.y, angle: -a + arm + 0.5, speed: 2.4, accel: -0.02, minSpeed: 1.2, angVel: -0.012, type: 'small', color: 'blue', silent: true, script: curl });
+        if (f % dv(6, 5, 4, 3) === 0) {
+          const sway = Math.sin(f * 0.03) * 0.8;
+          for (const side of [-1, 1]) {
+            fire({ x: b.x + side * 16, y: b.y + 8, angle: Math.PI / 2 + side * (0.45 + sway), speed: dv(1.8, 2.1, 2.4, 2.7), type: 'rice', color: side < 0 ? 'red' : 'pink', silent: true });
           }
-          a += 0.19;
         }
-        if (f % 100 === 50) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.5, angle: b.aim(), speed: 2.2, type: 'bigstar', color: 'yellow' });
         if (f % 20 === 0) Sound.se('tan');
+        if (f % dv(90, 75, 60, 50) === 40) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.45, angle: b.aim(), speed: 2.6, type: 'ball', color: 'green' });
+        if (f % 240 === 200) b.wander(60, 50);
         yield;
       }
     },
   },
   {
-    type: 'spell', name: '星座「コンステレーション・ドロー」', hp: 1100, time: 35,
+    // 市松模様（チェックの柄）の弾が上から降りてくる。ひとマスおきのすき間を抜ける
+    type: 'spell', name: '間符「市松の間取り」', hp: 1100, time: 32,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 70, 40);
-      for (let loop = 0; ; loop++) {
-        const c = CONSTELLATIONS[loop % CONSTELLATIONS.length];
-        const cx = rand(120, FIELD_W - 120), cy = rand(150, 240), sc = rand(75, 105), rot = rand(-0.5, 0.5);
-        const cs = Math.cos(rot), sn = Math.sin(rot);
-        const nodes = c.pts.map(([px, py]) => {
-          const x = cx + (px * cs - py * sn) * sc, y = cy + (px * sn + py * cs) * sc;
-          return fire({ x, y, speed: 0, type: 'bigstar', color: 'yellow', delay: 20 });
-        });
-        Sound.se('kira');
-        yield 30;
-        for (const [i, j] of c.edges) {
-          const p = nodes[i], q = nodes[j];
-          fireLaser({ x: p.x, y: p.y, angle: angleTo(p.x, p.y, q.x, q.y), length: dist(p.x, p.y, q.x, q.y), width: 10, warn: 50, dur: 45, color: 'cyan' });
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      const cell = dv(48, 42, 38, 34), speed = dv(1.1, 1.3, 1.5, 1.6);
+      const cols = Math.ceil(FIELD_W / cell);
+      for (let row = 0; ; row++) {
+        // Hard 以上は2段ごとに斜めに流れる
+        const drift = DIFF >= 2 ? (row % 4 < 2 ? 0.22 : -0.22) : 0;
+        for (let i = 0; i < cols; i++) {
+          if ((i + row) % 2) continue;
+          fire({ x: (i + 0.5) * cell, y: -6, angle: Math.PI / 2 + drift, speed, type: 'ball', color: row % 2 ? 'red' : 'white', silent: true });
         }
-        for (let f = 0; f < 100; f++) {
-          if (f % dv(40, 30, 24, 20) === 0) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.4, angle: b.aim(), speed: 2, type: 'star', color: 'white' });
-          yield;
-        }
-        for (const nd of nodes) {
-          if (!nd.alive) continue;
-          fireRing({ x: nd.x, y: nd.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: dv(1.2, 1.5, 1.8, 2.1), type: 'star', color: 'blue', silent: true });
-          nd.alive = false;
-        }
-        Sound.se('tan');
-        yield dv(70, 50, 40, 30);
+        if (row % 3 === 2) fireRing({ x: b.x, y: b.y, n: dv(8, 12, 16, 20), angle: b.aim(), speed: 1.9, type: 'rice', color: 'green' });
+        else Sound.se('tan');
+        // 1マス分進んだら次の段（市松になる）
+        yield Math.round(cell / (speed * bulletSpeedK()));
       }
     },
   },
@@ -355,7 +337,7 @@ STAGES.push({
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
-    { id: 'star', phases: STAR_MID4_PHASES, mid: true, def: { spellBg: 'star', circleColor: '140,160,255' } },
+    { id: 'midboss4', phases: MIDBOSS4_PHASES, mid: true, def: { spellBg: 'ichimatsu', circleColor: '230,110,150' } },
     { id: 'toganoo', phases: TOGANOO_PHASES, bgm: 'boss4', def: { spellBg: 'hashira', circleColor: '255,190,110' } },
   ],
   // 4面からは全難易度で前の面より難しい（弾速・全方位弾の数・ボスの体力）
@@ -388,10 +370,10 @@ STAGES.push({
     yield 320;
     yield* waitClear(300);
 
-    // 中ボス：スターサファイア（名前は出さない）
-    const mid = g.spawnStageBoss('star', { x: FIELD_W / 2, y: -50 });
+    // 中ボス：？？？（赤いパーカーの子。名前は出さない）
+    const mid = g.spawnStageBoss('midboss4', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
-    yield* g.fight(mid, STAR_MID4_PHASES);
+    yield* g.fight(mid, MIDBOSS4_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 6, point: 8, bomb: 1 });
     yield* g.bossDown(mid, true);
     yield 60;

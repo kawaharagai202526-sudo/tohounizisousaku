@@ -273,8 +273,8 @@ function drawCutin(ctx, g) {
   ctx.restore();
 }
 const CHARA_CUTIN_COLOR = {
-  nokiba: '200,110,50', ruri: '40,80,220', hamishiro: '50,110,220', midboss3: '170,40,70', namesawa: '110,100,180',
-  star: '90,90,230', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
+  nokiba: '200,110,50', ruri: '40,80,220', kuraishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
+  midboss4: '170,40,70', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
 };
 
 // 自機のボムのカットイン。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が左下から上がってくる。
@@ -325,7 +325,12 @@ function drawBossTitle(ctx, g) {
   ctx.textBaseline = 'middle';
   if (info.title !== '？？？') {
     ctx.font = `600 13px ${FONT_JP}`;
-    strokeText(ctx, info.title, FIELD_W - 18, 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+    strokeText(ctx, info.title, FIELD_W - 18, info.kana ? 222 : 232, '#e0d8ff', 'rgba(0,0,0,0.9)', 3);
+  }
+  // 読み仮名（名前のすぐ上に小さく）
+  if (info.kana) {
+    ctx.font = `600 11px ${FONT_JP}`;
+    strokeText(ctx, info.kana, FIELD_W - 18, 242, '#fff2d0', 'rgba(0,0,0,0.9)', 3);
   }
   ctx.font = `800 26px ${FONT_JP}`;
   strokeText(ctx, info.name, FIELD_W - 18, 260, info.color, 'rgba(0,0,0,0.9)', 4);

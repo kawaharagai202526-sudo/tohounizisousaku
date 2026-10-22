@@ -35,6 +35,8 @@
 - `js/menubg.js` の `MenuBG` を書きかえる。`update()`（毎フレーム）と `draw(ctx)`（640×480 全体を塗る）があればよい
 - タイトル・難易度選択・キャラクター選択・ミュージックルーム・エンディング・リザルトがこの背景を共有する
 - タイトルの文字やメニューの位置は `js/menus.js` の `TitleScene.draw`。背景の明るさを変えたら、文字が読めるか確かめる
+- いま（2.2.0）は、青空と古びた人里の家々、その向こうにそびえたつ屋敷の影。
+  タイトルの文字とメニューが屋敷の影の上に来るようにして、画面の下（操作の説明）は手前の暗い家並みの上にしてある
 
 ## 自機
 
@@ -55,7 +57,9 @@
 
 ## キャラクター（ボス・中ボス）
 
-1. `CHARA_INFO` に名前・肩書き・色を書く
+1. `CHARA_INFO` に名前・読み仮名（`kana`）・肩書き・色を書く。読み仮名はボスの名前が出るときと会話に出る
+   （名前が決まっているボスには必ず書く。テストが書き忘れを見つける）。
+   会話・カットインの絵を小さくしたいときは `portraitScale`（例：座敷は 0.8）。ゲーム中の大きさはドット絵の高さで決まる
 2. 絵を用意する
    - キャンバスで描くちびキャラなら `CHARA` に色や髪形を書く（既存のキャラクターをまねる）
    - 画像なら `tools/make-sprite.py` で原画（`img/<名前>.png`）とドット絵（`img/<名前>_dot.png`）を作り、
@@ -82,12 +86,12 @@
 まず `--preview 確認用フォルダ` を付けて仕上がりを見るとよい。
 
 ```
-# 2.1.0 で使ったもの
-python3 tools/make-sprite.py 23.jpg zashiki --crop 0,0,1050,1337 --fade 30 --dot 80                         # 6面ボス
-python3 tools/make-sprite.py 24.jpg midboss3b --crop 330,320,780,1410 --mask 645,1290,1067,1440 --dot 74  # 3面中ボス
+# 2.1.0〜2.2.0 で使ったもの（4面中ボスの絵は、2.1.0 では3面中ボス `midboss3b` だった）
+python3 tools/make-sprite.py 23.jpg zashiki --crop 0,0,1050,1337 --fade 30 --dot 60                         # 6面ボス（座敷わらしなので小さく）
+python3 tools/make-sprite.py 24.jpg midboss4 --crop 330,320,780,1410 --mask 645,1290,1067,1440 --dot 74   # 4面中ボス
 # 2.0.0 で使ったもの（ボス）
 python3 tools/make-sprite.py 22.jpg nokiba --crop 125,136,942,1313 --mask 720,980,945,1240 --mask 395,185,460,255 --dot 76
-python3 tools/make-sprite.py 21.jpg hamishiro --crop 150,200,830,1295 --mask 630,160,780,226 --fade 60 --dot 76
+python3 tools/make-sprite.py 21.jpg kuraishiro --crop 150,200,830,1295 --mask 630,160,780,226 --fade 60 --dot 76
 python3 tools/make-sprite.py 19.jpg namesawa --crop 300,440,640,1150 --dot 78
 python3 tools/make-sprite.py 18.jpg toganoo --fade 40 --dot 76
 python3 tools/make-sprite.py 20.jpg yanari --crop 280,222,882,1380 --mask 645,255,890,305 --fade 50 --dot 80
