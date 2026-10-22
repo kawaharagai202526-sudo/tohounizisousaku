@@ -273,8 +273,8 @@ function drawCutin(ctx, g) {
   ctx.restore();
 }
 const CHARA_CUTIN_COLOR = {
-  nokiba: '200,110,50', midboss2: '70,70,150', hamishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
-  star: '90,90,230', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210',
+  nokiba: '200,110,50', ruri: '40,80,220', hamishiro: '50,110,220', midboss3: '170,40,70', namesawa: '110,100,180',
+  star: '90,90,230', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
 };
 
 // 自機のボムのカットイン。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が左下から上がってくる。

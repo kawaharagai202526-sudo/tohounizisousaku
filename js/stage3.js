@@ -1,13 +1,13 @@
 'use strict';
 // ============================================================
-//  3面：上がり込みの裏通り ― 中ボス：？？？（正体は滑沢 瓢）／ボス：滑沢 瓢
+//  3面：上がり込みの裏通り ― 中ボス：？？？（提供画像のキャラクター。名前は未定）／ボス：滑沢 瓢
 //  ボスを倒したあとの会話で、隠れていた屋敷が姿を現す（背景の event('mansion')）
 // ============================================================
 
 // ------------------------------------------------------------
-//  中ボス：？？？（よその家にくつろいでいた正体不明の人。名前は出さない）
+//  中ボス：？？？（よその家でくつろいでいた、正体不明の子。名前は出さない）
 // ------------------------------------------------------------
-const NAMESAWA_MID_PHASES = [
+const MIDBOSS3_PHASES = [
   {
     // いつの間にか上がりこむ：消えては別の場所に現れて、二重の輪を撃つ
     type: 'non', hp: 900, time: 25,
@@ -232,7 +232,7 @@ STAGES.push({
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
-    { id: 'namesawaMask', phases: NAMESAWA_MID_PHASES, mid: true, def: { circleColor: '170,170,230' } },
+    { id: 'midboss3', phases: MIDBOSS3_PHASES, mid: true, def: { circleColor: '170,170,230' } },
     { id: 'namesawa', phases: NAMESAWA_PHASES, bgm: 'boss3', def: { spellBg: 'nurari', circleColor: '200,190,255' } },
   ],
   *script(g) {
@@ -252,10 +252,10 @@ STAGES.push({
     yield* waitClear(300);
 
     // 中ボス：？？？（よその家でくつろいでいた。会話のあと、逃げていく）
-    const mid = g.spawnStageBoss('namesawaMask', { x: FIELD_W / 2, y: -50 });
+    const mid = g.spawnStageBoss('midboss3', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage3mid[g.charId].before);
-    yield* g.fight(mid, NAMESAWA_MID_PHASES);
+    yield* g.fight(mid, MIDBOSS3_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 5, point: 8, bomb: 1 });
     yield* g.talk(STORY.stage3mid[g.charId].after);
     yield* g.bossDown(mid, true);

@@ -67,8 +67,9 @@
 3. ステージの `bosses` に `{ id, phases, mid, bgm, def }` を書く（`def` はスペルカードの背景 `spellBg`・魔法陣の色 `circleColor` など）。
    `mid: true` の中ボスは、戦っているあいだ名前を出さない
 4. ステージの `boss(g)`（中ボスは `script(g)` の中）で `g.spawnStageBoss('ID', { x, y })` → `g.fight(boss, 攻撃)` → `g.bossDown(boss)`
-5. 同じキャラクターが中ボスとボスの両方で出るときは、`CHARA_INFO` に別のIDを作る（例：5面の `yanariMid` と `yanari`）。
-   正体を隠して出るときも別のID（例：3面の `namesawaMask` は名前が「？？？」で、絵は `namesawa` と同じ）
+5. 同じキャラクターが何度も出るときは、出る面ごとに `CHARA_INFO` に別のIDを作る
+   （例：家鳴は5面中ボス `yanariMid`・5面ボス `yanari`・6面中ボス `yanari6`）。ボスの攻撃を試す機能がIDで面を探すため
+6. 前に作った絵を使い回すときは、`IMAGE_FILES` に別のキーで同じファイルを書けばよい（例：2面中ボス `ruri` は `img/boss4.png`）
 
 管理者ページの「キャラクター一覧」には、自機は `PLAYER_TYPES`、ボスは `bosses` から自動で並ぶ。
 ザコの一覧は `js/admin.js` の `showCharacters()` に手で書いてある。
@@ -81,6 +82,9 @@
 まず `--preview 確認用フォルダ` を付けて仕上がりを見るとよい。
 
 ```
+# 2.1.0 で使ったもの
+python3 tools/make-sprite.py 23.jpg zashiki --crop 0,0,1050,1337 --fade 30 --dot 80                         # 6面ボス
+python3 tools/make-sprite.py 24.jpg midboss3b --crop 330,320,780,1410 --mask 645,1290,1067,1440 --dot 74  # 3面中ボス
 # 2.0.0 で使ったもの（ボス）
 python3 tools/make-sprite.py 22.jpg nokiba --crop 125,136,942,1313 --mask 720,980,945,1240 --mask 395,185,460,255 --dot 76
 python3 tools/make-sprite.py 21.jpg hamishiro --crop 150,200,830,1295 --mask 630,160,780,226 --fade 60 --dot 76
@@ -137,22 +141,22 @@ index.html?stage=2&phase=1&only=1
 
 ## 面の数とエキストラステージ
 
-本編は全6面＋エキストラステージにする予定で、そのしくみはできている（いまある面は5面まで）。
+本編は全6面＋エキストラステージ。本編の6面はそろっている（2.1.0）。エキストラのしくみはあるが、面はまだない。
 
 | もの | 場所 | ひとこと |
 | --- | --- | --- |
 | 本編の面の数 | js/game.js の `MAIN_STAGE_COUNT`（6） | プラクティスはこの数だけ並び、まだない面は「準備中」で選べない |
-| 本編の面 | `STAGES`（js/stage1〜5.js） | いまある最後の面をクリアするとエンディング |
+| 本編の面 | `STAGES`（js/stage1〜6.js） | 最後の面（6面）をクリアするとエンディング |
 | エキストラステージ | js/game.js の `EXTRA_STAGES`（いまは空） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
 | 解放の条件 | js/game.js の `EXTRA_UNLOCK` | いまは Normal 以上・コンティニューなしで、本編の最後（6面）をクリア |
 | 解放したかどうか | 保存データ `extraUnlocked` | 管理者ページのデータベースで見られる |
 
-### 6面を作るとき
+### 本編の面を足すとき（参考）
 
-1. `js/stage6.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
-2. `index.html` の `stage5.js` の次に `<script src="js/stage6.js"></script>` を足す（1ファイル版は自動で入る）
-3. `js/story.js` に `STORY.stage6`、`README.md` のステージの表を書き、`ENDINGS` を6面の内容に合わせて書きかえる
-4. 6面までそろうと、6面をクリアしたときにエンディングになり、条件を満たせばエキストラが解放される
+1. `js/stageN.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
+2. `index.html` の最後の面の次に `<script src="js/stageN.js"></script>` を足す（1ファイル版は自動で入る）
+3. `js/story.js` に `STORY.stageN`、`README.md` のステージの表を書く
+4. 面の数を変えるときは `MAIN_STAGE_COUNT` も直す。最後の面をクリアするとエンディングになり、条件を満たせばエキストラが解放される
 
 ### エキストラステージを作るとき
 

@@ -12,15 +12,17 @@ const CHARA_INFO = {
   marisa: { name: '霧雨 魔理沙', title: '東洋の魔法使い', color: '#ffd860', image: 'marisa' },
   // ボス・中ボス（中ボスは戦っているあいだ名前を出さない。STAGES の bosses の mid）
   nokiba: { name: '軒端 鬼乃', title: '焼きたての反逆児', color: '#f0c890', image: 'nokiba', dot: 'nokibaDot' },
-  midboss2: { name: '？？？', title: '？？？', color: '#9aa0d8', image: 'midboss2', dot: 'midboss2Dot' },
+  ruri: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'ruri', dot: 'ruriDot' },
   hamishiro: { name: '喰代 守子', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'hamishiro', dot: 'hamishiroDot' },
-  // 3面の中ボスは正体を隠した滑沢（会話でも「？？？」と出る）
-  namesawaMask: { name: '？？？', title: '？？？', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
+  // 3面の中ボス（名前は未定。会話でも「？？？」と出る）
+  midboss3: { name: '？？？', title: '？？？', color: '#9ae0c0', image: 'midboss3', dot: 'midboss3Dot' },
   namesawa: { name: '滑沢 瓢', title: 'すれ違いざまの暴露魔', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
   toganoo: { name: '栂尾 芯', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
   yanariMid: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
   yanari: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  yanari6: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  zashiki: { name: '座敷 宿美', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot' },
 };
 
 const CHARA = {

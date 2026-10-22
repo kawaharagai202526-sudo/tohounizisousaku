@@ -1,30 +1,51 @@
 'use strict';
 // ============================================================
-//  2面：虫食いの空き家 ― 中ボス：提供画像のキャラクター（名前は出さない）／ボス：喰代 守子（家守）
+//  2面：虫食いの空き家 ― 中ボス：瑠璃（名前は出さない）／ボス：喰代 守子（家守）
 // ============================================================
 
-// 中ボス：消えては別の場所に現れて、輪と自機狙いの弾を撃つ
-const MIDBOSS2_PHASES = [
+// 中ボス：瑠璃（鹿の角と瑠璃色の蝶の羽、一冊の本を持つ子。名前は出さない）
+// 前のゲーム『東方星降夜』の4面ボスの攻撃を、2面に合わせてやさしくしたもの
+const stopCurl = frames => function* (bl) { yield frames; bl.angVel = 0; };
+const RURI_MID_PHASES = [
   {
-    type: 'non', hp: 1100, time: 25,
+    // 回りながら広がる蝶の輪と、自機狙いの札
+    type: 'non', hp: 1000, time: 25,
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        // 瞬間移動
-        Sound.se('kira');
-        for (let i = 0; i < 12; i++) { b.alpha = 1 - i / 12; yield; }
-        b.x = rand(80, FIELD_W - 80);
-        b.y = rand(70, 140);
-        for (let i = 0; i < 12; i++) { b.alpha = i / 12; yield; }
-        b.alpha = 1;
-        const n = dv(14, 20, 28, 36);
-        fireRing({ x: b.x, y: b.y, n, angle: rand(TAU), speed: dv(1.6, 2, 2.3, 2.6), type: 'ball', color: 'green' });
-        yield 10;
-        for (let k = 0; k < dv(3, 5, 6, 8); k++) {
-          fireFan({ x: b.x, y: b.y, n: dv(1, 1, 3, 3), spread: 0.2, angle: b.aim(), speed: 3.2 + k * 0.1, type: 'kunai', color: 'green' });
-          yield 5;
+        const dir = loop % 2 ? 1 : -1;
+        fireRing({ x: b.x, y: b.y, n: dv(8, 12, 16, 22), angle: rand(TAU), speed: 2.0, accel: -0.02, minSpeed: 1.0, angVel: dir * 0.006, type: 'butterfly', color: dir > 0 ? 'blue' : 'cyan', script: stopCurl(90) });
+        yield 34;
+        fireFan({ x: b.x - 16, y: b.y, n: dv(1, 3, 3, 5), spread: 0.3, angle: b.aim(), speed: 2.0, type: 'amulet', color: 'blue' });
+        yield 24;
+        if (loop % 2) b.wander(60, 60);
+      }
+    },
+  },
+  {
+    // 大きな蝶が舞いながら、鱗粉（小さな弾）をこぼしていく
+    type: 'spell', name: '蝶符「瑠璃色の鱗粉」', hp: 1000, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 90, 40);
+      for (;;) {
+        const n = dv(4, 5, 7, 9);
+        const off = rand(TAU);
+        for (let i = 0; i < n; i++) {
+          const dir = i % 2 ? 1 : -1;
+          fire({
+            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 1.5, angVel: dir * 0.012,
+            type: 'butterfly', color: 'blue', scale: 1.5, hitR: 4.5,
+            script: function* (bl) {
+              for (let f = 0; f < 240; f++) {
+                if (f % dv(14, 12, 10, 8) === 0) fire({ x: bl.x, y: bl.y, angle: rand(TAU), speed: rand(0.2, 0.6), type: 'dot', color: 'cyan', silent: true, delay: 6, life: 300 });
+                if (f === 90) bl.angVel = 0;
+                yield;
+              }
+            },
+          });
         }
-        yield dv(50, 40, 30, 24);
+        yield dv(96, 80, 66, 54);
+        b.wander(60, 50);
       }
     },
   },
@@ -236,7 +257,7 @@ STAGES.push({
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
-    { id: 'midboss2', phases: MIDBOSS2_PHASES, mid: true, def: { circleColor: '150,160,240' } },
+    { id: 'ruri', phases: RURI_MID_PHASES, mid: true, def: { spellBg: 'ruri', circleColor: '90,140,255' } },
     { id: 'hamishiro', phases: HAMISHIRO_PHASES, bgm: 'boss2', def: { spellBg: 'yamori', circleColor: '110,200,255' } },
   ],
   *script(g) {
@@ -257,10 +278,10 @@ STAGES.push({
     yield 320;
     yield* waitClear(200);
 
-    // 中ボス（提供画像のキャラクター。名前は出さない）
-    const mid = g.spawnStageBoss('midboss2', { x: -40, y: 60 });
+    // 中ボス：瑠璃（名前は出さない）
+    const mid = g.spawnStageBoss('ruri', { x: -40, y: 60 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
-    yield* g.fight(mid, MIDBOSS2_PHASES);
+    yield* g.fight(mid, RURI_MID_PHASES);
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 5, point: 6, bigpower: DIFF >= 2 ? 1 : 0 });
     yield* g.bossDown(mid, true);
     yield 60;

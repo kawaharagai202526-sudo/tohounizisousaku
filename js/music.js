@@ -309,6 +309,62 @@ const SONGS = {
     backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
     drums: 'rock',
   },
+
+  stage6: {
+    title: '瓦礫の空に鈴が鳴る',
+    comment: '6面のテーマ（曲名は仮）。\n崩れた屋敷のがれきが浮かぶ、夜明け前の空。\nどこかで鳴る鈴の音を追いかけて。',
+    bpm: 152,
+    lead: 'lead', leadVol: 0.12,
+    double: { inst: 'bell', vol: 0.04, shift: 12 },
+    chords: ['Em', 'C', 'D', 'B', 'Em', 'C', 'Am', 'B', 'C', 'D', 'G', 'Em', 'Am', 'C', 'B', 'B7'],
+    melody: `
+      o5 e4 g8 a8 b4 o6 d4 |
+      o6 e4. d8 c4 o5 g4 |
+      o5 a8 b8 o6 c8 d8 e4 d4 |
+      o5 b2 d+4 f+4 |
+      o5 e4 g8 a8 b4 o6 e4 |
+      o6 g4. f+8 e4 c4 |
+      o6 c8 o5 b8 a8 g8 a4 c4 |
+      o5 b2. r4 |
+      o6 c4 o5 g8 o6 c8 e4 c4 |
+      o6 d4 o5 a8 o6 d8 f+4 d4 |
+      o6 g4. f+8 e4 d4 |
+      o6 e2 o5 b4 g4 |
+      o5 a4 o6 c8 e8 a4 g4 |
+      o6 g4. e8 c4 e4 |
+      o6 d+4 f+8 a8 b4 a4 |
+      o6 f+4 d+4 o5 b4 f+4 |`,
+    backing: { arp: '16up', arpInst: 'bell', arpVol: 0.04, bass: 'oct8', pad: true },
+    drums: 'drive',
+  },
+
+  boss6: {
+    title: '座敷わらしの家運隆盛',
+    comment: '6面ボス・座敷 宿美のテーマ（曲名は仮）。\n住処を追われた、愛しき災難。\n鈴の音とともに、最後の戦いをいちばん華やかに。',
+    bpm: 176,
+    lead: 'trumpet', leadVol: 0.15,
+    double: { inst: 'bell', vol: 0.04, shift: 12 },
+    chords: ['Bm', 'G', 'A', 'F#', 'Bm', 'G', 'Em', 'F#7', 'G', 'A', 'D', 'Bm', 'Em', 'C', 'F#', 'F#7'],
+    melody: `
+      o5 b8 b8 o6 d8 o5 b8 a8 f+8 a8 b8 |
+      o6 d4 c+8 o5 b8 g4 b4 |
+      o5 a8 a8 o6 c+8 o5 a8 e8 c+8 e8 a8 |
+      o5 f+2 a+4 o6 c+4 |
+      o5 b8 b8 o6 d8 o5 b8 o6 f+8 e8 d8 c+8 |
+      o6 d4 g4 b4. a8 |
+      o6 g8 f+8 e8 d8 e4 g4 |
+      o6 f+2. c+4 |
+      o6 d4. e8 g4 b4 |
+      o6 c+4. d8 e4 a4 |
+      o6 f+4 e8 d8 a4 f+8 d8 |
+      o6 b2 f+4 d4 |
+      o6 e4 g8 b8 e4 g4 |
+      o6 g4. e8 c4 e4 |
+      o6 c+8 f+8 a+8 f+8 c+4 f+4 |
+      o6 e4 c+4 o5 a+4 f+4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
+    drums: 'rock',
+  },
 };
 
-const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5'];
+const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5', 'stage6', 'boss6'];

@@ -144,7 +144,7 @@ const NOKIBA_PHASES = [
     *script(b) {
       yield 40;
       for (let loop = 0; ; loop++) {
-        const n = dv(5, 7, 9, 11);
+        const n = dv(4, 5, 7, 9);
         for (let i = 0; i < n; i++) {
           const a = -Math.PI / 2 + (i - (n - 1) / 2) * dv(0.32, 0.28, 0.24, 0.2) + rand(-0.05, 0.05);
           fire({
@@ -167,7 +167,7 @@ const NOKIBA_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let loop = 0; ; loop++) {
-        const n = dv(2, 3, 4, 5), base = b.aim();
+        const n = dv(2, 2, 3, 4), base = b.aim();
         for (let i = 0; i < n; i++) {
           fire({
             x: b.x, y: b.y, angle: base + (i - (n - 1) / 2) * 0.55, speed: 3.2, accel: -0.06, minSpeed: 0, type: 'large', color: 'orange',
@@ -182,11 +182,11 @@ const NOKIBA_PHASES = [
         }
         // 合間に舞う火の粉
         for (let k = 0; k < 45; k++) {
-          if (k % dv(9, 7, 5, 4) === 0) fire({ x: b.x + rand(-20, 20), y: b.y, angle: Math.PI / 2 + rand(-0.7, 0.7), speed: rand(1.2, 2), type: 'dot', color: 'orange', silent: true });
+          if (k % dv(12, 9, 6, 5) === 0) fire({ x: b.x + rand(-20, 20), y: b.y, angle: Math.PI / 2 + rand(-0.7, 0.7), speed: rand(1.2, 2), type: 'dot', color: 'orange', silent: true });
           yield;
         }
         if (loop % 2) b.wander(50, 60);
-        yield dv(40, 30, 24, 18);
+        yield dv(54, 42, 32, 24);
       }
     },
   },
@@ -197,9 +197,9 @@ const NOKIBA_PHASES = [
       yield 30;
       for (let f = 0; ; f++) {
         const gapX = FIELD_W / 2 + Math.sin(f * 0.012) * 120;
-        if (f % dv(36, 30, 26, 22) === 0) {
+        if (f % dv(44, 36, 30, 24) === 0) {
           for (let x = 12; x < FIELD_W; x += 32) {
-            if (Math.abs(x - gapX) < dv(70, 60, 52, 46)) continue;
+            if (Math.abs(x - gapX) < dv(84, 72, 60, 52)) continue;
             fire({ x: x + rand(-4, 4), y: -6, angle: Math.PI / 2, speed: dv(1.4, 1.6, 1.8, 2.0), type: 'kunai', color: 'cyan', silent: true });
           }
           Sound.se('tan');
@@ -216,7 +216,7 @@ const NOKIBA_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 110, 40);
       for (let loop = 0; ; loop++) {
-        const n = dv(16, 22, 28, 36), off = rand(TAU), dir = loop % 2 ? 1 : -1;
+        const n = dv(12, 16, 22, 30), off = rand(TAU), dir = loop % 2 ? 1 : -1;
         Sound.se('kira');
         for (let i = 0; i < n; i++) {
           fire({
@@ -226,7 +226,7 @@ const NOKIBA_PHASES = [
               yield 45;
               bl.angle += Math.PI + dir * 0.35;
               bl.accel = 0.03;
-              bl.maxSpeed = dv(1.4, 1.8, 2.2, 2.6);
+              bl.maxSpeed = dv(1.2, 1.5, 1.9, 2.3);
             },
           });
         }
@@ -235,7 +235,7 @@ const NOKIBA_PHASES = [
           fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.8, type: 'rice', color: 'orange' });
           yield 12;
         }
-        yield dv(70, 56, 46, 38);
+        yield dv(84, 68, 54, 42);
         b.wander(60, 60);
       }
     },
@@ -252,6 +252,10 @@ STAGES.push({
   bosses: [
     { id: 'nokiba', phases: NOKIBA_PHASES, bgm: 'boss1', def: { spellBg: 'kawara', circleColor: '255,150,80' } },
   ],
+  // 1面はほかの面よりやさしくする（2.1.0。弾速・全方位弾の数・ボスの体力）
+  speedScale: 0.88,
+  densityScale: 0.8,
+  hpScale: 0.85,
   *script(g) {
     yield 160;
     yield* sideSweep(-1, 8);
@@ -260,9 +264,9 @@ STAGES.push({
     yield 60;
     [70, 314, 150, 234].forEach((x, i) => ringFairy(x, { stopY: 90 + i * 12 }));
     yield 280;
-    g.tasks.add(kedamaRain(300, dv(12, 16, 20, 24)));
+    g.tasks.add(kedamaRain(300, dv(8, 12, 16, 20)));
     yield 120;
-    g.tasks.add(tileShower(240, dv(10, 16, 24, 34)));
+    g.tasks.add(tileShower(240, dv(8, 12, 18, 28)));
     yield 260;
     yield* zigzag(12);
     yield 120;
@@ -279,8 +283,8 @@ STAGES.push({
         let a = 0;
         const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'];
         for (let f = 0; f < 900; f++) {
-          if (f % dv(9, 7, 5, 4) === 0) {
-            const arms = dv(3, 4, 5, 6);
+          if (f % dv(11, 9, 6, 5) === 0) {
+            const arms = dv(3, 3, 4, 5);
             for (let k = 0; k < arms; k++) fire({ x: e.x, y: e.y, angle: a + (k * TAU) / arms, speed: 2, type: 'rice', color: colors[(f >> 3) % colors.length], silent: k > 0 });
             a += 0.21;
           }
@@ -292,8 +296,8 @@ STAGES.push({
     });
     yield* waitClear(1000);
     yield 60;
-    g.tasks.add(tileShower(360, dv(14, 22, 34, 48), ['blue', 'purple', 'white'], true));
-    g.tasks.add(kedamaRain(360, dv(10, 14, 18, 22)));
+    g.tasks.add(tileShower(360, dv(10, 16, 26, 40), ['blue', 'purple', 'white'], true));
+    g.tasks.add(kedamaRain(360, dv(8, 10, 14, 18)));
     yield 200;
     for (let i = 0; i < 4; i++) {
       const side = i % 2 ? 1 : -1;

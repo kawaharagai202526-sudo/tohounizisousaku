@@ -261,7 +261,7 @@ test('URL の ?stage= / ?boss= でボスの攻撃からすぐ始まる', async (
   } finally { await context.close(); }
 }, { noPage: true });
 
-test('本編6面とエキストラステージのしくみ（まだない面は準備中）', async ({ page }) => {
+test('本編6面とエキストラステージのしくみ', async ({ page }) => {
   const r = await page.evaluate(() => {
     const out = {};
     const scene = () => Game.scene.constructor.name;
@@ -283,26 +283,30 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
     out.real = { stages: STAGES.length, main: MAIN_STAGE_COUNT, extra: EXTRA_STAGES.length };
     // エキストラの面がないうちは、URL の ?stage=extra（startBossTest）は何もしない
     out.bossTestNoExtra = startBossTest({ stage: 'extra' });
-    // プラクティス：まだない面（5面）は選べない
+    // プラクティス：最後の面（6面）は、面があれば始まり、まだなければ選べない
     Game.setScene(new StageSelectScene(1, PLAYER_IDS[0]));
     T.step(12);
-    Game.scene.sel = STAGES.length;
+    Game.scene.sel = MAIN_STAGE_COUNT - 1;
     press();
-    out.practiceMissing = scene();
+    out.practiceLast = scene() === (STAGES[MAIN_STAGE_COUNT - 1] ? 'GameScene' : 'StageSelectScene');
     // タイトル：エキストラスタートは選べない
     Game.setScene(new TitleScene('extra'));
     T.step(12);
     out.titleLocked = Game.scene.items[1].disabled;
     press();
     out.titleLockedScene = scene();
-    // いまある最後の面をクリアするとエンディング。6面までそろっていないので解放しない
-    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: STAGES.length - 1 }));
-    G.tasks.clear();
-    G.tasks.add(G.stageClear());
-    out.lastClear = run();
-    out.unlockedEarly = Store.get('extraUnlocked', false);
+    // 6面までそろっていないうちは、いまある最後の面をクリアするとエンディングで、エキストラは解放しない
+    out.lastClear = 'EndingScene';
+    out.unlockedEarly = false;
+    if (STAGES.length < MAIN_STAGE_COUNT) {
+      Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: STAGES.length - 1 }));
+      G.tasks.clear();
+      G.tasks.add(G.stageClear());
+      out.lastClear = run();
+      out.unlockedEarly = Store.get('extraUnlocked', false);
+    }
 
-    // まだない面（6面）を足したつもりで、解放の条件を確かめる
+    // まだない面があれば仮に足して、解放の条件を確かめる
     while (STAGES.length < MAIN_STAGE_COUNT) STAGES.push(mini(`仮の${STAGES.length + 1}面`));
     const tryUnlock = (diff, mod) => {
       Store.remove('extraUnlocked');
@@ -317,9 +321,11 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
       practice: tryUnlock(1, g => { g.practice = true; }),
     };
     Store.remove('extraUnlocked');
-    // 最後の面（6面）をクリア → エンディング → リザルトに「遊べるようになりました」
+    // 最後の面（6面）をクリア → エンディング → リザルトに「解放」と出る
     Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 1 }));
     const g6 = G;
+    G.tasks.clear();
+    G.tasks.add(G.stageClear());
     out.fullClear = run();
     out.reached = g6.stageIndex + 1;
     out.unlocked = Store.get('extraUnlocked', false);
@@ -355,7 +361,7 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
     return out;
   });
   const want = {
-    bossTestNoExtra: false, practiceMissing: 'StageSelectScene', titleLocked: true, titleLockedScene: 'TitleScene',
+    bossTestNoExtra: false, practiceLast: true, titleLocked: true, titleLockedScene: 'TitleScene',
     lastClear: 'EndingScene', unlockedEarly: false,
     fullClear: 'EndingScene', reached: 6, unlocked: true, unlockedNow: true, titleNoStage: true,
     titleReady: true, afterTitle: 'CharacterScene:extra', extraEnd: 'ResultScene:extra', extraHi: true,

@@ -1092,6 +1092,163 @@ class CollapseBG {
 }
 
 // ------------------------------------------------------------
+//  6面：瓦礫の空（崩れた屋敷のがれきが、夜明け前の空に浮かんでいる）
+//  がれきは遠い・中くらい・近いの3つの層に分かれて、ゆっくり流れていく。当たり判定はない
+// ------------------------------------------------------------
+function drawRubble(ctx, p) {
+  const r = new RNG(p.seed);
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rot);
+  ctx.scale(p.k, p.k);
+  // 影（空に浮いているので、うすく大きめに）
+  ctx.fillStyle = 'rgba(10,6,30,0.25)';
+  ctx.fillRect(-22 + 6, -12 + 10, 44, 24);
+  switch (p.kind) {
+    case 'beam': {
+      const len = 60 + r.next() * 50;
+      ctx.fillStyle = '#5a3a1e';
+      ctx.beginPath();
+      ctx.moveTo(-len / 2, -6); ctx.lineTo(len / 2 - 6, -6); ctx.lineTo(len / 2, -2); ctx.lineTo(len / 2 - 4, 6); ctx.lineTo(-len / 2 + 5, 6); ctx.lineTo(-len / 2 - 3, 1);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(30,18,8,0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-len / 2 + 4, -2); ctx.lineTo(len / 2 - 8, -1); ctx.moveTo(-len / 2 + 8, 2); ctx.lineTo(len / 2 - 12, 3); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,220,180,0.15)';
+      ctx.fillRect(-len / 2 + 2, -6, len - 8, 2);
+      break;
+    }
+    case 'tatami': {
+      ctx.fillStyle = '#9c9a5c';
+      ctx.fillRect(-26, -13, 52, 26);
+      ctx.fillStyle = '#26301c';
+      ctx.fillRect(-26, -13, 52, 3); ctx.fillRect(-26, 10, 52, 3);
+      ctx.fillStyle = 'rgba(0,0,0,0.08)';
+      for (let y = -10; y < 10; y += 2) ctx.fillRect(-26, y, 52, 1);
+      ctx.fillStyle = 'rgba(20,14,40,0.9)';
+      ctx.beginPath(); ctx.moveTo(26, -13); ctx.lineTo(14, -13); ctx.lineTo(26, -2); ctx.closePath(); ctx.fill();
+      break;
+    }
+    case 'fusuma': {
+      ctx.fillStyle = '#e6dcc0';
+      ctx.fillRect(-15, -22, 30, 44);
+      ctx.strokeStyle = '#4a3018';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-15, -22, 30, 44);
+      ctx.strokeStyle = 'rgba(70,90,150,0.6)';
+      ctx.lineWidth = 1.2;
+      for (const yy of [8, 14]) { ctx.beginPath(); ctx.arc(-6, yy, 5, Math.PI, TAU); ctx.arc(6, yy, 5, Math.PI, TAU); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(20,14,40,0.9)';
+      jaggedBlob(ctx, 2 + r.next() * 4, -8, 6 + r.next() * 3, r, 1);
+      ctx.fill();
+      break;
+    }
+    case 'pillar': {
+      ctx.fillStyle = '#6a4424';
+      ctx.fillRect(-7, -24, 14, 48);
+      ctx.fillStyle = 'rgba(255,220,170,0.18)';
+      ctx.fillRect(-7, -24, 3, 48);
+      ctx.fillStyle = '#3a2410';
+      ctx.beginPath(); ctx.moveTo(-7, 24); ctx.lineTo(-3, 18); ctx.lineTo(1, 24); ctx.lineTo(4, 19); ctx.lineTo(7, 24); ctx.closePath(); ctx.fill();
+      break;
+    }
+    default: { // 瓦のついた屋根板
+      ctx.fillStyle = '#4a3020';
+      ctx.fillRect(-22, -12, 44, 24);
+      for (let i = 0; i < 6; i++) {
+        if (r.next() < 0.25) continue;
+        const tx = -20 + (i % 3) * 14, ty = -10 + Math.floor(i / 3) * 11;
+        ctx.fillStyle = '#4a5468';
+        ctx.fillRect(tx, ty, 12, 9);
+        ctx.fillStyle = 'rgba(200,210,240,0.2)';
+        ctx.fillRect(tx, ty, 12, 2);
+      }
+    }
+  }
+  ctx.restore();
+}
+
+class RubbleSkyBG {
+  constructor() {
+    this.t = 0;
+    this.scroll = 0;
+    this.clouds = makeFogTile(FIELD_W, 448, 12, 0.08, 66, '255,200,230');
+    this.clouds2 = makeFogTile(FIELD_W, 448, 9, 0.06, 67, '190,180,255');
+    this.stars = [];
+    for (let i = 0; i < 40; i++) this.stars.push({ x: frand(FIELD_W), y: frand(0, 220), p: frand(TAU) });
+    this.pieces = [];
+    for (let i = 0; i < 28; i++) this.pieces.push(this.newPiece(true));
+    this.glints = [];
+  }
+  newPiece(anywhere) {
+    const layer = Math.random() < 0.45 ? 0 : Math.random() < 0.65 ? 1 : 2;
+    return {
+      layer, k: [0.45, 0.75, 1.15][layer] * frand(0.85, 1.15),
+      x: frand(-20, FIELD_W + 20), y: anywhere ? frand(-60, FIELD_H + 40) : frand(-160, -60),
+      vy: [0.45, 0.85, 1.5][layer] * frand(0.85, 1.15), vx: frand(-0.12, 0.12),
+      rot: frand(TAU), vr: frand(-0.008, 0.008),
+      kind: pick(['tiles', 'tiles', 'beam', 'tatami', 'fusuma', 'pillar']), seed: Math.floor(Math.random() * 1e6),
+    };
+  }
+  update() {
+    this.t++;
+    this.scroll += 0.6;
+    for (let i = 0; i < this.pieces.length; i++) {
+      const p = this.pieces[i];
+      p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+      if (p.y > FIELD_H + 90) this.pieces[i] = this.newPiece(false);
+    }
+    // 座敷わらしの鈴のきらめき
+    if (this.t % 7 === 0) this.glints.push({ x: frand(FIELD_W), y: frand(FIELD_H), life: 50 });
+    for (const g of this.glints) { g.y -= 0.3; g.life--; }
+    this.glints = this.glints.filter(g => g.life > 0);
+  }
+  draw(ctx) {
+    // 夜明け前の空
+    const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+    g.addColorStop(0, '#0e0c2e');
+    g.addColorStop(0.45, '#3a2456');
+    g.addColorStop(0.8, '#7a3c5c');
+    g.addColorStop(1, '#c0705a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    for (const st of this.stars) {
+      ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.25 * Math.sin(this.t * 0.04 + st.p)})`;
+      ctx.fillRect(st.x, st.y, 1.5, 1.5);
+    }
+    // 三日月
+    ctx.fillStyle = 'rgba(255,240,190,0.85)';
+    ctx.beginPath(); ctx.arc(300, 70, 22, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#16123a';
+    ctx.beginPath(); ctx.arc(310, 63, 20, 0, TAU); ctx.fill();
+    drawScrollingTile(ctx, this.clouds2, this.scroll * 0.6, 0.9);
+    const order = [0, 1, 2];
+    for (const layer of order) {
+      if (layer === 1) drawScrollingTile(ctx, this.clouds, this.scroll, 0.9);
+      for (const p of this.pieces) {
+        if (p.layer !== layer) continue;
+        ctx.globalAlpha = [0.45, 0.75, 1][layer];
+        drawRubble(ctx, p);
+      }
+      ctx.globalAlpha = 1;
+      // 遠いがれきほど空の色にとける
+      if (layer === 0) { ctx.fillStyle = 'rgba(60,40,100,0.3)'; ctx.fillRect(0, 0, FIELD_W, FIELD_H); }
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    for (const gl of this.glints) {
+      const a = Math.sin((gl.life / 50) * Math.PI) * 0.7;
+      ctx.fillStyle = `rgba(255,230,150,${a})`;
+      ctx.fillRect(gl.x - 0.5, gl.y - 3, 1, 6);
+      ctx.fillRect(gl.x - 3, gl.y - 0.5, 6, 1);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    // 弾が見やすいように、少し暗くする
+    ctx.fillStyle = 'rgba(8,4,20,0.25)';
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+  }
+}
+
+// ------------------------------------------------------------
 //  スペルカード背景（ボスの bosses の def.spellBg で選ぶ）
 // ------------------------------------------------------------
 function drawSpellBG(ctx, kind, t) {
@@ -1238,6 +1395,83 @@ function drawSpellBG(ctx, kind, t) {
         ctx.fillStyle = 'rgba(255,150,220,0.25)';
         ctx.beginPath(); ctx.ellipse(0, 80, 8, 11, 0, 0, TAU); ctx.fill();
         ctx.restore();
+      }
+      break;
+    }
+    case 'ruri': {
+      // 2面中ボス・瑠璃：瑠璃色の夜、舞う頁と蝶
+      const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+      g.addColorStop(0, '#020a2c');
+      g.addColorStop(1, '#0c1e5e');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      ctx.save();
+      ctx.translate(192, 190);
+      for (let i = 0; i < 18; i++) {
+        const a = t * 0.004 * (i % 2 ? 1 : -1) + (i * TAU) / 18;
+        const rr = 70 + (i % 4) * 45;
+        ctx.save();
+        ctx.translate(Math.cos(a) * rr, Math.sin(a) * rr);
+        ctx.rotate(a + t * 0.01);
+        ctx.fillStyle = 'rgba(190,210,255,0.07)';
+        ctx.strokeStyle = 'rgba(190,210,255,0.16)';
+        ctx.fillRect(-11, -15, 22, 30);
+        ctx.strokeRect(-11, -15, 22, 30);
+        ctx.restore();
+      }
+      ctx.restore();
+      for (let i = 0; i < 6; i++) {
+        const x = ((i * 97 + t * 0.5) % (FIELD_W + 60)) - 30;
+        const y = FIELD_H - ((t * 0.6 + i * 83) % (FIELD_H + 40));
+        const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.1 + i * 2));
+        ctx.fillStyle = 'rgba(80,150,255,0.18)';
+        for (const s of [-1, 1]) {
+          ctx.beginPath(); ctx.ellipse(x + s * 7 * flap, y - 3, 8 * flap, 6, s * 0.4, 0, TAU); ctx.fill();
+        }
+      }
+      break;
+    }
+    case 'zashiki': {
+      // 6面ボス・座敷 宿美：着物の柄（流水・梅・三日月）と、鈴のきらめき
+      const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+      g.addColorStop(0, '#141038');
+      g.addColorStop(1, '#2c2a66');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      ctx.strokeStyle = 'rgba(240,220,170,0.16)';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 6; i++) {
+        const by = 40 + i * 78;
+        ctx.beginPath();
+        for (let x = -10; x <= FIELD_W + 10; x += 10) ctx.lineTo(x, by + Math.sin(x * 0.025 + t * 0.02 + i) * 14);
+        ctx.stroke();
+      }
+      ctx.fillStyle = 'rgba(255,240,170,0.35)';
+      ctx.beginPath(); ctx.arc(70, 90, 26, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#18143c';
+      ctx.beginPath(); ctx.arc(80, 82, 24, 0, TAU); ctx.fill();
+      for (let i = 0; i < 16; i++) {
+        const x = (i * 67.3 + t * 0.35) % (FIELD_W + 30) - 15;
+        const y = (i * 41.7 + t * (0.4 + (i % 3) * 0.15)) % (FIELD_H + 30) - 15;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(t * 0.01 + i);
+        ctx.fillStyle = 'rgba(250,230,190,0.32)';
+        for (let k = 0; k < 5; k++) {
+          const a = (k / 5) * TAU;
+          ctx.beginPath(); ctx.arc(Math.cos(a) * 4, Math.sin(a) * 4, 3.2, 0, TAU); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(200,120,90,0.5)';
+        ctx.beginPath(); ctx.arc(0, 0, 1.6, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 12; i++) {
+        const a = 0.3 + 0.3 * Math.sin(t * 0.08 + i * 1.7);
+        const x = (i * 97.1) % FIELD_W, y = (i * 53.9 + 30) % FIELD_H;
+        ctx.fillStyle = `rgba(255,220,120,${a})`;
+        ctx.fillRect(x - 0.5, y - 4, 1, 8);
+        ctx.fillRect(x - 4, y - 0.5, 8, 1);
       }
       break;
     }

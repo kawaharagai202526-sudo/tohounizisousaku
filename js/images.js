@@ -12,8 +12,10 @@ const IMAGE_FILES = {
   marisaPlayer: 'img/marisa_player.png', // ゲーム中の魔理沙
   marisa: 'img/marisa.png',        // 魔理沙の原画（キャラクター選択・ボムのカットイン・会話・エンディング）
   midboss1: 'img/midboss1.png',    // 1面の中ボス
-  midboss2: 'img/midboss2.png',    // 2面中ボス（原画）
-  midboss2Dot: 'img/midboss2_dot.png', // 2面中ボス（ゲーム中のドット絵）
+  ruri: 'img/boss4.png',           // 2面中ボス 瑠璃（原画。前のゲームの4面ボスと同じ絵）
+  ruriDot: 'img/boss4_dot.png',    // 2面中ボス 瑠璃（ゲーム中のドット絵）
+  midboss3: 'img/midboss3b.png',   // 3面中ボス ？？？（原画）
+  midboss3Dot: 'img/midboss3b_dot.png', // 3面中ボス ？？？（ゲーム中のドット絵）
   hand: 'img/hand.png',            // 2面の道中のザコ（緑の手）
   handEye: 'img/hand_eye.png',     // 3面以降の道中のザコ（一つ目の手。面の zako で指定）
   // ボス（原画はスペルカードのカットインと会話、_dot はゲーム中のドット絵）
@@ -25,10 +27,13 @@ const IMAGE_FILES = {
   namesawaDot: 'img/namesawa_dot.png',
   toganoo: 'img/toganoo.png',      // 4面ボス 栂尾 芯
   toganooDot: 'img/toganoo_dot.png',
-  yanari: 'img/yanari.png',        // 5面中ボス・ボス 家鳴 鳴音
+  yanari: 'img/yanari.png',        // 5面中ボス・ボス、6面中ボス 家鳴 鳴音
   yanariDot: 'img/yanari_dot.png',
+  zashiki: 'img/zashiki.png',      // 6面ボス 座敷 宿美
+  zashikiDot: 'img/zashiki_dot.png',
 };
-// 前のゲーム『東方星降夜』で使っていた絵（img/boss3・boss4・midboss3 とその _dot）は、ファイルだけ残して読み込まない
+// 使っていない絵（ファイルだけ残して読み込まない）：前のゲーム『東方星降夜』の img/boss3・midboss3（と _dot）、
+// 2.0.0 まで2面中ボスだった img/midboss2（と _dot）
 
 const Images = {
   list: {},

@@ -644,7 +644,8 @@ class ResultScene {
     });
     const notes = [];
     if (this.newRecord) notes.push(['★ ハイスコア更新！ ★', '#ffe070']);
-    if (g.extraUnlockedNow) notes.push(['エキストラステージが遊べるようになりました！', '#d8b8ff']);
+    // エキストラの面がまだないときは、解放したことだけを知らせる
+    if (g.extraUnlockedNow) notes.push([EXTRA_STAGES.length ? 'エキストラステージが遊べるようになりました！' : 'エキストラステージ解放！（準備中）', '#d8b8ff']);
     notes.forEach(([text, color], i) => {
       ctx.textAlign = 'center';
       ctx.font = `800 18px ${FONT_JP}`;
