@@ -18,7 +18,7 @@ const EXTEND_POINTS = [50, 125, 250, 400, 600];
 const Settings = { lives: Store.get('lives', 3) };
 const PRACTICE_POWER = [100, 250, 400, 400, 400, 400]; // プラクティス開始時の霊力（面ごと）
 const EXTRA_POWER = 400;                               // エキストラステージ開始時の霊力
-const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bigfairy']);
+const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
 
 // スペルカード取得履歴
 const SpellHistory = {
@@ -44,14 +44,14 @@ function allStages() {
     ...EXTRA_STAGES.map((st, i) => ({ st, i, extra: true, label: 'Extra Stage', short: 'Extra' })),
   ];
 }
-// エキストラステージを遊べるか（解放ずみで、面のデータもある）
-function extraPlayable() { return EXTRA_STAGES.length > 0 && Store.get('extraUnlocked', false); }
+// エキストラステージを遊べるか（解放ずみか管理者ページのキー「E」で、面のデータもある）
+function extraPlayable() { return EXTRA_STAGES.length > 0 && (Store.get('extraUnlocked', false) || !!Cheats.on.extraOpen); }
 
 // 開発用：ボスの攻撃をすぐ試す（プラクティス扱いなので記録されない）
-//   startBossTest({ boss: 'boss4', phase: 3, diff: 3, char: 'marisa', only: true })
+//   startBossTest({ boss: 'toganoo', phase: 3, diff: 3, char: 'marisa', only: true })
 //   boss: ボスのID（STAGES・EXTRA_STAGES の bosses）。省略すると stage（1〜、'extra' でエキストラ）の面のボス
 //   phase: 何番目の攻撃から始めるか（1〜。その難易度で出る攻撃だけを数える）  only: その攻撃だけで終わる
-//   URL に ?boss=boss4&phase=3&diff=3&char=marisa&only=1 を付けて開いても同じ（js/main.js）
+//   URL に ?boss=toganoo&phase=3&diff=3&char=marisa&only=1 を付けて開いても同じ（js/main.js）
 //   エキストラの面がまだないのに stage: 'extra' を指定したときは何もしない（false を返す）
 function startBossTest(o = {}) {
   const hasBoss = st => (st.bosses || []).some(b => b.id === o.boss);
@@ -587,7 +587,9 @@ class GameScene {
   // その面の bosses に書いた見た目（def）でボスを出す。出す位置などは pos で指定する
   spawnStageBoss(id, pos) {
     const meta = (this.stage.bosses || []).find(b => b.id === id);
-    return this.spawnBoss(id, { ...(meta && meta.def), ...pos });
+    const b = this.spawnBoss(id, { ...(meta && meta.def), ...pos });
+    b.mid = !!(meta && meta.mid); // 中ボスは名前を出さない
+    return b;
   }
 
   *talk(lines) {

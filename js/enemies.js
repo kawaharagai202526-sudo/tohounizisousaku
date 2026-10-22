@@ -89,20 +89,20 @@ class Enemy {
         ctx.translate(0, Math.sin(this.frame * 0.05) * 2);
         if (!drawImageSprite(ctx, 'midboss1', 76)) drawFairy(ctx, this.color, this.frame, true);
         break;
-      case 'starobj': {
-        // 大きな星弾と同じ大きさで回転する。弾と見分けられるよう細い輪を付ける
-        const s = BTYPES.bigstar.size;
+      case 'tileobj': {
+        // 回転しながら降ってくる大きな瓦（一撃で倒せる）。弾と見分けられるよう細い輪を付ける
         ctx.rotate(this.frame * 0.09);
-        ctx.drawImage(getBulletSprite('bigstar', this.color), -s / 2, -s / 2, s, s);
+        drawRoofTile(ctx);
         ctx.strokeStyle = `rgba(255,255,255,${0.35 + 0.25 * Math.sin(this.frame * 0.2)})`;
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 3]);
-        ctx.beginPath(); ctx.arc(0, 0, s / 2 + 1, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, 15, 0, TAU); ctx.stroke();
         ctx.setLineDash([]);
         break;
       }
-      case 'crystal': drawCrystal(ctx, this.frame, this.side || 1); break;
-      case 'butterfly': drawBlueButterfly(ctx, this.frame, this.phase, this.angle); break;
+      case 'bug': drawBeetle(ctx, this.frame, this.angle, this.phase); break;
+      case 'pillar': drawPillar(ctx, this.frame, this.side || 1); break;
+      case 'paper': drawPaperScrap(ctx, this.frame, this.phase, this.angle); break;
       case 'hand':
         ctx.rotate(Math.sin(this.frame * 0.08 + this.phase) * 0.15);
         if (!drawImageSprite(ctx, 'hand', 34)) drawFairy(ctx, 'green', this.frame, false);
@@ -125,60 +125,95 @@ class Enemy {
   }
 }
 
-// 瑠璃の青い蝶（4面）。毛玉と同じくらいの大きさで、羽ばたきながら進む
-function drawBlueButterfly(ctx, t, phase, angle) {
-  const flap = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.25 + phase));
+// 大きな瓦（1面などの道中で、回転しながら降ってくる）
+function drawRoofTile(ctx) {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(2, 3, 13, 9, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#4a5468';
+  ctx.beginPath();
+  ctx.moveTo(-12, -8); ctx.quadraticCurveTo(0, -13, 12, -8); ctx.lineTo(12, 8); ctx.quadraticCurveTo(0, 3, -12, 8);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7a86a0';
+  ctx.beginPath();
+  ctx.moveTo(-10, -7); ctx.quadraticCurveTo(0, -11, 10, -7); ctx.lineTo(10, -3); ctx.quadraticCurveTo(0, -7, -10, -3);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(20,24,34,0.9)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(-5, 6); ctx.moveTo(4, -9); ctx.lineTo(5, 6); ctx.stroke();
+}
+
+// 空き家の虫（2面）。脚を動かしながら進む
+function drawBeetle(ctx, t, angle, phase) {
   ctx.save();
-  ctx.rotate(angle - Math.PI / 2 + Math.PI);
-  ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(0, 0, 1, 0, 0, 14);
-  g.addColorStop(0, 'rgba(80,150,255,0.35)');
-  g.addColorStop(1, 'rgba(80,150,255,0)');
-  ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.fill();
-  ctx.globalCompositeOperation = 'source-over';
-  for (const s of [-1, 1]) {
-    ctx.save();
-    ctx.scale(s * flap, 1);
-    ctx.fillStyle = '#16307e';
-    ell(ctx, 5, -3.5, 6, 4.6, -0.5); ctx.fill();
-    ctx.fillStyle = '#3f86ff';
-    ell(ctx, 5, -3.5, 4.4, 3.2, -0.5); ctx.fill();
-    ctx.fillStyle = '#16307e';
-    ell(ctx, 3.8, 3.6, 4.2, 3.4, 0.5); ctx.fill();
-    ctx.fillStyle = '#6cc0ff';
-    ell(ctx, 3.8, 3.6, 2.8, 2.2, 0.5); ctx.fill();
-    ctx.restore();
+  ctx.rotate(angle);
+  ctx.strokeStyle = '#1a120a';
+  ctx.lineWidth = 1.4;
+  for (let k = -1; k <= 1; k++) {
+    const sw = Math.sin(t * 0.5 + phase + k * 2) * 2;
+    ctx.beginPath();
+    ctx.moveTo(k * 4, -3); ctx.lineTo(k * 4 + sw, -9);
+    ctx.moveTo(k * 4, 3); ctx.lineTo(k * 4 - sw, 9);
+    ctx.stroke();
   }
-  ctx.fillStyle = '#0a1230';
-  ell(ctx, 0, 0, 1.3, 4.8); ctx.fill();
+  ctx.fillStyle = '#3a2410';
+  ell(ctx, 0, 0, 8, 5.5); ctx.fill();
+  ctx.fillStyle = '#5c3a18';
+  ell(ctx, -1, 0, 6.5, 4.5); ctx.fill();
+  ctx.strokeStyle = 'rgba(20,10,4,0.8)';
+  ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(5, 0); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,230,180,0.35)';
+  ell(ctx, -2, -2, 3, 1.4); ctx.fill();
+  ctx.fillStyle = '#1a120a';
+  ell(ctx, 8.5, 0, 3, 2.6); ctx.fill();
+  ctx.strokeStyle = '#1a120a';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(10, -1); ctx.lineTo(14, -5); ctx.moveTo(10, 1); ctx.lineTo(14, 5); ctx.stroke();
   ctx.restore();
 }
 
-// 洞窟の壁に生えた水晶（4面）
-function drawCrystal(ctx, t, side) {
+// 破れたふすまの紙きれ（4面）。ひらひら舞いながら進む。弾は撃たないが、ぶつかると被弾する
+function drawPaperScrap(ctx, t, phase, angle) {
+  const flap = 0.35 + 0.65 * Math.abs(Math.sin(t * 0.2 + phase));
+  ctx.save();
+  ctx.rotate(angle + Math.sin(t * 0.07 + phase) * 0.6);
+  ctx.scale(1, flap);
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(-7 + 2, -5 + 3, 14, 10);
+  ctx.fillStyle = '#efe6cc';
+  ctx.beginPath();
+  ctx.moveTo(-8, -5); ctx.lineTo(6, -6); ctx.lineTo(8, 1); ctx.lineTo(5, 6); ctx.lineTo(-7, 5); ctx.lineTo(-5, 0);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(70,90,140,0.7)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.arc(0, 3, 4, Math.PI, TAU); ctx.stroke();
+  ctx.strokeStyle = 'rgba(120,90,50,0.8)';
+  ctx.beginPath(); ctx.moveTo(-8, -5); ctx.lineTo(6, -6); ctx.stroke();
+  ctx.restore();
+}
+
+// 部屋の柱（4・5面の壁ぎわ）。年輪の目が光り、自機を狙ってレーザーを撃つ
+function drawPillar(ctx, t, side) {
   const glow = 0.5 + 0.3 * Math.sin(t * 0.1);
   ctx.save();
   ctx.scale(side, 1);
-  const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 22);
-  g.addColorStop(0, `rgba(120,210,255,${glow * 0.6})`);
-  g.addColorStop(1, 'rgba(120,210,255,0)');
+  const g = ctx.createRadialGradient(4, 0, 2, 4, 0, 20);
+  g.addColorStop(0, `rgba(255,190,110,${glow * 0.6})`);
+  g.addColorStop(1, 'rgba(255,190,110,0)');
   ctx.fillStyle = g;
-  ctx.beginPath(); ctx.arc(0, 0, 22, 0, TAU); ctx.fill();
-  const shards = [[-0.5, 16, 5], [0.1, 20, 6], [0.7, 14, 4.5], [-1.1, 11, 4]];
-  for (const [a, len, w] of shards) {
-    ctx.save();
-    ctx.rotate(a);
-    ctx.fillStyle = 'rgba(90,170,255,0.85)';
-    ctx.strokeStyle = 'rgba(220,245,255,0.9)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(-6, -w / 2); ctx.lineTo(len - 4, -w / 2); ctx.lineTo(len, 0); ctx.lineTo(len - 4, w / 2); ctx.lineTo(-6, w / 2);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.restore();
+  ctx.beginPath(); ctx.arc(4, 0, 20, 0, TAU); ctx.fill();
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(-12 + 3, -22 + 3, 18, 44);
+  ctx.fillStyle = '#6a4424';
+  ctx.fillRect(-12, -22, 18, 44);
+  ctx.fillStyle = 'rgba(255,220,170,0.18)';
+  ctx.fillRect(-12, -22, 4, 44);
+  ctx.strokeStyle = 'rgba(40,24,10,0.7)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-6, -22); ctx.lineTo(-6, 22); ctx.moveTo(1, -22); ctx.lineTo(1, 22); ctx.stroke();
+  for (const rr of [6, 4, 2]) {
+    ctx.strokeStyle = `rgba(255,200,120,${glow})`;
+    ctx.beginPath(); ctx.ellipse(-3, 0, rr, rr * 1.4, 0, 0, TAU); ctx.stroke();
   }
-  ctx.fillStyle = '#3a2e3a';
-  ctx.beginPath(); ctx.ellipse(-8, 0, 7, 10, 0, 0, TAU); ctx.fill();
   ctx.restore();
 }
 

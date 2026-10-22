@@ -184,10 +184,12 @@ function drawBossHud(ctx, g) {
   ctx.textBaseline = 'middle';
   ctx.font = `bold 13px ${FONT_JP}`;
   ctx.textAlign = 'left';
-  strokeText(ctx, b.name, 6, 10, '#ffffff', 'rgba(0,0,0,0.9)', 3);
+  // 中ボスは名前を出さない
+  const name = b.mid ? '' : b.name;
+  strokeText(ctx, name, 6, 10, '#ffffff', 'rgba(0,0,0,0.9)', 3);
   // 残りの攻撃数
   const remain = g.bossPhases.length - g.bossPhaseIdx - 1;
-  const nameW = ctx.measureText(b.name).width;
+  const nameW = name ? ctx.measureText(name).width : -8;
   for (let i = 0; i < remain; i++) {
     ctx.fillStyle = '#ffd070';
     ctx.save(); ctx.translate(14 + nameW + i * 11, 10); starPath(ctx, 4.5, 2); ctx.fill(); ctx.restore();
@@ -270,7 +272,10 @@ function drawCutin(ctx, g) {
   drawPortrait(ctx, c.id, x + 100, 250, 4.2, 'smug', f);
   ctx.restore();
 }
-const CHARA_CUTIN_COLOR = { rumia: '120,20,60', cirno: '60,140,255', star: '90,90,230', midboss2: '70,70,150', boss3: '200,150,190', boss4: '40,80,220', midboss3: '200,90,160' };
+const CHARA_CUTIN_COLOR = {
+  nokiba: '200,110,50', midboss2: '70,70,150', hamishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
+  star: '90,90,230', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210',
+};
 
 // 自機のボムのカットイン。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が左下から上がってくる。
 // 敵や弾の下にうすく描くので、よけるじゃまにはならない

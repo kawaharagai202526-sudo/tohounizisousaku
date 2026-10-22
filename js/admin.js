@@ -1,14 +1,15 @@
 'use strict';
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
-//  PIN入力 → キー入力（1文字で特別な機能を切り替え。js/cheats.js）
+//  PIN入力（2段階）→ キー入力（1文字で特別な機能を切り替え。js/cheats.js）
 //  → 管理者ページ（データベース／キャラクター／プログラム／未実装）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
 
-const ADMIN_PIN = '114514810';
-const ADMIN_MAX_TRIES = 3;               // この回数まちがえると
+// PIN は2段階。1つ目が合うと2つ目の入力になる。2つ目をまちがえると1つ目からやり直し
+const ADMIN_PINS = ['114514', '810'];
+const ADMIN_MAX_TRIES = 3;               // この回数まちがえると（1つ目・2つ目のまちがいを合わせて数える）
 const ADMIN_LOCK_MS = 5 * 60 * 1000;     // この時間は入力できない
 
 const Admin = {
@@ -83,26 +84,29 @@ const Admin = {
   setFails(n) { this.memFails = n; Store.set('adminFails', n); },
 
   // ---------------- PIN入力 ----------------
-  showPin() {
+  // step：何段階目か（0から）。error：前の段階でまちがえたときに出す文
+  showPin(step = 0, error = '') {
+    const PIN = ADMIN_PINS[step];
     const p = this.panel('admin-square');
-    p.append(domEl('h2', 'admin-title', 'PINを入力'));
+    p.append(domEl('h2', 'admin-title', `PINを入力（${step + 1}/${ADMIN_PINS.length}）`));
     const box = domEl('label', 'admin-pinbox');
-    const slots = domEl('div', 'admin-slots', '_'.repeat(ADMIN_PIN.length));
+    const slots = domEl('div', 'admin-slots', '_'.repeat(PIN.length));
     const input = domEl('input', 'admin-pininput');
     input.id = 'adminPin';
     input.type = 'password';
     input.inputMode = 'numeric';
-    input.maxLength = ADMIN_PIN.length;
+    input.maxLength = PIN.length;
     input.autocomplete = 'off';
     input.setAttribute('aria-label', 'PIN');
     box.append(slots, input);
-    const msg = domEl('p', 'admin-msg');
+    const msg = domEl('p', error ? 'admin-msg is-error' : 'admin-msg', error);
     msg.setAttribute('aria-live', 'polite');
     p.append(box, msg);
+    if (error) box.classList.add('shake');
 
     const render = () => {
       const n = input.value.length;
-      slots.textContent = '●'.repeat(n) + '_'.repeat(ADMIN_PIN.length - n);
+      slots.textContent = '●'.repeat(n) + '_'.repeat(PIN.length - n);
     };
     const lockCheck = () => {
       const left = this.lockUntil() - Date.now();
@@ -124,10 +128,11 @@ const Admin = {
       return false;
     };
     input.addEventListener('input', () => {
-      input.value = input.value.replace(/\D/g, '').slice(0, ADMIN_PIN.length);
+      input.value = input.value.replace(/\D/g, '').slice(0, PIN.length);
       render();
-      if (input.value.length < ADMIN_PIN.length || lockCheck()) return;
-      if (input.value === ADMIN_PIN) {
+      if (input.value.length < PIN.length || lockCheck()) return;
+      if (input.value === PIN) {
+        if (step + 1 < ADMIN_PINS.length) { this.showPin(step + 1); return; }
         this.setFails(0);
         this.showKey();
         return;
@@ -135,19 +140,23 @@ const Admin = {
       const fails = this.fails() + 1;
       input.value = '';
       render();
-      box.classList.remove('shake');
-      void box.offsetWidth;
-      box.classList.add('shake');
       if (fails >= ADMIN_MAX_TRIES) {
         this.setFails(0);
         this.memLock = Date.now() + ADMIN_LOCK_MS;
         Store.set('adminLock', this.memLock);
+        if (step > 0) { this.showPin(0); return; }
         lockCheck();
-      } else {
-        this.setFails(fails);
-        msg.className = 'admin-msg is-error';
-        msg.textContent = `PINがちがいます（あと${ADMIN_MAX_TRIES - fails}回まちがえると5分間入力できなくなります）`;
+        return;
       }
+      this.setFails(fails);
+      const text = `PINがちがいます（あと${ADMIN_MAX_TRIES - fails}回まちがえると5分間入力できなくなります）`;
+      // 2つ目以降をまちがえたら、1つ目からやり直し
+      if (step > 0) { this.showPin(0, text); return; }
+      box.classList.remove('shake');
+      void box.offsetWidth;
+      box.classList.add('shake');
+      msg.className = 'admin-msg is-error';
+      msg.textContent = text;
     });
     lockCheck();
     this.timer = setInterval(lockCheck, 1000);
@@ -334,14 +343,15 @@ const Admin = {
       ['ザコ・その他', [
         { name: '？？？', title: '1面の中ボス', note: '1面中ボス（ザコと同じしくみで動く）', draw: image('midboss1', 0, 0, 120) },
         { name: '妖精', title: '', note: '1・2面（3面以降は一つ目の手の絵）', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
-        { name: '大妖精（ザコ）', title: '', note: '2〜4面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
-        { name: '毛玉', title: '', note: '1・2面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },
+        { name: '大妖精（ザコ）', title: '', note: '2〜5面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
+        { name: '毛玉', title: '', note: '1面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },
         { name: '足の妖精', title: '', note: '各面でいちばん弱い妖精', draw: image('footFairy', 0, 0, 110) },
+        { name: '虫', title: '', note: '2面（空き家をはい回る）', draw: at(0, 0, 3, (c, t) => drawBeetle(c, t, -Math.PI / 2, 0)) },
         { name: '緑の手', title: '', note: '2面（3面以降は一つ目の手の絵）', draw: image('hand', 0, 0, 100) },
         { name: '一つ目の手', title: '', note: '3面以降の道中のザコ', draw: image('handEye', 0, 0, 104) },
-        { name: '青い蝶', title: '', note: '4面（弾は撃たない）', draw: at(0, 0, 3, (c, t) => drawBlueButterfly(c, 4 + t, 0, -Math.PI / 2)) },
-        { name: '回転する星', title: '', note: '道中（一撃で倒せる）', draw: at(0, 0, 2.6, (c, t) => { const s = BTYPES.bigstar.size; c.rotate(t * 0.05); c.drawImage(getBulletSprite('bigstar', 'yellow'), -s / 2, -s / 2, s, s); }) },
-        { name: '水晶', title: '', note: '4面の壁', draw: at(-6, 0, 2.4, (c, t) => drawCrystal(c, t, 1)) },
+        { name: '回転する瓦', title: '', note: '道中（一撃で倒せる）', draw: at(0, 0, 2.8, (c, t) => { c.rotate(t * 0.05); drawRoofTile(c); }) },
+        { name: 'ふすまの紙きれ', title: '', note: '4・5面（弾は撃たない）', draw: at(0, 0, 3, (c, t) => drawPaperScrap(c, 4 + t, 0, 0)) },
+        { name: '柱', title: '', note: '4・5面の壁ぎわ（レーザーを撃つ）', draw: at(-6, 0, 2.4, (c, t) => drawPillar(c, t, 1)) },
       ]],
     ];
 
@@ -466,7 +476,7 @@ const Admin = {
         code.textContent = 'このファイルは表示できません。\n\n'
           + 'index.html をファイルとして直接開いているときは、ブラウザの制限で\n'
           + 'ページが自分のプログラムを読み込めません。\n'
-          + '1ファイル版（dist/hoshifuru.html）か、GitHub Pages などで開いたページで表示できます。';
+          + '1ファイル版（dist/zashiki.html）か、GitHub Pages などで開いたページで表示できます。';
         return;
       }
       const lines = f.text.replace(/^\n/, '').replace(/\n+$/, '').split('\n');

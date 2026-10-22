@@ -1,29 +1,29 @@
 'use strict';
 // ============================================================
-//  共通の道中パターン
+//  共通の道中パターン（どの面でも使う）
 // ============================================================
 
-// 空から星が降ってくる（異変そのもの）
-// big のときは、ときどき大きな星（一撃で倒せる回転する敵）が混ざる
-function* starShower(frames, count, colors = ['yellow', 'cyan', 'pink', 'white'], big = false) {
+// 一晩で古びた屋根から、瓦やがれきが降ってくる
+// big のときは、ときどき大きな瓦（一撃で倒せる回転する敵）が混ざる。type は降ってくる弾の種類
+function* tileShower(frames, count, colors = ['blue', 'purple', 'white'], big = false, type = 'rice') {
   const interval = Math.max(1, Math.floor(frames / count));
   for (let i = 0; i < count; i++) {
-    const x = rand(8, FIELD_W - 8), color = pick(colors), maxFall = rand(1.2, 1.6) + DIFF * 0.3;
-    if (big && rng.next() < 0.3) starObject(x, color, maxFall);
+    const x = rand(8, FIELD_W - 8), color = pick(colors), maxFall = rand(1.2, 1.6) + Math.min(DIFF, 3) * 0.3;
+    if (big && rng.next() < 0.3) tileObject(x, maxFall);
     else {
       fire({
         x, y: -12, speed: 0, ax: rand(-0.004, 0.004), ay: 0.025, evx: rand(-0.4, 0.4), maxFall,
-        type: 'star', color, silent: true, delay: 4,
+        type, color, silent: true, delay: 4,
       });
     }
     yield interval;
   }
 }
 
-// 道中の大きな星。弾ではなく回転する敵で、体力がとても少なく一撃で倒せる
-function starObject(x, color, maxFall) {
+// 道中の大きな瓦。弾ではなく回転する敵で、体力がとても少なく一撃で倒せる
+function tileObject(x, maxFall) {
   return spawnEnemy({
-    x, y: -16, kind: 'starobj', color, hp: 0.4, r: 12, score: 300,
+    x, y: -16, kind: 'tileobj', hp: 0.4, r: 12, score: 300,
     drops: rng.next() < 0.3 ? { point: 1 } : {},
     angle: Math.PI / 2 + rand(-0.2, 0.2),
     script: function* (e) {
@@ -134,100 +134,108 @@ function* waitClear(timeout = 1200) {
 }
 
 // ============================================================
-//  1面：宵闇の流星 ― ボス：ルーミア
+//  1面：一夜で古びた里 ― ボス：軒端 鬼乃（屋根の付喪神。本人は鬼のつもり）
 // ============================================================
 
-const RUMIA_PHASES = [
+const NOKIBA_PHASES = [
   {
+    // 瓦を放り投げる：上へ投げた弾が、放物線を描いて落ちてくる
     type: 'non', hp: 900, time: 30,
     *script(b) {
       yield 40;
       for (let loop = 0; ; loop++) {
-        const a = b.aim();
-        for (let k = 0; k < dv(1, 2, 3, 4); k++) {
-          fireFan({ x: b.x, y: b.y, n: dv(5, 5, 7, 9), spread: dv(0.9, 1.1, 1.3, 1.5), angle: a, speed: 1.8 + k * 0.55, type: 'rice', color: 'blue' });
+        const n = dv(5, 7, 9, 11);
+        for (let i = 0; i < n; i++) {
+          const a = -Math.PI / 2 + (i - (n - 1) / 2) * dv(0.32, 0.28, 0.24, 0.2) + rand(-0.05, 0.05);
+          fire({
+            x: b.x, y: b.y, angle: a, speed: rand(2.4, 3.1), accel: -0.05, minSpeed: 0, ay: 0.045, maxFall: dv(1.9, 2.3, 2.7, 3.1),
+            type: 'rice', color: 'blue', silent: i > 0,
+          });
         }
-        yield 40;
-        const off = rand(TAU), n = dv(12, 18, 26, 34);
-        fireRing({ x: b.x, y: b.y, n, angle: off, speed: dv(1.5, 1.9, 2.3, 2.6), type: 'small', color: 'red' });
-        yield 16;
-        fireRing({ x: b.x, y: b.y, n, angle: off + Math.PI / n, speed: dv(1.2, 1.5, 1.8, 2.1), type: 'small', color: 'red' });
+        yield 36;
+        fireRing({ x: b.x, y: b.y, n: dv(10, 14, 20, 26), angle: rand(TAU), speed: dv(1.4, 1.7, 2.0, 2.3), type: 'small', color: 'orange' });
+        yield 30;
+        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.6, type: 'ball', color: 'red' });
         b.wander(60);
-        yield 60;
+        yield 50;
       }
     },
   },
   {
-    type: 'spell', name: '夜符「ミッドナイトバード」', hp: 1100, time: 40,
+    // 焼きたての鬼瓦：大きな弾が止まって、火の粉の輪に割れる
+    type: 'spell', name: '瓦符「焼きたての鬼瓦」', hp: 1100, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let loop = 0; ; loop++) {
-        const dir = loop % 2 ? 1 : -1;
-        const n = dv(12, 15, 20, 24);
-        const aim = b.aim();
-        for (let i = 0; i < n; i++) {
-          const a = aim + dir * (-1.25 + (2.5 * i) / (n - 1));
-          for (let k = 0; k < dv(2, 2, 3, 3); k++) {
-            fire({ x: b.x, y: b.y, angle: a, speed: 1.5 + k * 0.7 + i * 0.035, type: 'ball', color: loop % 2 ? 'blue' : 'purple' });
-          }
-          yield 2;
-        }
-        yield dv(52, 40, 28, 20);
-        if (loop % 2 === 1) {
-          if (DIFF >= 2) fireRing({ x: b.x, y: b.y, n: dv(0, 0, 18, 26), angle: rand(TAU), speed: 1.4, type: 'small', color: 'white' });
-          b.wander(50, 60);
-          yield 40;
-        }
-      }
-    },
-  },
-  {
-    type: 'non', hp: 1000, time: 30,
-    *script(b) {
-      yield 30;
-      let a = rand(TAU);
-      for (let f = 0; ; f++) {
-        const arms = dv(3, 4, 5, 6);
-        for (let k = 0; k < arms; k++) {
-          fire({ x: b.x, y: b.y, angle: a + (k * TAU) / arms, speed: 1.9, type: 'ball', color: 'dark' });
-          if (DIFF >= 2 && f % 2 === 0) fire({ x: b.x, y: b.y, angle: -a * 1.2 + (k * TAU) / arms, speed: 1.4, type: 'small', color: 'red', silent: true });
-        }
-        a += 0.13;
-        yield dv(11, 9, 7, 5);
-        if (f % 70 === 69) {
-          fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.6, type: 'large', color: 'red' });
-          b.wander(60, 50);
-        }
-      }
-    },
-  },
-  {
-    type: 'spell', name: '闇符「ムーンレスサークル」', hp: 1300, time: 45,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 110, 40);
-      for (let loop = 0; ; loop++) {
-        const n = dv(16, 22, 30, 40);
-        const dir = loop % 2 ? 1 : -1;
-        const off = rand(TAU);
-        Sound.se('kira');
+        const n = dv(2, 3, 4, 5), base = b.aim();
         for (let i = 0; i < n; i++) {
           fire({
-            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 3.2, accel: -0.07, minSpeed: 0,
-            type: 'ball', color: dir > 0 ? 'dark' : 'purple',
+            x: b.x, y: b.y, angle: base + (i - (n - 1) / 2) * 0.55, speed: 3.2, accel: -0.06, minSpeed: 0, type: 'large', color: 'orange',
             script: function* (bl) {
-              yield 55;
-              bl.angle += dir * Math.PI * 0.42;
-              bl.accel = 0.025;
-              bl.maxSpeed = dv(1.3, 1.7, 2.1, 2.5);
+              yield 50;
+              fireRing({ x: bl.x, y: bl.y, n: dv(8, 10, 14, 18), angle: rand(TAU), speed: dv(1.3, 1.6, 1.9, 2.2), type: 'small', color: 'red', silent: true });
+              if (DIFF >= 2) fireRing({ x: bl.x, y: bl.y, n: 8, angle: rand(TAU), speed: 1.1, type: 'rice', color: 'orange', silent: true });
+              Sound.se('tan');
+              bl.alive = false;
             },
           });
         }
-        yield 30;
-        for (let k = 0; k < dv(1, 1, 2, 3); k++) {
-          fireFan({ x: b.x, y: b.y, n: 3, spread: 0.25, angle: b.aim(), speed: 3, type: 'rice', color: 'red' });
-          yield 10;
+        // 合間に舞う火の粉
+        for (let k = 0; k < 45; k++) {
+          if (k % dv(9, 7, 5, 4) === 0) fire({ x: b.x + rand(-20, 20), y: b.y, angle: Math.PI / 2 + rand(-0.7, 0.7), speed: rand(1.2, 2), type: 'dot', color: 'orange', silent: true });
+          yield;
         }
-        yield dv(80, 60, 50, 40);
+        if (loop % 2) b.wander(50, 60);
+        yield dv(40, 30, 24, 18);
+      }
+    },
+  },
+  {
+    // 軒のしずく：上から弾の雨が降る。すき間はゆっくり左右に動く
+    type: 'non', hp: 1000, time: 30,
+    *script(b) {
+      yield 30;
+      for (let f = 0; ; f++) {
+        const gapX = FIELD_W / 2 + Math.sin(f * 0.012) * 120;
+        if (f % dv(36, 30, 26, 22) === 0) {
+          for (let x = 12; x < FIELD_W; x += 32) {
+            if (Math.abs(x - gapX) < dv(70, 60, 52, 46)) continue;
+            fire({ x: x + rand(-4, 4), y: -6, angle: Math.PI / 2, speed: dv(1.4, 1.6, 1.8, 2.0), type: 'kunai', color: 'cyan', silent: true });
+          }
+          Sound.se('tan');
+        }
+        if (f % 70 === 35) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2.2, type: 'ball', color: 'blue' });
+        if (f % 140 === 139) b.wander(60, 50);
+        yield;
+      }
+    },
+  },
+  {
+    // 反逆児：外へ飛んだ弾が、逆らうように向きを変えて戻ってくる
+    type: 'spell', name: '鬼符「軒下の反逆児」', hp: 1300, time: 45,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 110, 40);
+      for (let loop = 0; ; loop++) {
+        const n = dv(16, 22, 28, 36), off = rand(TAU), dir = loop % 2 ? 1 : -1;
+        Sound.se('kira');
+        for (let i = 0; i < n; i++) {
+          fire({
+            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 3.4, accel: -0.08, minSpeed: 0,
+            type: 'ball', color: loop % 2 ? 'red' : 'dark', silent: true,
+            script: function* (bl) {
+              yield 45;
+              bl.angle += Math.PI + dir * 0.35;
+              bl.accel = 0.03;
+              bl.maxSpeed = dv(1.4, 1.8, 2.2, 2.6);
+            },
+          });
+        }
+        yield 24;
+        for (let k = 0; k < dv(1, 2, 2, 3); k++) {
+          fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.8, type: 'rice', color: 'orange' });
+          yield 12;
+        }
+        yield dv(70, 56, 46, 38);
         b.wander(60, 60);
       }
     },
@@ -235,14 +243,14 @@ const RUMIA_PHASES = [
 ];
 
 STAGES.push({
-  name: '宵闇の流星',
-  nameEn: 'Shooting Stars in the Dusk',
-  bg: ForestBG,
+  name: '一夜で古びた里',
+  nameEn: 'The Village that Aged Overnight',
+  bg: VillageRoofBG,
   bgm: 'stage1',
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
-  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
-    { id: 'rumia', phases: RUMIA_PHASES, bgm: 'boss1', def: { spellBg: 'rumia', circleColor: '255,80,120', aura: 'rgba(0,0,0,0.5)', pose: 'spread' } },
+    { id: 'nokiba', phases: NOKIBA_PHASES, bgm: 'boss1', def: { spellBg: 'kawara', circleColor: '255,150,80' } },
   ],
   *script(g) {
     yield 160;
@@ -254,7 +262,7 @@ STAGES.push({
     yield 280;
     g.tasks.add(kedamaRain(300, dv(12, 16, 20, 24)));
     yield 120;
-    g.tasks.add(starShower(240, dv(10, 16, 24, 34)));
+    g.tasks.add(tileShower(240, dv(10, 16, 24, 34)));
     yield 260;
     yield* zigzag(12);
     yield 120;
@@ -262,7 +270,7 @@ STAGES.push({
     yield* sideSweep(1, 6, { y: 60 });
     yield* waitClear(240);
 
-    // 中ボス（見た目は img/midboss1.png）
+    // 中ボス（見た目は img/midboss1.png。ザコと同じしくみで動き、名前は出さない）
     spawnEnemy({
       x: FIELD_W / 2, y: -40, kind: 'midboss1', color: 'green', hp: 450, r: 22, score: 30000,
       drops: { power: 6, point: 6, bomb: DIFF <= 1 ? 1 : 0 },
@@ -284,7 +292,7 @@ STAGES.push({
     });
     yield* waitClear(1000);
     yield 60;
-    g.tasks.add(starShower(360, dv(14, 22, 34, 48), ['yellow', 'orange', 'white'], true));
+    g.tasks.add(tileShower(360, dv(14, 22, 34, 48), ['blue', 'purple', 'white'], true));
     g.tasks.add(kedamaRain(360, dv(10, 14, 18, 22)));
     yield 200;
     for (let i = 0; i < 4; i++) {
@@ -312,10 +320,10 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnStageBoss('rumia', { x: FIELD_W + 40, y: 40 });
+    const boss = g.spawnStageBoss('nokiba', { x: FIELD_W + 40, y: 40 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage1[g.charId].before);
-    yield* g.fight(boss, RUMIA_PHASES);
+    yield* g.fight(boss, NOKIBA_PHASES);
     yield* g.bossDown(boss);
     yield* g.talk(STORY.stage1[g.charId].after);
   },

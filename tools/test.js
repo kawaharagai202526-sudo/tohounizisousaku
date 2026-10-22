@@ -5,7 +5,7 @@
 //  使い方:
 //    node tools/test.js            ふつうのテスト（1〜2分）
 //    node tools/test.js --full     自動操縦で全ステージを通しでプレイするテストも行う（数分）
-//    node tools/test.js --dist     1ファイル版（dist/hoshifuru.html）を対象にする
+//    node tools/test.js --dist     1ファイル版（dist/zashiki.html）を対象にする
 //    node tools/test.js 管理者     名前に「管理者」を含むテストだけ行う
 //
 //  Playwright が必要（npm install で入るもの、またはグローバルに入っているもの）。
@@ -21,7 +21,7 @@ const args = process.argv.slice(2);
 const FULL = args.includes('--full');
 const DIST = args.includes('--dist');
 const FILTER = args.find(a => !a.startsWith('--'));
-const TARGET = DIST ? path.join(root, 'dist', 'hoshifuru.html') : path.join(root, 'index.html');
+const TARGET = DIST ? path.join(root, 'dist', 'zashiki.html') : path.join(root, 'index.html');
 const GAME_URL = pathToFileURL(TARGET).href;
 
 function loadPlaywright() {
@@ -267,13 +267,14 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
     const scene = () => Game.scene.constructor.name;
     const press = () => { Input.just.shot = true; T.step(2); };
     const run = (max = 8000) => { const g = Game.scene; let f = 0; while (Game.scene === g && f < max) { Game.update(); f++; } Game.draw(); return scene(); };
-    // テスト用の小さな面（道中はすぐ終わり、ボスは3秒の攻撃が1つだけ）
+    // テスト用の小さな面（道中はすぐ終わり、ボスは3秒の攻撃が1つだけ。ボスの見た目は1面のボスを借りる）
+    const bossId = STAGES[0].bosses.filter(bs => !bs.mid).pop().id;
     const mini = name => ({
       name, nameEn: name, bg: STAGES[0].bg, bgm: STAGES[0].bgm,
-      bosses: [{ id: 'rumia', phases: [{ type: 'non', hp: 50, time: 3, *script() { for (;;) yield; } }] }],
+      bosses: [{ id: bossId, phases: [{ type: 'non', hp: 50, time: 3, *script() { for (;;) yield; } }] }],
       *script() { yield 30; },
       *boss(g) {
-        const b = g.spawnStageBoss('rumia', { x: FIELD_W / 2, y: -50 });
+        const b = g.spawnStageBoss(bossId, { x: FIELD_W / 2, y: -50 });
         yield* b.moveTo(FIELD_W / 2, 100, 20);
         yield* g.fight(b, this.bosses[0].phases);
         yield* g.bossDown(b);
@@ -301,7 +302,7 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
     out.lastClear = run();
     out.unlockedEarly = Store.get('extraUnlocked', false);
 
-    // 5面・6面を足したつもりで、解放の条件を確かめる
+    // まだない面（6面）を足したつもりで、解放の条件を確かめる
     while (STAGES.length < MAIN_STAGE_COUNT) STAGES.push(mini(`仮の${STAGES.length + 1}面`));
     const tryUnlock = (diff, mod) => {
       Store.remove('extraUnlocked');
@@ -316,8 +317,8 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
       practice: tryUnlock(1, g => { g.practice = true; }),
     };
     Store.remove('extraUnlocked');
-    // 5面から通しで遊んで6面をクリア → エンディング → リザルトに「遊べるようになりました」
-    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 2 }));
+    // 最後の面（6面）をクリア → エンディング → リザルトに「遊べるようになりました」
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 1 }));
     const g6 = G;
     out.fullClear = run();
     out.reached = g6.stageIndex + 1;
@@ -372,15 +373,24 @@ test('本編6面とエキストラステージのしくみ（まだない面は�
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');
-  // 3回まちがえるとロック（まちがいのPINは、正しいPINの1けた目を変えたもの）
-  const pin = await page.evaluate(() => ADMIN_PIN);
-  const wrong = (pin[0] === '9' ? '0' : '9') + pin.slice(1);
-  for (let i = 0; i < 3; i++) { await page.focus('#adminPin'); await page.keyboard.type(wrong); }
+  // PIN は2段階。まちがいは1つ目・2つ目を合わせて3回でロック（まちがいのPINは、正しいPINの1けた目を変えたもの）
+  const pins = await page.evaluate(() => ADMIN_PINS);
+  assert(pins.join() === '114514,810', `PIN: ${pins}`);
+  const wrong = pin => (pin[0] === '9' ? '0' : '9') + pin.slice(1);
+  const title = () => page.$eval('.admin-title', e => e.textContent);
+  const typePin = async v => { await page.focus('#adminPin'); await page.keyboard.type(v); };
+  await typePin(wrong(pins[0]));
+  await typePin(wrong(pins[0]));
+  await typePin(pins[0]);
+  assert((await title()).includes('2/2'), `1つ目が合っても2つ目にならない: ${await title()}`);
+  await typePin(wrong(pins[1]));
+  assert((await title()).includes('1/2'), `2つ目をまちがえても1つ目に戻らない: ${await title()}`);
   assert(await page.evaluate(() => document.getElementById('adminPin').disabled), 'PINを3回まちがえてもロックされない');
-  await page.evaluate(() => { localStorage.removeItem('hoshifuru.adminLock'); Admin.memLock = 0; });
+  await page.evaluate(() => { Store.remove('adminLock'); Admin.memLock = 0; });
   await page.waitForFunction(() => !document.getElementById('adminPin').disabled, null, { polling: 100, timeout: 3000 });
-  await page.focus('#adminPin');
-  await page.keyboard.type(pin);
+  await typePin(pins[0]);
+  await page.waitForFunction(() => document.querySelector('.admin-title').textContent.includes('2/2'), null, { polling: 50, timeout: 3000 });
+  await typePin(pins[1]);
   await page.waitForSelector('#adminKey');
   const key = async ch => { await page.focus('#adminKey'); await page.keyboard.type(ch); return page.evaluate(() => ({ msg: document.querySelector('.admin-keymsg').textContent, all: Cheats.allOn(), any: Cheats.anyOn() })); };
   let k = await key('f');
@@ -443,8 +453,8 @@ test('ハイスコアの保存（キー・コンティニュー・プラクテ�
     res.keys = play({}, 999990);
     Cheats.set('lives', false);
     res.lower = play({}, 1000);
-    // 前の版のアカウントの記録は消える（保存データの形式 2）
-    res.oldData = ['accounts', 'currentUser', 'onlineSession', 'onlineMe', 'onlinePlayers'].filter(k => localStorage.getItem('hoshifuru.' + k) !== null);
+    // アカウントの記録は残っていない（保存データの形式 2 で消した）
+    res.oldData = ['accounts', 'currentUser', 'onlineSession', 'onlineMe', 'onlinePlayers'].filter(k => localStorage.getItem(Store.prefix + k) !== null);
     return res;
   });
   assert(r.normal[0] === true && r.normal[1] === 123450, `ふつうのプレイ: ${r.normal}`);
@@ -452,22 +462,27 @@ test('ハイスコアの保存（キー・コンティニュー・プラクテ�
   assert(!r.oldData.length, `アカウントの記録が残っている: ${r.oldData}`);
 });
 
-test('前の版のアカウントの記録は読みこんだときに消える', async ({ browser }) => {
+test('前のゲーム（東方星降夜）の記録は消さず、設定だけを写す', async ({ browser }) => {
+  // 前のゲームは 'hoshifuru.'、いまのゲームは 'zashiki.' で保存する
   const { page, context, errors } = await openGame(browser, {}, '', ctx => ctx.addInitScript(() => {
     if (localStorage.getItem('hoshifuru.saveVersion') === null) {
-      localStorage.setItem('hoshifuru.saveVersion', '1');
-      localStorage.setItem('hoshifuru.accounts', '{"x":{"name":"x"}}');
-      localStorage.setItem('hoshifuru.onlineMe', '{"uid":"u"}');
+      localStorage.setItem('hoshifuru.saveVersion', '2');
+      localStorage.setItem('hoshifuru.bgmVol', '0.3');
+      localStorage.setItem('hoshifuru.lives', '5');
       localStorage.setItem('hoshifuru.hi_1_reimu', '5000');
+      localStorage.setItem('hoshifuru.extraUnlocked', 'true');
     }
   }));
   try {
     const r = await page.evaluate(() => ({
-      accounts: localStorage.getItem('hoshifuru.accounts'), online: localStorage.getItem('hoshifuru.onlineMe'),
-      hi: Store.get('hi_1_reimu', 0), version: Store.get('saveVersion', 0),
+      prefix: Store.prefix, bgm: Store.get('bgmVol', null), lives: Settings.lives,
+      hi: Store.get('hi_1_reimu', 0), extra: Store.get('extraUnlocked', false), version: Store.get('saveVersion', 0),
+      oldHi: localStorage.getItem('hoshifuru.hi_1_reimu'), oldVol: localStorage.getItem('hoshifuru.bgmVol'),
     }));
-    assert(r.accounts === null && r.online === null, `アカウントの記録が残っている: ${JSON.stringify(r)}`);
-    assert(r.hi === 5000 && r.version === 2, `ハイスコアが消えた、または形式が上がらない: ${JSON.stringify(r)}`);
+    assert(r.prefix === 'zashiki.' && r.version === 3, `保存の頭か形式がおかしい: ${JSON.stringify(r)}`);
+    assert(r.bgm === 0.3 && r.lives === 5, `設定が写っていない: ${JSON.stringify(r)}`);
+    assert(r.hi === 0 && r.extra === false, `前のゲームの記録が写っている: ${JSON.stringify(r)}`);
+    assert(r.oldHi === '5000' && r.oldVol === '0.3', `前のゲームの記録が消えた: ${JSON.stringify(r)}`);
     assert(!errors.length, errors.join('\n'));
   } finally { await context.close(); }
 }, { noPage: true });
@@ -520,6 +535,16 @@ test('キーの効果', async ({ page }) => {
     res.d1 = Game.canvas.style.filter !== '';
     Cheats.toggle('D'); T.step(1);
     res.d2 = Game.canvas.style.filter === '';
+    // E：はじめからエキストラ（面があるときだけ遊べる。解放したことは保存しない）
+    const realExtra = EXTRA_STAGES.length;
+    EXTRA_STAGES.push({ name: '仮', nameEn: 'test', bg: STAGES[0].bg, bgm: STAGES[0].bgm, bosses: [], *script() {}, *boss() {} });
+    res.e0 = extraPlayable();
+    Cheats.toggle('E');
+    res.e1 = extraPlayable();
+    res.eSaved = Store.get('extraUnlocked', false);
+    Cheats.toggle('E');
+    res.e2 = extraPlayable();
+    EXTRA_STAGES.length = realExtra;
     // F：すべて
     Cheats.toggle('F');
     res.f1 = Cheats.allOn();
@@ -534,6 +559,7 @@ test('キーの効果', async ({ page }) => {
   assert(r.v === r.vExpected, `V: ${r.v}（予定 ${r.vExpected}）`);
   assert(r.d1 && r.d2, 'D: 画面の色が変わらない、または元に戻らない');
   assert(r.f1 && r.f2, 'F: すべてON / OFF にならない');
+  assert(!r.e0 && r.e1 && !r.e2 && !r.eSaved, `E: ${[r.e0, r.e1, r.e2, r.eSaved]}`);
 });
 
 test('マウスはキー「M」のときだけ自機を動かせる', async ({ page }) => {
@@ -558,7 +584,7 @@ test('マウスはキー「M」のときだけ自機を動かせる', async ({ p
 
 test('1ファイル版が最新', async () => {
   const { build, out } = require('./build-single.js');
-  assert(fs.existsSync(out) && fs.readFileSync(out, 'utf8') === build(), 'dist/hoshifuru.html が古い。node tools/build-single.js を実行してください');
+  assert(fs.existsSync(out) && fs.readFileSync(out, 'utf8') === build(), 'dist/zashiki.html が古い。node tools/build-single.js を実行してください');
 }, { noPage: true });
 
 test('自動操縦で全ステージをクリアできる', async ({ page }) => {

@@ -53,13 +53,13 @@ function frand(a = 1, b) { if (b === undefined) { b = a; a = 0; } return a + Mat
 // ゲームの名前（タイトル画面・右のパネルのロゴ・ブラウザのタブに出る）
 // index.html の <title> と README にも同じ名前が書いてあるので、変えるときはそちらも直す
 const GAME_INFO = {
-  title: '東方星降夜',
-  subtitle: '〜 Night of Falling Stars.',
+  title: '東方座敷幕',
+  subtitle: '〜 Mansion of Borrowed Rooms.',
   genre: '東方Project 二次創作弾幕シューティング',
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '1.3.0';
+const GAME_VERSION = '2.0.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -70,8 +70,9 @@ const EXTRA_DIFF = 4;
 function dv(e, n, h, l, x = l) { return [e, n, h, l, x][DIFF]; }
 
 // localStorage は使えない環境もあるので必ず try で包む
+// 頭に付ける文字は 'zashiki.'（2.0.0 から。前のゲーム『東方星降夜』は 'hoshifuru.' で、記録はまざらない）
 const Store = {
-  prefix: 'hoshifuru.',
+  prefix: 'zashiki.',
   get(key, def) {
     try {
       const v = localStorage.getItem(this.prefix + key);
@@ -101,13 +102,25 @@ function domButton(cls, text, onClick) {
 }
 
 // 保存データの形式の版。保存データの形を変えたら数字を上げて、migrateSave に古い形からの変換を書く
-// （変換しないと、前の版で遊んでいた人のスコアやアカウントが読めなくなる）
-const SAVE_VERSION = 2;
+// （変換しないと、前の版で遊んでいた人のスコアや設定が読めなくなる）
+const SAVE_VERSION = 3;
+// 前のゲーム『東方星降夜』の保存データの頭。設定（音量・残機など）だけを写し、記録は写さない・消さない
+const OLD_STORE_PREFIX = 'hoshifuru.';
+const SETTING_KEYS = ['bgmVol', 'seVol', 'muted', 'lives', 'lastDiff', 'lastChar'];
 function migrateSave() {
   const from = Store.get('saveVersion', 0);
   if (from >= SAVE_VERSION) return;
   // 2：アカウントとランキングをなくしたので、その記録を消す
   if (from < 2) for (const k of ['accounts', 'currentUser', 'onlineSession', 'onlineMe', 'onlinePlayers']) Store.remove(k);
+  // 3：『東方座敷幕』として別に保存するようになった。はじめて遊ぶときは、前のゲームの設定だけを写す
+  if (from < 3) {
+    for (const k of SETTING_KEYS) {
+      try {
+        const v = localStorage.getItem(OLD_STORE_PREFIX + k);
+        if (v !== null && localStorage.getItem(Store.prefix + k) === null) localStorage.setItem(Store.prefix + k, v);
+      } catch (e) { /* 読めなくても続行 */ }
+    }
+  }
   Store.set('saveVersion', SAVE_VERSION);
 }
 migrateSave();

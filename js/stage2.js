@@ -1,8 +1,9 @@
 'use strict';
 // ============================================================
-//  2面：星影の湖 ― 中ボス：？？？ / ボス：チルノ
+//  2面：虫食いの空き家 ― 中ボス：提供画像のキャラクター（名前は出さない）／ボス：喰代 守子（家守）
 // ============================================================
 
+// 中ボス：消えては別の場所に現れて、輪と自機狙いの弾を撃つ
 const MIDBOSS2_PHASES = [
   {
     type: 'non', hp: 1100, time: 25,
@@ -29,124 +30,158 @@ const MIDBOSS2_PHASES = [
   },
 ];
 
-const CIRNO_PHASES = [
+// ------------------------------------------------------------
+//  ボス：喰代 守子（家を守るやもり。虫が大好物）
+// ------------------------------------------------------------
+const HAMISHIRO_PHASES = [
   {
+    // 虫の群れと、まっすぐ伸びる舌
     type: 'non', hp: 1000, time: 30,
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        const a = b.aim();
-        const n = dv(12, 18, 26, 34);
+        const n = dv(10, 14, 20, 26);
         for (let i = 0; i < n; i++) {
-          fire({ x: b.x, y: b.y, angle: a + rand(-1.1, 1.1), speed: rand(1.4, 3.4), type: 'ice', color: pick(['cyan', 'blue', 'white']), silent: i > 0 });
+          fire({
+            x: b.x, y: b.y, angle: b.aim() + rand(-1.2, 1.2), speed: rand(1.2, 2.4), type: 'dot', color: pick(['green', 'yellow']), silent: i > 0,
+            script: function* (bl) { for (let k = 0; k < 6; k++) { yield 12; bl.angle += rand(-0.5, 0.5); } },
+          });
         }
         yield 40;
-        fireRing({ x: b.x, y: b.y, n: dv(10, 16, 20, 24), angle: rand(TAU), speed: 1.6, type: 'ball', color: 'blue' });
+        const a = b.aim();
+        for (let k = 0; k < dv(4, 6, 8, 10); k++) fire({ x: b.x, y: b.y, angle: a, speed: 2.4 + k * 0.35, type: 'kunai', color: 'pink', silent: k > 0 });
+        yield 40;
         b.wander(55, 60);
-        yield 45;
+        yield 20;
       }
     },
   },
   {
-    type: 'spell', name: '氷符「アイシクルスターフォール」', hp: 1200, time: 40,
+    // 窓辺に集まる虫：左右から波打って飛ぶ蝶の弾。ときどき舌（レーザー）で狙う
+    type: 'spell', name: '虫符「窓辺のごちそう」', hp: 1200, time: 40,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 90, 40);
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      let side = 1;
       for (let f = 0; ; f++) {
-        if (f % dv(12, 10, 7, 5) === 0) {
-          const swing = Math.sin(f * 0.035) * 0.35;
-          for (const side of [-1, 1]) {
-            const out = side > 0 ? -0.15 + swing : Math.PI + 0.15 - swing;
-            fire({
-              x: b.x, y: b.y, angle: out, speed: 3.6, accel: -0.1, minSpeed: 0, type: 'ice', color: 'cyan',
-              script: function* (bl) {
-                yield 34;
-                bl.angle = Math.PI / 2 - side * dv(0.55, 0.6, 0.65, 0.7);
-                bl.accel = 0.04;
-                bl.maxSpeed = dv(1.6, 2.0, 2.3, 2.6);
-              },
-            });
-          }
+        if (f % dv(14, 10, 8, 6) === 0) {
+          side = -side;
+          const ph = rand(TAU);
+          fire({
+            x: side < 0 ? -8 : FIELD_W + 8, y: rand(40, 250), angle: side < 0 ? 0 : Math.PI, speed: dv(1.3, 1.5, 1.8, 2.0),
+            type: 'butterfly', color: pick(['green', 'yellow', 'orange']), margin: 20, silent: true,
+            script: function* (bl) { const base = bl.angle; for (let k = 0; ; k++) { bl.angle = base + Math.sin(k * 0.08 + ph) * 0.6; yield; } },
+          });
         }
-        if (DIFF >= 1 && f % 70 === 30) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.5, angle: b.aim(), speed: 2.2, type: 'ball', color: 'yellow' });
+        if (f % dv(150, 120, 100, 80) === 60) {
+          fireLaser({ x: b.x, y: b.y, angle: b.aim(), width: 12, warn: 40, dur: 24, color: 'pink', follow: l => { l.x = b.x; l.y = b.y; } });
+        }
+        if (f % 90 === 0 && DIFF >= 1) fireRing({ x: b.x, y: b.y, n: dv(8, 10, 14, 18), angle: rand(TAU), speed: 1.5, type: 'small', color: 'green' });
+        if (f % 240 === 200) b.wander(60, 50);
         yield;
       }
     },
   },
   {
+    // しっぽの渦：左右に曲がっていく米粒弾
     type: 'non', hp: 1100, time: 30,
     *script(b) {
       yield 30;
-      let a = 0;
+      let a = rand(TAU);
       for (let f = 0; ; f++) {
-        for (let k = 0; k < 6; k++) {
-          fire({ x: b.x, y: b.y, angle: a + (k * TAU) / 6, speed: 2.1, type: 'ice', color: 'cyan', silent: k > 0 });
-          if (f % 3 === 0) fire({ x: b.x, y: b.y, angle: -a + (k * TAU) / 6 + 0.26, speed: dv(1.2, 1.4, 1.6, 1.8), type: 'small', color: 'white', silent: true });
+        if (f % dv(6, 5, 4, 3) === 0) {
+          for (const s of [1, -1]) {
+            fire({ x: b.x, y: b.y, angle: a * s, speed: 2.2, angVel: s * dv(0.006, 0.008, 0.01, 0.012), type: 'rice', color: s > 0 ? 'cyan' : 'blue', silent: true });
+          }
+          a += 0.23;
         }
-        a += dv(0.09, 0.08, 0.075, 0.07);
-        yield dv(9, 7, 6, 5);
-        if (f % 80 === 79) b.wander(50, 50);
+        if (f % 20 === 0) Sound.se('tan');
+        if (f % 100 === 50) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.6, type: 'ball', color: 'green' });
+        if (f % 160 === 159) b.wander(50, 50);
+        yield;
       }
     },
   },
   {
-    type: 'spell', name: '凍符「フリージングスターダスト」', hp: 1400, time: 45,
-    *script(b, g) {
-      yield* b.moveTo(FIELD_W / 2, 100, 40);
-      const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink'];
-      for (;;) {
-        const frozen = [];
-        for (let f = 0; f < 100; f++) {
-          if (f % 2 === 0) {
-            for (let k = 0; k < dv(1, 2, 3, 4); k++) {
-              frozen.push(fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.5, 3.4), type: pick(['small', 'ball']), color: pick(colors), silent: k > 0 }));
+    // 夜回り：壁ぞいを下りながら、部屋の反対側へ弾を撃つ
+    type: 'spell', name: '守符「家守の夜回り」', hp: 1400, time: 45,
+    *script(b) {
+      for (let loop = 0; ; loop++) {
+        const side = loop % 2 ? 1 : -1;
+        yield* b.moveTo(side < 0 ? 36 : FIELD_W - 36, 60, 40);
+        for (let f = 0; f < 120; f++) {
+          b.y = 60 + f * 1.2;
+          if (f % dv(10, 8, 6, 5) === 0) {
+            const n = dv(3, 4, 5, 6);
+            for (let i = 0; i < n; i++) {
+              fire({ x: b.x, y: b.y, angle: (side < 0 ? 0 : Math.PI) + (i - (n - 1) / 2) * 0.22, speed: dv(1.8, 2.1, 2.4, 2.7), type: 'ball', color: 'blue', silent: i > 0 });
             }
           }
           yield;
         }
-        yield 20;
-        Sound.se('freeze');
-        g.flash = { color: '200,240,255', a: 0.35 };
-        for (const bl of frozen) {
-          if (!bl.alive) continue;
-          bl.speed = 0;
-          bl.accel = 0;
-          bl.setColor('white');
-        }
-        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.0, angle: b.aim(), speed: 2.6, type: 'ice', color: 'blue' });
-        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.0, angle: b.aim(), speed: 1.8, type: 'ice', color: 'blue' });
-        yield 60;
-        for (const bl of frozen) {
-          if (!bl.alive) continue;
-          bl.angle = rand(TAU);
-          bl.accel = 0.012;
-          bl.maxSpeed = dv(1.0, 1.4, 1.8, 2.1);
-        }
-        b.wander(60, 50);
-        yield 80;
+        fireRing({ x: b.x, y: b.y, n: dv(12, 16, 22, 28), angle: rand(TAU), speed: 1.6, type: 'small', color: 'cyan' });
+        yield* b.moveTo(FIELD_W / 2, 90, 50);
+        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.0, angle: b.aim(), speed: 2.4, type: 'rice', color: 'green' });
+        yield 30;
       }
     },
   },
   {
-    type: 'spell', name: '雪符「スターダストブリザード」', hp: 1300, time: 40,
+    // しっぽ切り：切って置いていったしっぽが、動きながら弾をまき、最後にはじける
+    type: 'spell', name: '尾符「とかげのしっぽ切り」', hp: 1300, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
-      for (let f = 0; ; f++) {
-        for (let k = 0; k < dv(1, 1, 2, 3); k++) {
-          const a = rand(TAU), r = rand(10, 60);
-          fire({ x: b.x + Math.cos(a) * r, y: b.y + Math.sin(a) * r, angle: rand(TAU), speed: rand(0.8, dv(1.8, 2.2, 2.6, 3)), type: 'small', color: pick(['cyan', 'white', 'blue']), silent: true, delay: 12 });
+      for (let loop = 0; ; loop++) {
+        const tails = dv(2, 3, 3, 4);
+        for (let i = 0; i < tails; i++) {
+          fire({
+            x: b.x, y: b.y, angle: b.aim() + (i - (tails - 1) / 2) * 0.7, speed: 1.6, accel: -0.012, minSpeed: 0.3, type: 'large', color: 'cyan',
+            script: function* (bl) {
+              for (let k = 0; k < 8; k++) {
+                yield dv(22, 18, 15, 12);
+                bl.angle += Math.sin(k * 1.7) * 0.5;
+                fire({ x: bl.x, y: bl.y, angle: aimAt(bl.x, bl.y) + rand(-0.3, 0.3), speed: 1.8, type: 'small', color: 'blue', silent: true });
+              }
+              fireRing({ x: bl.x, y: bl.y, n: dv(8, 10, 12, 16), angle: rand(TAU), speed: 1.5, type: 'rice', color: 'cyan', silent: true });
+              bl.alive = false;
+            },
+          });
         }
-        if (f % dv(60, 45, 36, 30) === 0) {
-          const a = b.aim();
-          for (let k = 0; k < 5; k++) fire({ x: b.x, y: b.y, angle: a, speed: 2 + k * 0.45, type: 'ice', color: 'blue' });
-        }
-        if (f % 120 === 119) b.wander(60, 40);
-        yield;
+        Sound.se('kira');
+        yield 40;
+        b.wander(70, 80);
+        yield dv(90, 75, 60, 50);
       }
     },
   },
 ];
 
-function iceFairyV(n, color = 'blue') {
+// ------------------------------------------------------------
+//  道中の敵
+// ------------------------------------------------------------
+
+// 床や天井をはい回る虫。上から降りてきて、くねくね進む
+function* bugSwarm(frames, count) {
+  const interval = Math.max(1, Math.floor(frames / count));
+  for (let i = 0; i < count; i++) {
+    const x = rand(20, FIELD_W - 20);
+    spawnEnemy({
+      x, y: -12, kind: 'bug', hp: 5, r: 9, score: 500, drops: rng.next() < 0.5 ? { point: 1 } : { power: 1 },
+      speed: rand(1.2, 2.0), angle: Math.PI / 2,
+      script: function* (e) {
+        const ph = rand(TAU), w = rand(0.4, 0.9);
+        for (let f = 0; ; f++) {
+          e.angle = Math.PI / 2 + Math.sin(f * 0.06 + ph) * w;
+          if (f === 60 && DIFF >= 1 && e.onScreen) fire({ x: e.x, y: e.y, angle: e.aim(), speed: dv(2, 2.3, 2.7, 3.1), type: 'dot', color: 'yellow' });
+          yield;
+        }
+      },
+    });
+    yield interval;
+  }
+}
+
+// V字に並んで降りてきて、止まってから撃つ妖精
+function fairyV(n, color = 'blue') {
   for (let i = 0; i < n; i++) {
     const off = (i - (n - 1) / 2) * 34;
     spawnEnemy({
@@ -156,8 +191,8 @@ function iceFairyV(n, color = 'blue') {
         yield 50;
         e.accel = -0.04;
         yield 30;
-        fireFan({ x: e.x, y: e.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: e.aim(), speed: dv(2.2, 2.6, 3, 3.4), type: 'ice', color: 'cyan' });
-        if (DIFF >= 2) { yield 12; fireFan({ x: e.x, y: e.y, n: 5, spread: 0.6, angle: e.aim(), speed: 2, type: 'ice', color: 'blue' }); }
+        fireFan({ x: e.x, y: e.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: e.aim(), speed: dv(2.2, 2.6, 3, 3.4), type: 'rice', color: 'green' });
+        if (DIFF >= 2) { yield 12; fireFan({ x: e.x, y: e.y, n: 5, spread: 0.6, angle: e.aim(), speed: 2, type: 'rice', color: 'yellow' }); }
         yield 30;
         e.setMove(0, Math.PI / 2 + (off < 0 ? 0.6 : -0.6) + Math.PI, 0.05);
       },
@@ -165,8 +200,8 @@ function iceFairyV(n, color = 'blue') {
   }
 }
 
-// 止まってから自機に向かう「凍結弾」を撒く妖精
-function* freezerWave(side, n) {
+// 止まってから自機に向かう弾（クモの糸にかかった虫のように、いったん止まる）を撒く妖精
+function* stickyWave(side, n) {
   for (let i = 0; i < n; i++) {
     spawnEnemy({
       x: side < 0 ? -12 : FIELD_W + 12, y: 50 + i * 14, hp: 16, color: 'green', score: 1200, drops: { power: 1, point: 1 },
@@ -176,7 +211,7 @@ function* freezerWave(side, n) {
         const cnt = dv(4, 6, 8, 10);
         for (let k = 0; k < cnt; k++) {
           fire({
-            x: e.x, y: e.y, angle: (k / cnt) * TAU, speed: 2.4, accel: -0.06, minSpeed: 0, type: 'small', color: 'cyan',
+            x: e.x, y: e.y, angle: (k / cnt) * TAU, speed: 2.4, accel: -0.06, minSpeed: 0, type: 'small', color: 'green',
             script: function* (bl) {
               yield 50;
               bl.setColor('white');
@@ -194,34 +229,35 @@ function* freezerWave(side, n) {
 }
 
 STAGES.push({
-  name: '星影の湖',
-  nameEn: 'Starlight over the Misty Lake',
-  bg: LakeBG,
+  name: '虫食いの空き家',
+  nameEn: 'A Vacant House Full of Bugs',
+  bg: BugHouseBG,
   bgm: 'stage2',
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
-  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
     { id: 'midboss2', phases: MIDBOSS2_PHASES, mid: true, def: { circleColor: '150,160,240' } },
-    { id: 'cirno', phases: CIRNO_PHASES, bgm: 'boss2', def: { spellBg: 'cirno', circleColor: '120,220,255' } },
+    { id: 'hamishiro', phases: HAMISHIRO_PHASES, bgm: 'boss2', def: { spellBg: 'yamori', circleColor: '110,200,255' } },
   ],
   *script(g) {
     yield 160;
-    iceFairyV(5);
+    fairyV(5);
     yield 160;
-    iceFairyV(7);
+    fairyV(7);
     yield 140;
-    g.tasks.add(freezerWave(-1, 6));
+    g.tasks.add(stickyWave(-1, 6));
     yield 120;
-    g.tasks.add(freezerWave(1, 6));
+    g.tasks.add(stickyWave(1, 6));
     yield 120;
     [110, 274].forEach(x => handEnemy(x));
     yield 120;
-    g.tasks.add(starShower(300, dv(16, 26, 40, 56), ['cyan', 'blue', 'white', 'yellow']));
-    g.tasks.add(kedamaRain(300, dv(10, 14, 18, 22), 'blue'));
+    // 天井から虫が落ちてくる
+    g.tasks.add(tileShower(300, dv(16, 26, 40, 56), ['green', 'yellow', 'orange'], false, 'dot'));
+    g.tasks.add(bugSwarm(300, dv(10, 14, 18, 22)));
     yield 320;
     yield* waitClear(200);
 
-    // 中ボス（提供画像のキャラクター。名前は未定）
+    // 中ボス（提供画像のキャラクター。名前は出さない）
     const mid = g.spawnStageBoss('midboss2', { x: -40, y: 60 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, MIDBOSS2_PHASES);
@@ -229,8 +265,8 @@ STAGES.push({
     yield* g.bossDown(mid, true);
     yield 60;
 
-    yield* sideSweep(-1, 6, { color: 'blue', bcolor: 'cyan', type: 'ice', y: 50 });
-    yield* sideSweep(1, 6, { color: 'blue', bcolor: 'cyan', type: 'ice', y: 50 });
+    yield* sideSweep(-1, 6, { color: 'blue', bcolor: 'green', type: 'rice', y: 50 });
+    yield* sideSweep(1, 6, { color: 'blue', bcolor: 'green', type: 'rice', y: 50 });
     yield 60;
     // 左右の大妖精（ザコ）が渦巻き
     for (const side of [-1, 1]) {
@@ -241,7 +277,7 @@ STAGES.push({
           let a = 0;
           for (let f = 0; f < 480; f++) {
             if (f % dv(8, 6, 5, 4) === 0) {
-              for (let k = 0; k < 3; k++) fire({ x: e.x, y: e.y, angle: a * side + (k * TAU) / 3, speed: 1.8, type: 'ice', color: 'cyan', silent: k > 0 });
+              for (let k = 0; k < 3; k++) fire({ x: e.x, y: e.y, angle: a * side + (k * TAU) / 3, speed: 1.8, type: 'rice', color: 'green', silent: k > 0 });
               a += 0.18;
             }
             yield;
@@ -251,23 +287,24 @@ STAGES.push({
       });
     }
     yield* waitClear(800);
-    g.tasks.add(starShower(420, dv(20, 32, 46, 64), ['cyan', 'blue', 'white', 'yellow'], true));
+    g.tasks.add(bugSwarm(420, dv(16, 22, 30, 38)));
+    g.tasks.add(tileShower(420, dv(14, 22, 32, 44), ['green', 'yellow'], false, 'dot'));
     yield 60;
-    yield* zigzag(14, 'green', 'green', 'ice');
+    yield* zigzag(14, 'green', 'green', 'rice');
     [70, 192, 314].forEach((x, i) => handEnemy(x, { stopY: 80 + i * 15 }));
     yield 60;
-    iceFairyV(7, 'purple');
+    fairyV(7, 'purple');
     yield 120;
-    [80, 304, 192].forEach((x, i) => ringFairy(x, { color: 'blue', bcolor: 'cyan', type: 'ice', stopY: 80 + i * 20, times: 4, n: dv(10, 14, 20, 26) }));
+    [80, 304, 192].forEach((x, i) => ringFairy(x, { color: 'blue', bcolor: 'green', type: 'rice', stopY: 80 + i * 20, times: 4, n: dv(10, 14, 20, 26) }));
     yield* waitClear(900);
     yield 90;
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    const boss = g.spawnStageBoss('cirno', { x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('hamishiro', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 60);
     yield* g.talk(STORY.stage2[g.charId].before);
-    yield* g.fight(boss, CIRNO_PHASES);
+    yield* g.fight(boss, HAMISHIRO_PHASES);
     yield* g.bossDown(boss);
     yield* g.talk(STORY.stage2[g.charId].after);
   },

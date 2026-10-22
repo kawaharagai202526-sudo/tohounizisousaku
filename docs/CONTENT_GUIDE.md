@@ -64,8 +64,11 @@
    ```
    python3 tools/make-sprite.py もらった画像.jpg boss5 --dot 78 --preview 確認用フォルダ
    ```
-3. ステージの `bosses` に `{ id, phases, mid, bgm, def }` を書く（`def` はスペルカードの背景 `spellBg`・魔法陣の色 `circleColor` など）
+3. ステージの `bosses` に `{ id, phases, mid, bgm, def }` を書く（`def` はスペルカードの背景 `spellBg`・魔法陣の色 `circleColor` など）。
+   `mid: true` の中ボスは、戦っているあいだ名前を出さない
 4. ステージの `boss(g)`（中ボスは `script(g)` の中）で `g.spawnStageBoss('ID', { x, y })` → `g.fight(boss, 攻撃)` → `g.bossDown(boss)`
+5. 同じキャラクターが中ボスとボスの両方で出るときは、`CHARA_INFO` に別のIDを作る（例：5面の `yanariMid` と `yanari`）。
+   正体を隠して出るときも別のID（例：3面の `namesawaMask` は名前が「？？？」で、絵は `namesawa` と同じ）
 
 管理者ページの「キャラクター一覧」には、自機は `PLAYER_TYPES`、ボスは `bosses` から自動で並ぶ。
 ザコの一覧は `js/admin.js` の `showCharacters()` に手で書いてある。
@@ -78,6 +81,12 @@
 まず `--preview 確認用フォルダ` を付けて仕上がりを見るとよい。
 
 ```
+# 2.0.0 で使ったもの（ボス）
+python3 tools/make-sprite.py 22.jpg nokiba --crop 125,136,942,1313 --mask 720,980,945,1240 --mask 395,185,460,255 --dot 76
+python3 tools/make-sprite.py 21.jpg hamishiro --crop 150,200,830,1295 --mask 630,160,780,226 --fade 60 --dot 76
+python3 tools/make-sprite.py 19.jpg namesawa --crop 300,440,640,1150 --dot 78
+python3 tools/make-sprite.py 18.jpg toganoo --fade 40 --dot 76
+python3 tools/make-sprite.py 20.jpg yanari --crop 280,222,882,1380 --mask 645,255,890,305 --fade 50 --dot 80
 # 1.3.0 で使ったもの
 python3 tools/make-sprite.py 13.jpg marisa_player --crop 125,136,942,1313 --art 96 --dot 0       # ゲーム中の魔理沙（小さい絵）
 python3 tools/make-sprite.py 14.jpg marisa --crop 95,158,943,1330 --mask 630,158,780,228 --mask 645,1290,943,1330 --dot 0
@@ -90,7 +99,7 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
 
 - ザコの絵は `js/enemies.js` の `Enemy.draw` にある（`kind` ごと）。画像なら `drawImageSprite(ctx, '画像のキー', 高さ)`
 - 面のデータに `zako: '種類'` を書くと、その面の妖精（`fairy`）と緑の手（`hand`）がその種類の絵になる。
-  いまは3面・4面が `zako: 'handEye'`（一つ目の手）。足の妖精・大妖精・毛玉などはそのまま
+  いまは3〜5面が `zako: 'handEye'`（一つ目の手）。足の妖精・大妖精・毛玉・虫などはそのまま
 - 新しい種類を足したら、Lunatic の撃ち返し弾を出すかどうか（`js/game.js` の `REVENGE_KINDS`）と、
   管理者ページのザコの一覧（`showCharacters()`）も直す
 
@@ -102,6 +111,8 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
   - `minDiff` を付けると、その難易度以上だけに出る（例：`minDiff: 2` は Hard と Lunatic）
 - 弾は `fire` / `fireRing` / `fireFan`（js/bullets.js）。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)`
 - スペルカードの背景は js/backgrounds.js の `drawSpellBG`（ボスの `def.spellBg` で選ぶ）
+- ステージの背景は js/backgrounds.js のクラス（1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`・4面 `RoomsBG`・5面 `CollapseBG`）。
+  `update()` と `draw(ctx)` を持ち、ステージの `bg` に書く。会話の `{ event }` を受けるときは `event(名前)` も書く
 - 道中の敵の出し方は各ステージの `script(g)`。`yield n` で n フレーム待つ
 
 ### 攻撃をすぐ試す
@@ -109,7 +120,7 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
 URL のうしろに付けて開くと、会話なしでそのボスの攻撃から始まる（プラクティス扱いで、記録は残らない）。
 
 ```
-index.html?boss=boss4&phase=3&diff=3&char=marisa
+index.html?boss=toganoo&phase=3&diff=3&char=marisa
 index.html?stage=2&phase=1&only=1
 ```
 
@@ -126,21 +137,21 @@ index.html?stage=2&phase=1&only=1
 
 ## 面の数とエキストラステージ
 
-本編は全6面＋エキストラステージにする予定で、そのしくみはできている（いまある面は4面まで）。
+本編は全6面＋エキストラステージにする予定で、そのしくみはできている（いまある面は5面まで）。
 
 | もの | 場所 | ひとこと |
 | --- | --- | --- |
 | 本編の面の数 | js/game.js の `MAIN_STAGE_COUNT`（6） | プラクティスはこの数だけ並び、まだない面は「準備中」で選べない |
-| 本編の面 | `STAGES`（js/stage1〜4.js） | いまある最後の面をクリアするとエンディング |
+| 本編の面 | `STAGES`（js/stage1〜5.js） | いまある最後の面をクリアするとエンディング |
 | エキストラステージ | js/game.js の `EXTRA_STAGES`（いまは空） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
 | 解放の条件 | js/game.js の `EXTRA_UNLOCK` | いまは Normal 以上・コンティニューなしで、本編の最後（6面）をクリア |
 | 解放したかどうか | 保存データ `extraUnlocked` | 管理者ページのデータベースで見られる |
 
-### 5面・6面を作るとき
+### 6面を作るとき
 
-1. `js/stage5.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
-2. `index.html` の `stage4.js` の次に `<script src="js/stage5.js"></script>` を足す（1ファイル版は自動で入る）
-3. `js/story.js` に `STORY.stage5`、`README.md` のステージの表を書く
+1. `js/stage6.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
+2. `index.html` の `stage5.js` の次に `<script src="js/stage6.js"></script>` を足す（1ファイル版は自動で入る）
+3. `js/story.js` に `STORY.stage6`、`README.md` のステージの表を書き、`ENDINGS` を6面の内容に合わせて書きかえる
 4. 6面までそろうと、6面をクリアしたときにエンディングになり、条件を満たせばエキストラが解放される
 
 ### エキストラステージを作るとき
@@ -153,7 +164,7 @@ index.html?stage=2&phase=1&only=1
 4. ボスの攻撃は `index.html?stage=extra&phase=2` か、`?boss=ボスのID` ですぐ試せる
 5. エキストラのハイスコアは難易度 4（Extra）として `hi_4_自機のID` に保存される
 
-テストの「本編6面とエキストラステージのしくみ」は、仮の5面・6面・エキストラを足して、解放の条件と流れを確かめている。
+テストの「本編6面とエキストラステージのしくみ」は、まだない面（いまは6面）とエキストラを仮に足して、解放の条件と流れを確かめている。
 
 ## ストーリー
 
@@ -161,7 +172,9 @@ index.html?stage=2&phase=1&only=1
   - `INTRO_TEXT`：「操作説明とお話」に出るあらすじ
   - `STORY.stageN[自機のID].before / after`：ボス戦の前と後の会話。1行は `[話者のID, 表情, 台詞]`。
     表情は normal / happy / angry / surprised / sad / smug。
-    `{ bgm: '曲ID' }` でその場で曲が変わり、`{ title: 'キャラID' }` でボスの名前が出る
+    `{ bgm: '曲ID' }` でその場で曲が変わり、`{ title: 'キャラID' }` でボスの名前が出る。
+    `{ narration: '文' }` は話者のいないト書き、`{ event: '名前' }` は背景の `event(名前)` を呼ぶ（3面の `'mansion'` で屋敷が姿を現す）
+  - 中ボスの前後の会話は `STORY.stage3mid` のように別に作り、ステージの `script(g)` の中で `g.talk(...)` する
   - `ENDINGS[自機のID]`：エンディングの題名とページ。`guest` で右側にほかのキャラクターを出せる
 - 会話を流すのは各ステージの `boss(g)` の中の `g.talk(...)`
 - 話者は `CHARA_INFO` にいる必要がある（名前と絵を使う）

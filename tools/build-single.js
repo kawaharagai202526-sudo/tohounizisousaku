@@ -1,11 +1,12 @@
 'use strict';
-// index.html と js/*.js、img/*.png を1つのHTMLファイル（dist/hoshifuru.html）にまとめる
+// index.html と js/*.js、img/*.png を1つのHTMLファイル（dist/zashiki.html）にまとめる
+// （dist/hoshifuru.html は前のゲーム『東方星降夜』1.3.0 の1ファイル版。作り直さずにそのまま残す）
 // 使い方: node tools/build-single.js
 const fs = require('fs');
 const path = require('path');
 
 const root = path.join(__dirname, '..');
-const out = path.join(root, 'dist', 'hoshifuru.html');
+const out = path.join(root, 'dist', 'zashiki.html');
 
 // まとめたHTMLを文字列で返す（テストからも使う）
 function build() {

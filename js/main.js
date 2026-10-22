@@ -88,7 +88,7 @@ function bootGame() {
 
   Game.setScene(new TitleScene());
 
-  // 開発用：URL に ?boss=boss4&phase=3 などを付けると、そのボスの攻撃からすぐ始まる（startBossTest）
+  // 開発用：URL に ?boss=toganoo&phase=3 などを付けると、そのボスの攻撃からすぐ始まる（startBossTest）
   //   ?stage=extra でエキストラステージのボス
   const q = new URLSearchParams(location.search);
   if (q.has('boss') || q.has('stage')) {

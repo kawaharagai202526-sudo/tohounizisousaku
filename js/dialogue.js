@@ -2,7 +2,8 @@
 // ============================================================
 //  会話
 //  行の書式: [話者ID, 表情, 台詞]
-//  演出:     { bgm: '曲ID' } / { title: 'キャラID' }
+//  ト書き:   { narration: '文' }（話者なし。名前を出さずに文だけ出す）
+//  演出:     { bgm: '曲ID' } / { title: 'キャラID' } / { event: '名前' }（背景の event(名前) を呼ぶ）
 // ============================================================
 
 class Dialogue {
@@ -21,14 +22,24 @@ class Dialogue {
   }
   next() {
     this.i++;
-    while (this.i < this.lines.length && !Array.isArray(this.lines[this.i])) {
+    while (this.i < this.lines.length && !Array.isArray(this.lines[this.i]) && !this.lines[this.i].narration) {
       const a = this.lines[this.i];
       if (a.bgm) { Sound.playBgm(a.bgm); this.g.showBgmTitle(a.bgm); }
       if (a.title) this.g.bossTitle = { id: a.title, frame: 0 };
+      if (a.event && this.g.bg && this.g.bg.event) this.g.bg.event(a.event);
       this.i++;
     }
     if (this.i >= this.lines.length) { this.done = true; return; }
-    const [who, face, text] = this.lines[this.i];
+    const line = this.lines[this.i];
+    if (!Array.isArray(line)) {
+      // ト書き：話者はいないので、立ち絵はどちらも少し暗くする
+      this.who = null;
+      this.text = line.narration;
+      this.chars = 0;
+      this.lineFrame = 0;
+      return;
+    }
+    const [who, face, text] = line;
     this.who = who;
     this.text = text;
     this.chars = 0;
@@ -71,13 +82,15 @@ class Dialogue {
     ctx.strokeStyle = 'rgba(210,190,140,0.7)';
     ctx.lineWidth = 1;
     ctx.strokeRect(bx + 2.5, by + 2.5, bw - 5, bh - 5);
-    const info = CHARA_INFO[this.who] || { name: this.who, color: '#fff' };
-    ctx.font = `bold 13px ${FONT_JP}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    strokeText(ctx, info.name, bx + 12, by + 8, info.color, 'rgba(0,0,0,0.9)', 3);
+    if (this.who) {
+      const info = CHARA_INFO[this.who] || { name: this.who, color: '#fff' };
+      ctx.font = `bold 13px ${FONT_JP}`;
+      strokeText(ctx, info.name, bx + 12, by + 8, info.color, 'rgba(0,0,0,0.9)', 3);
+    }
     ctx.font = `15px ${FONT_JP}`;
-    ctx.fillStyle = '#f4f0ff';
+    ctx.fillStyle = this.who ? '#f4f0ff' : '#e8d8b0';
     const shown = this.text.slice(0, Math.floor(this.chars));
     const lines = wrapText(ctx, shown, bw - 30);
     lines.slice(0, 3).forEach((ln, i) => ctx.fillText(ln, bx + 14, by + 28 + i * 20));

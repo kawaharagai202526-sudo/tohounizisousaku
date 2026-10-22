@@ -1,8 +1,8 @@
 'use strict';
 // ============================================================
-//  4面：星屑の洞窟 ― 中ボス：スターサファイア／ボス：瑠璃
-//  道中は紺珠伝（狙いを定めた弾・レーザー）と
-//  妖々夢（弱い妖精の大群）を参考にしている
+//  4面：借りものの間 ― 中ボス：スターサファイア（名前は出さない）／ボス：栂尾 芯
+//  人里の家から借りてきた部屋を次々に突き抜けて進む（背景 RoomsBG）
+//  道中は紺珠伝（狙いを定めた弾・レーザー）と妖々夢（弱い妖精の大群）を参考にしている
 // ============================================================
 
 // 星座のかたち（座標は -1〜1、edges は結ぶ星の番号）
@@ -70,161 +70,131 @@ const STAR_MID4_PHASES = [
 ];
 
 // ------------------------------------------------------------
-//  4面ボス：瑠璃（提供画像のキャラクター）
-//  鹿の角・瑠璃色の蝶の羽・本から、蝶・頁・枝分かれする角の弾幕
-//  スペルカード名は仮のもの
+//  ボス：栂尾 芯（屋敷を支える柱のような子。大きな掛矢を持つ）
+//  柱（縦のレーザー）・梁（横のレーザー）・年輪・掛矢の一撃
 // ------------------------------------------------------------
-
-// 鹿の角のように、一定時間ごとに2つに枝分かれする弾
-function antler(depth, spread) {
-  return function* (bl) {
-    yield 26;
-    if (depth > 0 && bl.alive) {
-      for (const s of [-1, 1]) {
-        fire({ x: bl.x, y: bl.y, angle: bl.angle + s * spread, speed: bl.speed, type: 'rice', color: depth > 1 ? 'orange' : 'yellow', silent: true, delay: 4, script: antler(depth - 1, spread) });
-      }
-      bl.alive = false;
-    }
-  };
-}
-const stopCurl = frames => function* (bl) { yield frames; bl.angVel = 0; };
-
-const BOSS4_PHASES = [
+const TOGANOO_PHASES = [
   {
+    // 柱を立てる：上から弾の柱が何本も降りてくる
     type: 'non', hp: 1100, time: 30,
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        const dir = loop % 2 ? 1 : -1;
-        fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 24), angle: rand(TAU), speed: 2.2, accel: -0.02, minSpeed: 1.1, angVel: dir * 0.006, type: 'butterfly', color: dir > 0 ? 'blue' : 'cyan', script: stopCurl(90) });
-        yield 30;
-        fireFan({ x: b.x - 16, y: b.y, n: dv(1, 3, 3, 5), spread: 0.3, angle: b.aim(), speed: 2.2, type: 'amulet', color: 'blue' });
-        yield 20;
-        if (loop % 2) b.wander(60, 60);
-      }
-    },
-  },
-  {
-    type: 'spell', name: '蝶符「瑠璃色の鱗粉」', hp: 1300, time: 40,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 90, 40);
-      for (;;) {
-        // 大きな蝶が舞いながら鱗粉（小さな弾）をこぼしていく
-        const n = dv(5, 6, 8, 10);
-        const off = rand(TAU);
-        for (let i = 0; i < n; i++) {
-          const dir = i % 2 ? 1 : -1;
-          fire({
-            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 1.6, angVel: dir * 0.012,
-            type: 'butterfly', color: 'blue', scale: 1.5, hitR: 4.5,
-            script: function* (bl) {
-              for (let f = 0; f < 240; f++) {
-                if (f % dv(12, 10, 8, 6) === 0) fire({ x: bl.x, y: bl.y, angle: rand(TAU), speed: rand(0.2, 0.6), type: 'dot', color: 'cyan', silent: true, delay: 6, life: 300 });
-                if (f === 90) bl.angVel = 0;
-                yield;
-              }
-            },
-          });
+        const cols = dv(3, 4, 5, 6);
+        const xs = [];
+        for (let i = 0; i < cols; i++) xs.push(((i + 0.5) / cols) * FIELD_W + rand(-20, 20));
+        for (let k = 0; k < dv(8, 10, 12, 14); k++) {
+          for (const x of xs) fire({ x, y: -6, angle: Math.PI / 2, speed: dv(2.2, 2.6, 3, 3.4), type: 'rice', color: 'orange', silent: true });
+          Sound.se('tan');
+          yield 4;
         }
-        yield dv(90, 75, 60, 50);
-        b.wander(60, 50);
+        yield 20;
+        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.2, angle: b.aim(), speed: 2.2, type: 'ball', color: 'red' });
+        yield 30;
+        b.wander(60, 60);
+        yield 20;
       }
     },
   },
   {
+    // 大黒柱：縦のレーザーが立ち、合間に米粒弾の輪
+    type: 'spell', name: '柱符「大黒柱の意地」', hp: 1500, time: 45,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      for (let loop = 0; ; loop++) {
+        const n = dv(2, 3, 4, 4);
+        for (let i = 0; i < n; i++) {
+          const x = i === 0 ? clamp(G.player.x + rand(-30, 30), 20, FIELD_W - 20) : rand(20, FIELD_W - 20);
+          fireLaser({ x, y: -10, angle: Math.PI / 2, length: FIELD_H + 20, width: 22, warn: 50, dur: 60, color: 'orange' });
+        }
+        for (let f = 0; f < 110; f++) {
+          if (f % dv(36, 30, 24, 20) === 0) fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 22), angle: rand(TAU), speed: dv(1.4, 1.7, 2, 2.3), type: 'rice', color: 'yellow' });
+          yield;
+        }
+        if (loop % 2) b.wander(60, 50);
+      }
+    },
+  },
+  {
+    // 年輪：回る向きの違う三重の輪
     type: 'non', hp: 1200, time: 30,
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        // 本の頁をめくるように、左右へ扇状に札弾
-        const dir = loop % 2 ? 1 : -1;
-        const n = dv(10, 14, 18, 22);
-        for (let i = 0; i < n; i++) {
-          const a = Math.PI / 2 + dir * (-1.2 + (2.4 * i) / (n - 1));
-          fire({ x: b.x - 16, y: b.y + 4, angle: a, speed: 1.7, type: 'amulet', color: 'blue', silent: i > 0 });
-          if (DIFF >= 2) fire({ x: b.x - 16, y: b.y + 4, angle: a, speed: 1.2, type: 'amulet', color: 'white', silent: true });
-          yield 2;
+        const n = dv(18, 24, 30, 36), off = rand(TAU);
+        for (let r = 0; r < 3; r++) {
+          const dir = r % 2 ? 1 : -1;
+          for (let i = 0; i < n; i++) fire({ x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 1.3 + r * 0.35, angVel: dir * 0.004, type: 'rice', color: ['orange', 'yellow', 'red'][r], silent: true });
+          Sound.se('tan');
+          yield 8;
         }
-        yield 16;
-        fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 22), angle: rand(TAU), speed: 1.4, type: 'small', color: 'cyan' });
-        yield dv(40, 32, 24, 18);
-        if (loop % 2) b.wander(60, 60);
+        yield dv(60, 48, 40, 32);
+        fireFan({ x: b.x, y: b.y, n: 3, spread: 0.25, angle: b.aim(), speed: 3, type: 'large', color: 'orange' });
+        b.wander(60, 50);
+        yield 30;
       }
     },
   },
   {
-    type: 'spell', name: '書符「めくれる頁の回廊」', hp: 1400, time: 45,
+    // 渡り廊下の梁：横のレーザーが段々に渡され、梁からほこりが落ちる
+    type: 'spell', name: '梁符「渡り廊下の梁」', hp: 1500, time: 45,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 70, 40);
-      for (let row = 0; ; row++) {
-        // 頁の列が上から降りてくる。すき間（通り道）は少しずつ動く
-        const gapX = clamp(FIELD_W / 2 + Math.sin(row * 0.45) * 120 + Math.sin(row * 0.17) * 40, 50, FIELD_W - 50);
-        const gap = dv(96, 80, 68, 58);
-        for (let x = 8; x < FIELD_W; x += 16) {
-          if (Math.abs(x - gapX) < gap / 2) continue;
-          fire({ x, y: -8, angle: Math.PI / 2, speed: 1.3, type: 'amulet', color: row % 2 ? 'blue' : 'white', silent: true, delay: 0, margin: 30 });
+      for (let loop = 0; ; loop++) {
+        const rows = dv(2, 3, 3, 4);
+        const gap = dv(90, 80, 72, 64);
+        const top = rand(140, 200) - (rows - 1) * 30;
+        for (let i = 0; i < rows; i++) {
+          const fromLeft = (loop + i) % 2 === 0;
+          fireLaser({ x: fromLeft ? -10 : FIELD_W + 10, y: top + i * gap, angle: fromLeft ? 0 : Math.PI, length: FIELD_W + 20, width: 16, warn: 55, dur: 50, color: 'yellow' });
         }
-        Sound.se('tan');
-        if (DIFF >= 1 && row % 3 === 2) fireFan({ x: b.x, y: b.y, n: dv(1, 1, 3, 3), spread: 0.3, angle: b.aim(), speed: 1.8, type: 'butterfly', color: 'cyan' });
-        yield dv(46, 40, 34, 30);
+        for (let f = 0; f < 120; f++) {
+          if (f % dv(8, 6, 5, 4) === 0) fire({ x: rand(10, FIELD_W - 10), y: -6, angle: Math.PI / 2, speed: rand(1.2, 2), type: 'dot', color: 'white', silent: true });
+          if (f % 60 === 30) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'ball', color: 'orange' });
+          yield;
+        }
       }
     },
   },
   {
-    type: 'non', hp: 1200, time: 30,
+    // 掛矢の一撃：振りかぶって打ちおろし、衝撃が広がる
+    type: 'spell', name: '槌符「掛矢の大一番」', hp: 1600, time: 45,
     *script(b) {
-      yield 30;
       for (let loop = 0; ; loop++) {
-        const n = dv(3, 4, 5, 6);
-        const a = b.aim();
-        for (let i = 0; i < n; i++) {
-          fire({ x: b.x, y: b.y - 20, angle: a + (i - (n - 1) / 2) * 0.5, speed: 2, type: 'rice', color: 'orange', script: antler(dv(1, 2, 2, 3), 0.38) });
-        }
-        yield dv(70, 55, 45, 36);
-        if (loop % 2) b.wander(60, 60);
-      }
-    },
-  },
-  {
-    type: 'spell', name: '角符「森の王冠」', hp: 1500, time: 45,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 100, 40);
-      for (let loop = 0; ; loop++) {
-        // 頭の角から、枝分かれする弾を全方向へ
-        const n = dv(5, 6, 7, 8);
-        const off = loop * 0.3;
-        for (let i = 0; i < n; i++) {
-          fire({ x: b.x, y: b.y - 24, angle: off + (i * TAU) / n, speed: 1.8, type: 'kunai', color: 'orange', script: antler(dv(2, 2, 3, 3), 0.45) });
+        yield* b.moveTo(clamp(G.player.x, 60, FIELD_W - 60), 60, 40);
+        yield 20;
+        yield* b.moveTo(b.x, 150, 12, Ease.inQuad);
+        Sound.se('kill');
+        G.shake = 16;
+        const n = dv(20, 26, 34, 42), off = rand(TAU);
+        fireRing({ x: b.x, y: b.y, n, angle: off, speed: 2.4, type: 'ball', color: 'orange', silent: true });
+        fireRing({ x: b.x, y: b.y, n: Math.round(n * 0.6), angle: off, speed: 1.5, type: 'large', color: 'red', silent: true });
+        for (const s of [-1, 1]) {
+          for (let k = 0; k < dv(4, 5, 6, 8); k++) fire({ x: b.x, y: b.y + 10, angle: s > 0 ? 0.25 : Math.PI - 0.25, speed: 1.2 + k * 0.35, type: 'rice', color: 'yellow', silent: true });
         }
         yield 40;
-        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 1.8, type: 'butterfly', color: 'blue' });
-        yield dv(70, 56, 46, 38);
+        yield* b.moveTo(b.x, 90, 30);
+        yield dv(40, 30, 20, 14);
       }
     },
   },
   {
-    type: 'spell', name: '「瑠璃蝶の夜想曲」', hp: 2200, time: 60, bonus: 5000000,
+    // 朽ち果てぬ年輪：うずまきが続き、時間がたつほど輪が増える
+    type: 'spell', name: '木符「朽ち果てぬ年輪」', hp: 1800, time: 50,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 100, 40);
+      yield* b.moveTo(FIELD_W / 2, 120, 40);
       let a = 0;
       for (let f = 0; ; f++) {
-        const heat = Math.min(1, f / 1800);
-        // 蝶の渦
-        if (f % Math.max(4, dv(10, 8, 7, 6) - Math.floor(heat * 2)) === 0) {
-          for (const s of [0, Math.PI]) fire({ x: b.x, y: b.y, angle: a + s, speed: 1.5, type: 'butterfly', color: s ? 'cyan' : 'blue', silent: true });
-          a += 0.23;
-        }
-        // 角の枝分かれ
-        if (f % 150 === 75) {
-          for (let i = 0; i < 3; i++) fire({ x: b.x, y: b.y - 24, angle: b.aim() + (i - 1) * 0.6, speed: 1.8, type: 'rice', color: 'orange', script: antler(dv(1, 1, 2, 2), 0.4) });
-        }
-        // 後半は頁の列も降ってくる（自機のいた場所が通り道）
-        if (f > 900 && f % 120 === 0) {
-          const safe = dv(70, 60, 50, 44);
-          for (let x = 8; x < FIELD_W; x += 24) {
-            if (Math.abs(x - G.player.x) > safe) fire({ x, y: -8, angle: Math.PI / 2, speed: 1.1, type: 'amulet', color: 'white', silent: true, delay: 0, margin: 30 });
+        const arms = dv(4, 5, 6, 7);
+        if (f % dv(8, 6, 5, 4) === 0) {
+          for (let k = 0; k < arms; k++) {
+            fire({ x: b.x, y: b.y, angle: a + (k * TAU) / arms, speed: 1.9, type: 'rice', color: 'orange', silent: true });
+            if (DIFF >= 1) fire({ x: b.x, y: b.y, angle: -a * 0.8 + (k * TAU) / arms, speed: 1.5, type: 'small', color: 'yellow', silent: true });
           }
+          a += 0.11;
         }
+        const ringEvery = Math.max(dv(70, 60, 50, 40) - Math.floor(f / 300) * 6, 26);
+        if (f % ringEvery === 0) fireRing({ x: b.x, y: b.y, n: dv(12, 16, 22, 28), angle: rand(TAU), speed: 1.3, type: 'ball', color: 'red' });
         if (f % 20 === 0) Sound.se('tan');
         yield;
       }
@@ -233,7 +203,7 @@ const BOSS4_PHASES = [
 ];
 
 // ------------------------------------------------------------
-//  道中の敵
+//  道中の敵（5面でも使う）
 // ------------------------------------------------------------
 
 // 妖々夢風：とても弱い妖精が大群で弧を描いて流れてくる
@@ -283,29 +253,29 @@ function sniperFairy(x, stopY = 90) {
   });
 }
 
-// 洞窟の壁に生えた水晶。背景と一緒に流れながら、自機を狙ってレーザーを撃つ
-function wallCrystal(side, wait = 0) {
+// 壁ぎわの柱。背景と一緒に流れながら、年輪の目から自機を狙ってレーザーを撃つ
+function wallPillar(side, wait = 0) {
   return spawnEnemy({
-    x: side < 0 ? 24 : FIELD_W - 24, y: -20, kind: 'crystal', side: side < 0 ? 1 : -1, hp: 24, r: 14, noBody: true, score: 2500,
+    x: side < 0 ? 22 : FIELD_W - 22, y: -24, kind: 'pillar', side: side < 0 ? 1 : -1, hp: 24, r: 14, noBody: true, score: 2500,
     drops: { point: 2 }, speed: 1.0, angle: Math.PI / 2,
     script: function* (e) {
       yield 70 + wait;
       for (let k = 0; k < dv(1, 1, 2, 2); k++) {
-        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 10, warn: 50, dur: 28, color: 'cyan', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
+        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 10, warn: 50, dur: 28, color: 'orange', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
         yield 110;
       }
     },
   });
 }
 
-// 瑠璃の青い蝶：弾は撃たないが、ぶつかると被弾する。毛玉と同じ大きさで一撃で倒せる
-function blueButterfly(x, y, angle, speed, o = {}) {
+// 破れたふすまの紙きれ：弾は撃たないが、ぶつかると被弾する。一撃で倒せる
+function paperScrap(x, y, angle, speed, o = {}) {
   const ph = rand(TAU);
   return spawnEnemy({
-    x, y, kind: 'butterfly', hp: 0.4, r: 10, score: 200, speed, angle,
+    x, y, kind: 'paper', hp: 0.4, r: 10, score: 200, speed, angle,
     drops: rng.next() < 0.12 ? { point: 1 } : {},
     script: function* (e) {
-      // ひらひらと進行方向を揺らしながら飛ぶ
+      // ひらひらと進行方向を揺らしながら舞う
       for (;;) {
         e.angle = angle + Math.sin(e.frame * (o.freq ?? 0.1) + ph) * (o.amp ?? 0.7);
         yield;
@@ -314,19 +284,19 @@ function blueButterfly(x, y, angle, speed, o = {}) {
   });
 }
 
-// 上から蝶が舞い降りてくる
-function* butterflyRain(frames, count) {
+// 上から紙きれが舞い落ちてくる
+function* paperRain(frames, count) {
   const interval = Math.max(1, Math.floor(frames / count));
   for (let i = 0; i < count; i++) {
-    blueButterfly(rand(16, FIELD_W - 16), -12, Math.PI / 2 + rand(-0.3, 0.3), rand(1.0, 1.6));
+    paperScrap(rand(16, FIELD_W - 16), -12, Math.PI / 2 + rand(-0.3, 0.3), rand(1.0, 1.6));
     yield interval;
   }
 }
 
-// 横から蝶の群れが波打ちながら横切る
-function* butterflyStream(side, n, y = 120) {
+// 横から紙きれの群れが波打ちながら横切る
+function* paperStream(side, n, y = 120) {
   for (let i = 0; i < n; i++) {
-    blueButterfly(side < 0 ? -12 : FIELD_W + 12, y + rand(-30, 30), side < 0 ? 0.2 : Math.PI - 0.2, 1.8, { amp: 0.5, freq: 0.08 });
+    paperScrap(side < 0 ? -12 : FIELD_W + 12, y + rand(-30, 30), side < 0 ? 0.2 : Math.PI - 0.2, 1.8, { amp: 0.5, freq: 0.08 });
     yield 8;
   }
 }
@@ -375,30 +345,31 @@ function splitterFairy(x) {
   });
 }
 
+
 STAGES.push({
-  name: '星屑の洞窟',
-  nameEn: 'The Grotto of Stardust',
-  bg: CaveBG,
+  name: '借りものの間',
+  nameEn: 'A Mansion of Borrowed Rooms',
+  bg: RoomsBG,
   bgm: 'stage4',
   zako: 'handEye', // 道中の妖精と緑の手は「一つ目の手」の絵にする
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
-  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
+  //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
     { id: 'star', phases: STAR_MID4_PHASES, mid: true, def: { spellBg: 'star', circleColor: '140,160,255' } },
-    { id: 'boss4', phases: BOSS4_PHASES, bgm: 'boss4', def: { spellBg: 'lapis', circleColor: '90,140,255', finalDrops: { power: 10, point: 20, bigpower: 1 } } },
+    { id: 'toganoo', phases: TOGANOO_PHASES, bgm: 'boss4', def: { spellBg: 'hashira', circleColor: '255,190,110' } },
   ],
-  // 4面は全難易度で他の面より難しい（弾速・全方位弾の数・ボスの体力）
+  // 4面からは全難易度で前の面より難しい（弾速・全方位弾の数・ボスの体力）
   speedScale: 1.08,
   densityScale: 1.2,
   hpScale: 1.1,
   *script(g) {
     yield 160;
-    // 前半：妖精の大群 → 狙撃妖精 → 水晶のレーザー
+    // 前半：大群 → 狙撃 → 柱のレーザー
     g.tasks.add(swarmStream(-1, 18));
     yield 50;
     g.tasks.add(swarmStream(1, 18));
     yield 120;
-    g.tasks.add(butterflyRain(300, dv(30, 42, 56, 70)));
+    g.tasks.add(paperRain(300, dv(30, 42, 56, 70)));
     yield 200;
     [96, 288].forEach(x => sniperFairy(x, 90));
     yield 150;
@@ -406,18 +377,18 @@ STAGES.push({
     yield 60;
     [100, 284].forEach(x => handEnemy(x, { stopY: 130 }));
     yield 60;
-    for (let i = 0; i < 4; i++) { wallCrystal(i % 2 ? 1 : -1, i * 10); yield 50; }
+    for (let i = 0; i < 4; i++) { wallPillar(i % 2 ? 1 : -1, i * 10); yield 50; }
     yield 100;
     g.tasks.add(swarmStream(-1, 14, { y: 80, color: 'green' }));
     g.tasks.add(swarmStream(1, 14, { y: 80, color: 'green' }));
     yield 120;
-    g.tasks.add(butterflyStream(-1, dv(10, 14, 18, 22), 200));
+    g.tasks.add(paperStream(-1, dv(10, 14, 18, 22), 200));
     yield 120;
     fairyLine(7, 60);
     yield 320;
     yield* waitClear(300);
 
-    // 中ボス：スターサファイア
+    // 中ボス：スターサファイア（名前は出さない）
     const mid = g.spawnStageBoss('star', { x: FIELD_W / 2, y: -50 });
     yield* mid.moveTo(FIELD_W / 2, 100, 60);
     yield* g.fight(mid, STAR_MID4_PHASES);
@@ -425,19 +396,18 @@ STAGES.push({
     yield* g.bossDown(mid, true);
     yield 60;
 
-    // 後半：大玉の大妖精 → 星の雨と水晶 → 妖精の大群
+    // 後半：大玉の大妖精 → 降ってくる紙片と柱 → 紙きれの大群 → 大群
     splitterFairy(110);
     yield 40;
     splitterFairy(274);
     yield 200;
-    g.tasks.add(starShower(420, dv(20, 30, 44, 60), ['cyan', 'blue', 'white', 'purple'], true));
-    for (let i = 0; i < 6; i++) { wallCrystal(i % 2 ? 1 : -1); yield 45; }
+    g.tasks.add(tileShower(420, dv(20, 30, 44, 60), ['white', 'orange', 'yellow'], false));
+    for (let i = 0; i < 6; i++) { wallPillar(i % 2 ? 1 : -1); yield 45; }
     yield* waitClear(500);
-    // 青い蝶の大群
-    g.tasks.add(butterflyRain(480, dv(50, 74, 98, 124)));
-    g.tasks.add(butterflyStream(-1, dv(12, 16, 20, 24), 150));
+    g.tasks.add(paperRain(480, dv(50, 74, 98, 124)));
+    g.tasks.add(paperStream(-1, dv(12, 16, 20, 24), 150));
     yield 160;
-    g.tasks.add(butterflyStream(1, dv(12, 16, 20, 24), 230));
+    g.tasks.add(paperStream(1, dv(12, 16, 20, 24), 230));
     yield 280;
     for (let w = 0; w < 3; w++) {
       g.tasks.add(swarmStream(-1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
@@ -453,11 +423,10 @@ STAGES.push({
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {
-    // ボス：瑠璃（ボス曲は会話の途中で始まる）
-    const boss = g.spawnStageBoss('boss4', { x: FIELD_W / 2, y: -50 });
+    const boss = g.spawnStageBoss('toganoo', { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 70);
     yield* g.talk(STORY.stage4[g.charId].before);
-    yield* g.fight(boss, BOSS4_PHASES);
+    yield* g.fight(boss, TOGANOO_PHASES);
     yield* g.bossDown(boss);
     yield* g.talk(STORY.stage4[g.charId].after);
   },

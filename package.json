@@ -1,8 +1,8 @@
 {
-  "name": "hoshifuru",
-  "version": "1.3.0",
+  "name": "zashiki",
+  "version": "2.0.0",
   "private": true,
-  "description": "東方Projectの二次創作弾幕シューティング「東方星降夜 〜 Night of Falling Stars.」",
+  "description": "東方Projectの二次創作弾幕シューティング「東方座敷幕 〜 Mansion of Borrowed Rooms.」",
   "scripts": {
     "build": "node tools/build-single.js",
     "test": "node tools/test.js",

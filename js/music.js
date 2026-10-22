@@ -8,8 +8,8 @@
 
 const SONGS = {
   title: {
-    title: '星降る夜の幻想郷',
-    comment: 'タイトル画面のテーマです。\n星がゆっくりと降ってくる夜の、静かな始まりをイメージしました。',
+    title: '座敷に灯る夜',
+    comment: 'タイトル画面のテーマです（曲名は仮）。\n古びた座敷にぽつんと灯るあかりのような、静かな始まりをイメージしました。',
     bpm: 108,
     lead: 'piano', leadVol: 0.2,
     chords: ['Am', 'F', 'G', 'Em', 'F', 'G', 'Am', 'Am', 'Dm', 'G', 'C', 'Am', 'Dm', 'E', 'Am', 'E7'],
@@ -34,8 +34,8 @@ const SONGS = {
   },
 
   stage1: {
-    title: '宵闇に落ちる流れ星',
-    comment: '1面のテーマ。\n暗い森の小道に、流れ星がぽつぽつと落ちてくる感じ。\n軽快に、でも少しだけ不穏に。',
+    title: '一夜で古びた里',
+    comment: '1面のテーマ（曲名は仮）。\n一晩でぼろぼろになった人里の屋根の上を飛んでいく。\n軽快に、でも少しだけ不穏に。',
     bpm: 152,
     lead: 'trumpet', leadVol: 0.15,
     chords: ['Dm', 'Bb', 'C', 'Dm', 'Dm', 'Bb', 'C', 'A', 'Gm', 'C', 'F', 'Dm', 'Gm', 'A', 'Dm', 'A'],
@@ -61,8 +61,8 @@ const SONGS = {
   },
 
   boss1: {
-    title: '月の見えない夜に',
-    comment: 'ルーミアのテーマ。\n闇の中から何かが飛び出してくるような、\nちょっと怖くて、ちょっとお茶目な曲です。',
+    title: '焼きたての反逆児',
+    comment: '1面ボス・軒端 鬼乃のテーマ（曲名は仮）。\n生まれたばかりの屋根の付喪神。本人は鬼のつもり。\nちょっと怖くて、ちょっとお茶目な曲です。',
     bpm: 160,
     lead: 'trumpet', leadVol: 0.14,
     double: { inst: 'lead', vol: 0.05, shift: -12 },
@@ -89,8 +89,8 @@ const SONGS = {
   },
 
   stage2: {
-    title: '湖上の星影',
-    comment: '2面のテーマ。\n霧の湖に映る星の影。\n水面の揺らぎをアルペジオで表現してみました。',
+    title: '虫食いの空き家',
+    comment: '2面のテーマ（曲名は仮）。\n誰も住まなくなった家の、ほこりと虫の気配。\nざわざわした揺らぎをアルペジオで表現してみました。',
     bpm: 140,
     lead: 'lead', leadVol: 0.12,
     double: { inst: 'strings', vol: 0.05, shift: -12 },
@@ -117,8 +117,8 @@ const SONGS = {
   },
 
   boss2: {
-    title: '氷精のスターダストダンス',
-    comment: 'チルノのテーマ。\n元気いっぱい、だけどちょっとおバカ。\n最強を目指す氷の妖精に捧げます。',
+    title: '窓辺のごちそう',
+    comment: '2面ボス・喰代 守子のテーマ（曲名は仮）。\n虫が大好物の家守。元気いっぱい、だけどちょっと食いしんぼう。',
     bpm: 168,
     lead: 'lead', leadVol: 0.12,
     chords: ['Am', 'Am', 'F', 'G', 'Am', 'Am', 'F', 'E', 'F', 'G', 'Em', 'Am', 'F', 'G', 'Am', 'E'],
@@ -144,8 +144,8 @@ const SONGS = {
   },
 
   stage3: {
-    title: '天の川を登って',
-    comment: '3面のテーマ。\n大樹を登り、天の川へと近づいていく高揚感を。\nここまで来たらあと一息です。',
+    title: '夕暮れの裏通り',
+    comment: '3面のテーマ（曲名は仮）。\n夕暮れの路地を抜けて、逃げた「あの人」を追いかける。',
     bpm: 146,
     lead: 'trumpet', leadVol: 0.15,
     chords: ['Cm', 'Ab', 'Bb', 'Gm', 'Cm', 'Ab', 'Fm', 'G', 'Ab', 'Bb', 'Eb', 'Cm', 'Ab', 'Bb', 'Cm', 'G'],
@@ -171,8 +171,8 @@ const SONGS = {
   },
 
   boss3: {
-    title: '眠れる羊と片羽の蝶',
-    comment: '3面ボスのテーマ（曲名は仮）。\n羊の角と片方だけの蝶の羽を持つ少女。\n夢と眠りの気配がする、少し切ない曲です。',
+    title: 'ぬらりくらりの上がり込み',
+    comment: '3面ボス・滑沢 瓢のテーマ（曲名は仮）。\nよその家にするりと上がりこんで、お茶をすする。\nつかみどころのない、少し切ない曲です。',
     bpm: 156,
     lead: 'trumpet', leadVol: 0.15,
     double: { inst: 'lead', vol: 0.05, shift: -12 },
@@ -199,8 +199,8 @@ const SONGS = {
   },
 
   stage4: {
-    title: '星屑の眠る洞窟',
-    comment: '4面のテーマ。\n暗い洞窟の奥で、落ちた星のかけらが水晶のように光っています。\n鈴の音で水晶のきらめきを表しました。',
+    title: '借りものの間',
+    comment: '4面のテーマ（曲名は仮）。\n人里の家から借りてきた部屋を、次々に突き抜けていく。\n鈴の音で、ふすまの向こうのあかりを表しました。',
     bpm: 150,
     lead: 'lead', leadVol: 0.12,
     double: { inst: 'bell', vol: 0.035, shift: 0 },
@@ -227,8 +227,8 @@ const SONGS = {
   },
 
   boss4: {
-    title: '瑠璃蝶の書架',
-    comment: '4面ボスのテーマ（曲名は仮）。\n鹿の角と瑠璃色の蝶の羽、一冊の本を持つ少女。\n最後の戦いらしく、いちばん激しく。',
+    title: '朽ち果てぬ大黒柱',
+    comment: '4面ボス・栂尾 芯のテーマ（曲名は仮）。\n屋敷を支える意地っぱりな柱。\n大きな掛矢をふるう、激しい曲です。',
     bpm: 164,
     lead: 'trumpet', leadVol: 0.15,
     double: { inst: 'lead', vol: 0.05, shift: -12 },
@@ -253,6 +253,62 @@ const SONGS = {
     backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
     drums: 'drive',
   },
+
+  stage5: {
+    title: '崩れゆく借りものの屋敷',
+    comment: '5面のテーマ。\n人里から借りてきた部屋でできた屋敷が、音を立てて崩れていきます。\n都節（みやこぶし）の音階で、あせるような和の響きに。',
+    bpm: 158,
+    lead: 'strings', leadVol: 0.13,
+    double: { inst: 'bell', vol: 0.03, shift: 12 },
+    chords: ['Am', 'F', 'G', 'E', 'Am', 'F', 'Dm', 'E', 'F', 'G', 'C', 'Am', 'Dm', 'Bb', 'E', 'E7'],
+    melody: `
+      o5 a4 b-8 a8 e4 f4 |
+      o5 e8 f8 a8 b-8 o6 d4 c8 o5 b-8 |
+      o5 a4. g8 f4 e4 |
+      o5 e2 g+4 b4 |
+      o5 a4 b-8 a8 o6 d4 e4 |
+      o6 f4. e8 d4 c4 |
+      o6 d8 c8 o5 b-8 a8 f4 d4 |
+      o5 e2. r4 |
+      o5 f4 a8 o6 c8 f4 e8 d8 |
+      o6 d4 o5 b8 g8 b4 o6 d4 |
+      o6 e4. d8 c4 e4 |
+      o5 a2 e4 a4 |
+      o5 d4 f8 a8 o6 d4 f4 |
+      o6 f4. e8 d4 o5 b-4 |
+      o5 g+4 b8 o6 d8 e4 d4 |
+      o6 c4 o5 b4 g+4 e4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
+    drums: 'drive',
+  },
+
+  boss5: {
+    title: '家鳴りの狂詩曲',
+    comment: '5面ボス・家鳴 鳴音のテーマ。\n屋敷をきしませ、住処をプロデュースする少女。\nガタッ、ピシッと止まっては走り出すリズムで。',
+    bpm: 170,
+    lead: 'trumpet', leadVol: 0.15,
+    double: { inst: 'lead', vol: 0.05, shift: -12 },
+    chords: ['Dm', 'Bb', 'C', 'A', 'Dm', 'Bb', 'Gm', 'A7', 'Bb', 'C', 'F', 'Dm', 'Gm', 'Eb', 'A', 'A7'],
+    melody: `
+      o5 d8 d8 r8 d8 f8 e8 d8 c8 |
+      o5 d4 f4 b-4. a8 |
+      o5 g8 g8 r8 g8 o6 c8 o5 b-8 a8 g8 |
+      o5 a2 c+4 e4 |
+      o5 d8 d8 r8 d8 a8 g8 f8 e8 |
+      o5 f4 b-4 o6 d4. c8 |
+      o5 b-8 a8 g8 f8 g4 b-4 |
+      o5 a2. e4 |
+      o5 f4. g8 b-4 o6 d4 |
+      o6 e4. d8 c4 o5 g4 |
+      o5 a4 o6 c8 d8 f4 e8 d8 |
+      o6 d2 o5 a4 f4 |
+      o5 g4 b-8 o6 d8 g4 f8 e8 |
+      o6 e-4. d8 c4 o5 b-4 |
+      o5 a8 c+8 e8 a8 o6 c+4 e4 |
+      o6 d4 c+4 o5 a4 e4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
+    drums: 'rock',
+  },
 };
 
-const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4'];
+const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5'];

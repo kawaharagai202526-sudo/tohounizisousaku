@@ -8,15 +8,19 @@
 // image がないキャラクターは CHARA の設定でキャンバスに描く。未定の名前・二つ名は「？？？」
 const CHARA_INFO = {
   // 自機（ゲーム中の絵は PLAYER_TYPES の sprite）
-  reimu: { name: '博麗 霊夢', title: '楽園の素敵な巫女', color: '#ff5a6a', image: 'reimu' },
-  marisa: { name: '霧雨 魔理沙', title: '普通の魔法使い', color: '#ffd860', image: 'marisa' },
-  rumia: { name: 'ルーミア', title: '宵闇の妖怪', color: '#ffe070' },
+  reimu: { name: '博麗 霊夢', title: '楽園の巫女', color: '#ff5a6a', image: 'reimu' },
+  marisa: { name: '霧雨 魔理沙', title: '東洋の魔法使い', color: '#ffd860', image: 'marisa' },
+  // ボス・中ボス（中ボスは戦っているあいだ名前を出さない。STAGES の bosses の mid）
+  nokiba: { name: '軒端 鬼乃', title: '焼きたての反逆児', color: '#f0c890', image: 'nokiba', dot: 'nokibaDot' },
   midboss2: { name: '？？？', title: '？？？', color: '#9aa0d8', image: 'midboss2', dot: 'midboss2Dot' },
-  cirno: { name: 'チルノ', title: '湖上の氷精', color: '#7ad0ff' },
+  hamishiro: { name: '喰代 守子', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'hamishiro', dot: 'hamishiroDot' },
+  // 3面の中ボスは正体を隠した滑沢（会話でも「？？？」と出る）
+  namesawaMask: { name: '？？？', title: '？？？', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
+  namesawa: { name: '滑沢 瓢', title: 'すれ違いざまの暴露魔', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
   star: { name: 'スターサファイア', title: '降り注ぐ星の光', color: '#8aa8ff' },
-  boss3: { name: '羊宮 ラム', title: '？？？', color: '#ecdcb8', image: 'boss3', dot: 'boss3Dot' },
-  midboss3: { name: '？？？', title: '？？？', color: '#f4a8d8', image: 'midboss3', dot: 'midboss3Dot' },
-  boss4: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'boss4', dot: 'boss4Dot' },
+  toganoo: { name: '栂尾 芯', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
+  yanariMid: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
+  yanari: { name: '家鳴 鳴音', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
 };
 
 const CHARA = {
@@ -29,17 +33,6 @@ const CHARA = {
     skin: '#ffe9dc', hair: '#f5d65c', hairDark: '#d8b440', hairHi: '#fff4b0', eye: '#d69a1c',
     back: 'long', dress: '#22202c', top: '#22202c', trim: '#ffffff', collar: '#ffffff', apron: '#ffffff',
     neck: '#ffffff', sleeve: 'puff', legs: '#ffffff', shoes: '#3a2a20', acc: 'witchHat', braid: true,
-  },
-  rumia: {
-    skin: '#ffe9dc', hair: '#f5dc6a', hairDark: '#d8bc48', hairHi: '#fff6b8', eye: '#d0202e',
-    back: 'short', dress: '#1f1b26', top: '#1f1b26', vest: true, shirt: '#ffffff', trim: '#3a3444',
-    collar: '#ffffff', tie: '#d0202e', sleeve: 'long', sleeveColor: '#ffffff', legs: '#1f1b26', shoes: '#3a1a1a',
-    acc: 'redRibbon', pose: 'spread',
-  },
-  cirno: {
-    skin: '#ffeee4', hair: '#6cb6ff', hairDark: '#4a90e0', hairHi: '#c8e8ff', eye: '#3264e6',
-    back: 'short', dress: '#3572e6', top: '#3572e6', trim: '#ffffff', collar: '#ffffff', neck: '#e02838',
-    sleeve: 'puff', legs: '#ffffff', shoes: '#28408a', acc: 'bigBow', wings: 'ice',
   },
   star: {
     skin: '#ffeee4', hair: '#2c2640', hairDark: '#1c182c', hairHi: '#6a5c9a', eye: '#3a5ed6',
