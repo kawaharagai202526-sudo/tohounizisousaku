@@ -256,12 +256,14 @@ function drawSpellName(ctx, g) {
   ctx.globalAlpha = 1;
 }
 
-// カットイン（ボスのスペルカード・自機のボム）。どちらも同じ形：縦の帯の上に、原画が下からせり上がってくる
+// カットイン（ボスのスペルカード・自機のボム）。どちらも同じ形：縦の帯の上を、原画が縦に動く
+//   ボスは下から上へ（dir = -1）、自機は上から下へ（dir = 1）
 //   cx：帯の中心  color：帯の色 'r,g,b'  f：出てからのフレーム  len：出ている長さ  picA：絵の濃さ
 const CUTIN_SCALE = 5;
-function drawVerticalCutin(ctx, id, cx, color, f, len, picA) {
+function drawVerticalCutin(ctx, id, cx, color, f, len, picA, dir) {
   const a = f < 14 ? f / 14 : Math.max(0, Math.min(1, (len - f) / 24));
-  const y = lerp(FIELD_H + 190, FIELD_H / 2 + 36, Ease.outCubic(Math.min(1, f / 28))) - Math.max(0, f - 28) * 0.6;
+  const from = dir < 0 ? FIELD_H + 190 : -190;
+  const y = lerp(from, FIELD_H / 2 + 24, Ease.outCubic(Math.min(1, f / 28))) + dir * Math.max(0, f - 28) * 0.6;
   const w = 176;
   ctx.save();
   const g = ctx.createLinearGradient(cx - w / 2, 0, cx + w / 2, 0);
@@ -271,12 +273,13 @@ function drawVerticalCutin(ctx, id, cx, color, f, len, picA) {
   g.addColorStop(1, `rgba(${color},0)`);
   ctx.fillStyle = g;
   ctx.fillRect(cx - w / 2, 0, w, FIELD_H);
-  // 帯のふちの線と、上へ流れる細い線
+  // 帯のふちの線と、絵と同じ向きに流れる細い線
   ctx.fillStyle = `rgba(255,255,255,${0.3 * a})`;
   ctx.fillRect(cx - w * 0.4, 0, 1, FIELD_H);
   ctx.fillRect(cx + w * 0.4, 0, 1, FIELD_H);
   for (let i = 0; i < 6; i++) {
-    const lx = cx - w * 0.34 + (i * w * 0.68) / 5, ly = FIELD_H - ((f * 9 + i * 97) % (FIELD_H + 80));
+    const run = (f * 9 + i * 97) % (FIELD_H + 80);
+    const lx = cx - w * 0.34 + (i * w * 0.68) / 5, ly = dir < 0 ? FIELD_H - run : run - 60;
     ctx.fillRect(lx, ly, 1, 60);
   }
   ctx.globalAlpha = a * picA;
@@ -284,25 +287,25 @@ function drawVerticalCutin(ctx, id, cx, color, f, len, picA) {
   ctx.restore();
 }
 
-// ボスのスペルカードのカットイン（右側。弾の上に出る）
+// ボスのスペルカードのカットイン（右側。下から上へ。弾の上に出る）
 function drawCutin(ctx, g) {
   const c = g.cutin;
   if (!c) return;
-  drawVerticalCutin(ctx, c.id, FIELD_W - 100, CHARA_CUTIN_COLOR[c.id] || '200,200,255', c.frame, 90, 0.85);
+  drawVerticalCutin(ctx, c.id, FIELD_W - 100, CHARA_CUTIN_COLOR[c.id] || '200,200,255', c.frame, 90, 0.85, -1);
 }
 const CHARA_CUTIN_COLOR = {
   nokiba: '200,110,50', ruri: '40,80,220', kuraishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
   midboss4: '170,40,70', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
 };
 
-// 自機のボムのカットイン（左側）。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が下から上がってくる。
+// 自機のボムのカットイン（左側。上から下へ）。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が降りてくる。
 // 敵や弾の下にうすく描くので、よけるじゃまにはならない
 function drawPlayerCutin(ctx, g) {
   const bn = g.bombName;
   if (!bn || bn.frame >= 100) return;
   const pt = PLAYER_TYPES[g.charId];
   const n = parseInt(pt.color.slice(1), 16);
-  drawVerticalCutin(ctx, pt.portrait || g.charId, 100, `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`, bn.frame, 100, 0.65);
+  drawVerticalCutin(ctx, pt.portrait || g.charId, 100, `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`, bn.frame, 100, 0.65, 1);
 }
 
 function drawStageTitle(ctx, g) {

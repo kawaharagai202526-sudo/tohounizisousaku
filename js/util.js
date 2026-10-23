@@ -59,7 +59,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.2.1';
+const GAME_VERSION = '2.3.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;

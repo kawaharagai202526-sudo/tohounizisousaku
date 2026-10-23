@@ -207,6 +207,14 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
       }
     } finally { console.warn = warn; }
     for (const id of MUSIC_ROOM) song(id, 'MUSIC_ROOM');
+    // 会話の読み仮名は、登場したとき（最初の台詞）だけ出る。同じ名前のキャラクターは面が変わっても一度だけ
+    const fakeGame = { charId: 'reimu', showBgmTitle() {} };
+    const kanas = [];
+    for (const lines of [STORY.stage5.reimu.before, STORY.stage6mid.reimu.before]) {
+      const d = new Dialogue(lines, fakeGame);
+      while (!d.done) { if (d.who && d.who.startsWith('yanari')) kanas.push(d.kana); d.next(); }
+    }
+    if (kanas[0] !== CHARA_INFO.yanari.kana || kanas.slice(1).some(k => k)) out.push(`会話の読み仮名が最初の台詞だけになっていない: ${JSON.stringify(kanas)}`);
     // 画像
     for (const k of Object.keys(IMAGE_FILES)) if (!Images.get(k)) out.push(`画像 ${IMAGE_FILES[k]} が読めない`);
     return out;

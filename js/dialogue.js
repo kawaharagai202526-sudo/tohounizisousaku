@@ -44,6 +44,11 @@ class Dialogue {
     }
     const [who, face, text] = line;
     this.who = who;
+    // 読み仮名は、そのキャラクターが最初に話すとき（登場したとき）だけ出す。同じ名前なら別のIDでも一度だけ
+    const info = CHARA_INFO[who];
+    const seen = this.g.kanaSeen || (this.g.kanaSeen = new Set());
+    this.kana = info && info.kana && !seen.has(info.name) ? info.kana : '';
+    if (this.kana) seen.add(info.name);
     this.text = text;
     this.chars = 0;
     this.lineFrame = 0;
@@ -91,11 +96,11 @@ class Dialogue {
       const info = CHARA_INFO[this.who] || { name: this.who, color: '#fff' };
       ctx.font = `bold 13px ${FONT_JP}`;
       strokeText(ctx, info.name, bx + 12, by + 8, info.color, 'rgba(0,0,0,0.9)', 3);
-      // 読み仮名は名前の右に小さく
-      if (info.kana) {
+      // 読み仮名は名前の右に小さく（登場したときの台詞だけ）
+      if (this.kana) {
         const w = ctx.measureText(info.name).width;
         ctx.font = `10px ${FONT_JP}`;
-        strokeText(ctx, `（${info.kana}）`, bx + 14 + w, by + 10, '#d8d0f0', 'rgba(0,0,0,0.9)', 2);
+        strokeText(ctx, `（${this.kana}）`, bx + 14 + w, by + 10, '#d8d0f0', 'rgba(0,0,0,0.9)', 2);
       }
     }
     ctx.font = `15px ${FONT_JP}`;

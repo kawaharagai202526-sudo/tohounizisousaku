@@ -110,6 +110,7 @@ class GameScene {
     this.cheat = false;                       // テスト用の無敵
     this.usedKeys = Cheats.anyOn();           // 管理者ページのキーを使ったか
     this.hiscoreSaved = null;                 // ハイスコアを更新したか（終わったときに決まる）
+    this.kanaSeen = new Set();                // 会話で読み仮名を出したキャラクターの名前（読み仮名は登場したときだけ出す）
     // 描画が update より先に呼ばれても大丈夫なように、ここでステージを組み立てる
     this.startStage(startStage);
   }
