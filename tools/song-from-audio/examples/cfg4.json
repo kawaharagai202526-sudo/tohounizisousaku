@@ -1,0 +1,15 @@
+{
+ "wav": "clip4.wav",
+ "npz": "bp4.npz",
+ "sections": [
+  {
+   "name": "A",
+   "start": 0.3,
+   "end": 45.8,
+   "bpm": 113,
+   "lo": 57,
+   "hi": 90,
+   "prior": 0.03
+  }
+ ]
+}

@@ -207,6 +207,16 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
       }
     } finally { console.warn = warn; }
     for (const id of MUSIC_ROOM) song(id, 'MUSIC_ROOM');
+    // テンポが途中で変わる曲（parts）：音が時刻の順に並び、曲の長さが小節ごとのテンポの合計になる
+    for (const [id, def] of Object.entries(SONGS)) {
+      if (!def.parts) continue;
+      const c = compileSong(def);
+      const tm = songParts(def, def.chords.length);
+      if (c.events.some((e, i) => i && e.time < c.events[i - 1].time)) out.push(`曲 ${id}: 音が時刻の順に並んでいない`);
+      const total = tm.barBpm.reduce((a, b) => a + 240 / b, 0);
+      if (Math.abs(c.lengthSec - total) > 1e-6 || !(c.lengthSec > 0)) out.push(`曲 ${id}: 曲の長さがおかしい（${c.lengthSec}）`);
+      if (def.parts.some(p => p.bar < 0 || p.bar >= def.chords.length || !DRUM_PATTERNS[p.drums] && p.drums)) out.push(`曲 ${id}: parts の小節かドラムがおかしい`);
+    }
     // 会話の読み仮名は、登場したとき（最初の台詞）だけ出る。同じ名前のキャラクターは面が変わっても一度だけ
     const fakeGame = { charId: 'reimu', showBgmTitle() {} };
     const kanas = [];

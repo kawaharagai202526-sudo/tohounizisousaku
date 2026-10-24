@@ -175,21 +175,20 @@ const Sound = {
     if (!s || !this.ctx) return;
     const c = s.c;
     if (!c.events.length) return;
-    const spb = 60 / c.bpm;
     const now = this.ctx.currentTime;
     const horizon = now + 0.2;
     let guard = 0;
     while (guard++ < 2000) {
       if (s.idx >= c.events.length) {
-        // ループ：loopBeat を曲の終端の時刻に合わせ直す
-        s.t0 += (c.lengthBeats - c.loopBeat) * spb;
+        // ループ：ループの始まり（loopSec）を曲の終端の時刻に合わせ直す
+        s.t0 += c.lengthSec - c.loopSec;
         s.idx = c.loopIndex;
         continue;
       }
       const ev = c.events[s.idx];
-      const t = s.t0 + ev.beat * spb;
+      const t = s.t0 + ev.time;
       if (t > horizon) break;
-      if (t >= now - 0.03) playInstrument(this, ev.inst, ev.midi, t, ev.dur * spb, ev.vol, s.gain);
+      if (t >= now - 0.03) playInstrument(this, ev.inst, ev.midi, t, ev.durSec, ev.vol, s.gain);
       s.idx++;
     }
   },
@@ -471,10 +470,36 @@ const DRUM_PATTERNS = {
   march: { kick: 'x...x...x...x...', snare: '....x.......x.xx', hat: 'x.xxx.xxx.xxx.xx' },
 };
 
+// 曲の途中でテンポやドラムを変える（def.parts）。
+//   parts: [{ bar: 何小節目から（0〜）, bpm, drums, ramp: 前の何小節でテンポをなめらかに変えるか }]
+//   書かなければ、曲全体が def.bpm と def.drums
+function songParts(def, nBars) {
+  const parts = (def.parts && def.parts.length ? def.parts : [{ bar: 0 }]).map(p => ({ bpm: def.bpm, drums: def.drums, ...p }));
+  const barBpm = [], barPart = [];
+  for (let b = 0, k = 0; b < nBars; b++) {
+    while (k + 1 < parts.length && parts[k + 1].bar <= b) k++;
+    barBpm.push(parts[k].bpm);
+    barPart.push(k);
+  }
+  // ramp：つなぎ目の前の数小節で、次のテンポへ少しずつ近づける
+  parts.forEach((p, k) => {
+    if (!k || !p.ramp) return;
+    const from = parts[k - 1].bpm;
+    for (let i = 1; i <= p.ramp; i++) {
+      const b = p.bar - p.ramp - 1 + i;
+      if (b >= 0 && b < nBars) barBpm[b] = from + ((p.bpm - from) * i) / (p.ramp + 1);
+    }
+  });
+  const barStart = [0];
+  for (let b = 0; b < nBars; b++) barStart.push(barStart[b] + (4 * 60) / barBpm[b]);
+  return { parts, barBpm, barPart, barStart };
+}
+
 function compileSong(def) {
   const ev = [];
   const L = def.label || def.title;
   const nBars = def.chords.length;
+  const tm = songParts(def, nBars);
   parseMML(def.melody, def.lead, def.leadVol ?? 0.2, ev, 0, L);
   if (def.double) {
     const dbl = [];
@@ -521,10 +546,13 @@ function compileSong(def) {
         }
       }
     });
-    // ドラム
-    if (def.drums) {
-      const pat = DRUM_PATTERNS[def.drums];
-      const fill = b % 8 === 7 && def.fills !== false;
+    // ドラム（parts ごとに変えられる。次の part の前の小節はフィル）
+    const part = tm.parts[tm.barPart[b]];
+    const partStart = b === part.bar;
+    const nextPart = tm.barPart[b + 1] !== undefined && tm.barPart[b + 1] !== tm.barPart[b];
+    if (part.drums) {
+      const pat = DRUM_PATTERNS[part.drums];
+      const fill = ((b - part.bar) % 8 === 7 || nextPart || b === nBars - 1) && def.fills !== false;
       for (const [inst, str] of Object.entries(pat)) {
         let s = str;
         if (fill && inst === 'snare') s = '....x...x.x.xxxx';
@@ -534,16 +562,24 @@ function compileSong(def) {
           ev.push({ beat: b * 4 + k * 0.25, dur: 0.2, midi: 60, inst, vol: v * (def.drumVol ?? 1) });
         }
       }
-      if (b % 8 === 0) ev.push({ beat: b * 4, dur: 1, midi: 60, inst: 'crash', vol: 0.05 * (def.drumVol ?? 1) });
+      if ((b - part.bar) % 8 === 0 || partStart) ev.push({ beat: b * 4, dur: 1, midi: 60, inst: 'crash', vol: 0.05 * (def.drumVol ?? 1) });
     }
   }
-  ev.sort((a, b) => a.beat - b.beat);
-  const loopBeat = (def.loopBar || 0) * 4;
+  // 拍 → 秒（テンポが変わる曲のため。音の長さも、その小節のテンポで秒にする）
+  for (const e of ev) {
+    const b = Math.min(nBars - 1, Math.max(0, Math.floor(e.beat / 4 + 1e-9)));
+    const spb = 60 / tm.barBpm[b];
+    e.time = tm.barStart[b] + (e.beat - b * 4) * spb;
+    e.durSec = e.dur * spb;
+  }
+  ev.sort((a, b) => a.time - b.time);
+  const loopBar = def.loopBar || 0;
   return {
     events: ev,
-    bpm: def.bpm,
+    bpm: tm.barBpm[0],
     lengthBeats: nBars * 4,
-    loopBeat,
-    loopIndex: Math.max(0, ev.findIndex(e => e.beat >= loopBeat - 1e-6)),
+    lengthSec: tm.barStart[nBars],
+    loopSec: tm.barStart[loopBar],
+    loopIndex: Math.max(0, ev.findIndex(e => e.time >= tm.barStart[loopBar] - 1e-6)),
   };
 }

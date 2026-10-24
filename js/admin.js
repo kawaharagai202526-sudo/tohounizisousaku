@@ -296,7 +296,13 @@ const Admin = {
       ]));
     }
     this.table(body, 'ボスの攻撃（体力は Normal・難易度ごとの倍率をかける前）', ['登場', 'ボス', '順番', '種類', '名前', '体力', '制限時間'], rows);
-    this.table(body, '曲', ['ID', '曲名', 'テンポ（BPM）'], MUSIC_ROOM.map(id => [id, SONGS[id].title, SONGS[id].bpm]));
+    // テンポが途中で変わる曲（parts）は「いちばん遅い〜速い」
+    const tempoText = def => {
+      if (!def.parts) return def.bpm;
+      const b = def.parts.map(p => p.bpm ?? def.bpm);
+      return `${Math.min(...b)}〜${Math.max(...b)}`;
+    };
+    this.table(body, '曲', ['ID', '曲名', 'テンポ（BPM）'], MUSIC_ROOM.map(id => [id, SONGS[id].title, tempoText(SONGS[id])]));
     this.table(body, '難易度の倍率', ['', ...DIFF_NAMES], [
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
