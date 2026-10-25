@@ -5,8 +5,9 @@
 //  chords: 1小節ごとのコード（空白区切りで半小節ずつ）
 //  backing: 自動伴奏の設定
 //  parts: 曲の途中でテンポとドラムを変える（[{ bar: 何小節目から, bpm, drums, ramp: 前の何小節で近づけるか }]）
-//  audio: 音声ファイルの曲（js/bgmfiles.js の BGM_FILES のID）。MML ではなく、もらった音をそのままループで鳴らす（6面ボス。2.5.0）
-//  4面ボス・5面ボス・6面の曲は、ユーザーがくれた音（いくつかの曲をつないだもの）から
+//  audio: 音声ファイルの曲（js/bgmfiles.js の BGM_FILES のID）。MML ではなく、もらった音をそのままループで鳴らす
+//         （1〜6面の道中は 2.6.0、6面ボスは 2.5.0）。vol で音の大きさ
+//  4面ボス・5面ボスの曲は、ユーザーがくれた音（いくつかの曲をつないだもの）から
 //  tools/song-from-audio で旋律とコードを取り出し、調とテンポのつなぎ目をそろえてループするようにしたアレンジ（2.4.0）。
 //  ほかの曲はオリジナル
 // ============================================================
@@ -40,29 +41,9 @@ const SONGS = {
 
   stage1: {
     title: '一夜で古びた里',
-    comment: '1面のテーマ（曲名は仮）。\n一晩でぼろぼろになった人里の屋根の上を飛んでいく。\n軽快に、でも少しだけ不穏に。',
-    bpm: 152,
-    lead: 'trumpet', leadVol: 0.15,
-    chords: ['Dm', 'Bb', 'C', 'Dm', 'Dm', 'Bb', 'C', 'A', 'Gm', 'C', 'F', 'Dm', 'Gm', 'A', 'Dm', 'A'],
-    melody: `
-      o5 a4 f8 d8 e8 f8 g8 a8 |
-      o5 b-4. a8 g4 f4 |
-      o5 g8 a8 g8 f8 e4 c4 |
-      o5 d4 e8 f8 a2 |
-      o5 a4 f8 d8 e8 f8 g8 a8 |
-      o5 b-4. o6 c8 d4 c4 |
-      o5 b-8 a8 g8 a8 b-4 o6 c4 |
-      o5 a2 c+4 e4 |
-      o5 b-4 a8 g8 d4 g4 |
-      o5 c4 d8 e8 g4 e4 |
-      o5 f4 g8 a8 o6 c4 o5 a4 |
-      o5 d2 f4 a4 |
-      o5 b-4. a8 g4 b-4 |
-      o5 a4. g8 f4 e4 |
-      o5 f8 e8 d8 e8 f4 a4 |
-      o5 e2 c+4 o4 a4 |`,
-    backing: { arp: '16up', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
-    drums: 'rock',
+    comment: '1面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage1', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 110, vol: 1.43, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss1: {
@@ -95,30 +76,9 @@ const SONGS = {
 
   stage2: {
     title: '虫食いの空き家',
-    comment: '2面のテーマ（曲名は仮）。\n誰も住まなくなった家の、ほこりと虫の気配。\nざわざわした揺らぎをアルペジオで表現してみました。',
-    bpm: 140,
-    lead: 'lead', leadVol: 0.12,
-    double: { inst: 'strings', vol: 0.05, shift: -12 },
-    chords: ['Gm', 'Eb', 'F', 'Dm', 'Gm', 'Eb', 'Cm', 'D', 'Eb', 'F', 'Dm', 'Gm', 'Cm', 'F', 'Eb', 'D'],
-    melody: `
-      o5 d4 g8 a8 b-4 a8 g8 |
-      o5 g4. f8 e-4 d4 |
-      o5 c4 d8 e-8 f4 a4 |
-      o5 d2 o4 a4 o5 d4 |
-      o5 d4 g8 a8 b-4 o6 d4 |
-      o6 e-4. d8 c4 o5 b-4 |
-      o5 g4 e-8 g8 o6 c4 o5 b-8 a8 |
-      o5 f+2 a4 d4 |
-      o5 b-8 a8 g8 f8 e-4 g4 |
-      o5 a8 g8 f8 e-8 d4 f4 |
-      o5 d4 f4 a4 o6 d4 |
-      o6 d4. c8 o5 b-4 g4 |
-      o5 g4. f8 e-4 c4 |
-      o5 f4. g8 a4 o6 c4 |
-      o5 b-4. a8 g4 e-4 |
-      o5 d4 f+4 a4 o6 c4 |`,
-    backing: { arp: '16up', arpInst: 'bell', arpVol: 0.045, bass: 'oct8', pad: true },
-    drums: 'light',
+    comment: '2面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage2', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 110, vol: 1.4, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss2: {
@@ -150,29 +110,9 @@ const SONGS = {
 
   stage3: {
     title: '夕暮れの裏通り',
-    comment: '3面のテーマ（曲名は仮）。\n夕暮れの路地を抜けて、逃げた「あの人」を追いかける。',
-    bpm: 146,
-    lead: 'trumpet', leadVol: 0.15,
-    chords: ['Cm', 'Ab', 'Bb', 'Gm', 'Cm', 'Ab', 'Fm', 'G', 'Ab', 'Bb', 'Eb', 'Cm', 'Ab', 'Bb', 'Cm', 'G'],
-    melody: `
-      o5 c4 e-8 g8 o6 c4 o5 b-8 g8 |
-      o5 a-4. g8 e-4 c4 |
-      o5 d4 f8 b-8 o6 d4 c8 o5 b-8 |
-      o5 g2 d4 g4 |
-      o5 c4 e-8 g8 o6 c4 d8 e-8 |
-      o6 e-4. d8 c4 o5 a-4 |
-      o5 f4 a-8 o6 c8 f4 e-8 d8 |
-      o6 d2 o5 b4 g4 |
-      o5 e-8 f8 g8 a-8 o6 c4 o5 a-4 |
-      o5 f8 g8 a-8 b-8 o6 d4 o5 b-4 |
-      o5 g4 b-4 o6 e-4 d4 |
-      o6 c2. o5 g4 |
-      o5 a-4. b-8 o6 c4 e-4 |
-      o6 d4. c8 o5 b-4 f4 |
-      o5 g4 o6 c4 e-4 c4 |
-      o5 b2 g4 d4 |`,
-    backing: { arp: '16up', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
-    drums: 'march',
+    comment: '3面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage3', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 110, vol: 1.51, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss3: {
@@ -205,30 +145,9 @@ const SONGS = {
 
   stage4: {
     title: '借りものの間',
-    comment: '4面のテーマ（曲名は仮）。\n人里の家から借りてきた部屋を、次々に突き抜けていく。\n鈴の音で、ふすまの向こうのあかりを表しました。',
-    bpm: 150,
-    lead: 'lead', leadVol: 0.12,
-    double: { inst: 'bell', vol: 0.035, shift: 0 },
-    chords: ['F#m', 'D', 'E', 'C#m', 'F#m', 'D', 'Bm', 'C#', 'D', 'E', 'A', 'F#m', 'Bm', 'E', 'D', 'C#'],
-    melody: `
-      o5 c+4 f+8 g+8 a4 g+8 f+8 |
-      o5 a4. f+8 d4 f+4 |
-      o5 e8 f+8 g+8 b8 o6 e4 d8 c+8 |
-      o5 b4 g+4 e4 c+4 |
-      o5 c+4 f+8 g+8 a4 o6 c+4 |
-      o6 d4. c+8 o5 a4 f+4 |
-      o5 f+8 g+8 a8 b8 o6 d4 c+8 o5 b8 |
-      o5 e+2 g+4 o6 c+4 |
-      o6 d4 o5 a8 f+8 a4 o6 d4 |
-      o6 e4 o5 b8 g+8 b4 o6 e4 |
-      o6 c+4. d8 e4 c+4 |
-      o5 a2. f+4 |
-      o5 f+4 b8 o6 c+8 d4 f+4 |
-      o6 e4. d8 c+4 o5 b4 |
-      o5 a4 f+8 a8 o6 d4 c+8 o5 b8 |
-      o5 g+4 e+4 c+4 g+4 |`,
-    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
-    drums: 'drive',
+    comment: '4面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage4', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 110, vol: 0.91, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss4: {
@@ -411,30 +330,9 @@ const SONGS = {
 
   stage5: {
     title: '崩れゆく借りものの屋敷',
-    comment: '5面のテーマ。\n人里から借りてきた部屋でできた屋敷が、音を立てて崩れていきます。\n都節（みやこぶし）の音階で、あせるような和の響きに。',
-    bpm: 158,
-    lead: 'strings', leadVol: 0.13,
-    double: { inst: 'bell', vol: 0.03, shift: 12 },
-    chords: ['Am', 'F', 'G', 'E', 'Am', 'F', 'Dm', 'E', 'F', 'G', 'C', 'Am', 'Dm', 'Bb', 'E', 'E7'],
-    melody: `
-      o5 a4 b-8 a8 e4 f4 |
-      o5 e8 f8 a8 b-8 o6 d4 c8 o5 b-8 |
-      o5 a4. g8 f4 e4 |
-      o5 e2 g+4 b4 |
-      o5 a4 b-8 a8 o6 d4 e4 |
-      o6 f4. e8 d4 c4 |
-      o6 d8 c8 o5 b-8 a8 f4 d4 |
-      o5 e2. r4 |
-      o5 f4 a8 o6 c8 f4 e8 d8 |
-      o6 d4 o5 b8 g8 b4 o6 d4 |
-      o6 e4. d8 c4 e4 |
-      o5 a2 e4 a4 |
-      o5 d4 f8 a8 o6 d4 f4 |
-      o6 f4. e8 d4 o5 b-4 |
-      o5 g+4 b8 o6 d8 e4 d4 |
-      o6 c4 o5 b4 g+4 e4 |`,
-    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'oct8', pad: true },
-    drums: 'drive',
+    comment: '5面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage5', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 160, vol: 2.9, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss5: {
@@ -560,43 +458,9 @@ const SONGS = {
 
   stage6: {
     title: '瓦礫の空に鈴が鳴る',
-    comment: '6面のテーマ（曲名は仮）。\nユーザーが選んだ曲をもとにしたアレンジです。',
-    bpm: 112.3,
-    lead: 'lead', leadVol: 0.13,
-    double: { inst: 'bell', vol: 0.04, shift: 12 },
-    // 途中でテンポとドラムが変わる（つなぎ目の小節で次のテンポへ近づける）
-    parts: [
-      { bar: 0, bpm: 112.3, drums: 'light' },
-      { bar: 20, bpm: 112.3, drums: 'light' },
-    ],
-    chords: [
-      'Fm Bbm', 'Bbm C', 'C Fm', 'Db Db', 'Fm Fm', 'Fm Fm', 'Fm Fm', 'Fm Fm',
-      'Fm Fm', 'Fm Fm', 'C C', 'C Bb', 'Fm Fm', 'Fm Bbm', 'Fm Bbm', 'Fm Fm',
-      'Fm Fm', 'Fm Bbm', 'F Bbm', 'Fm Fm', 'Fm C',
-    ],
-    melody: `
-      o4 c4&c16 a-4&a-16 b-16 b-4&b-16 |
-      o4 b-8 b-8 a-4 a-8 e8. g8. |
-      o4 g8. f2&f8. f8 |
-      o4 f16 f4&f16 f8. f4.&f16 |
-      o4 f2. c4 |
-      o4 c4 o3 b-4 o4 c16 c8. c4 |
-      o4 c16 c4 o3 b-4 o4 c4 c8. |
-      o4 c16 c8 c16 o3 b-16 b-4 o4 c4 o3 b-8 o4 c16 |
-      o4 c16 c8. o3 b-16 b-8 o4 f16 f4&f16 g8 a-16 |
-      o4 a-16 a-8 a-8 f8 a-8 a-8 g8 f8 g16 |
-      o4 g16 o3 b-16 b-16 o4 c8 o3 b-4 o4 g4 a-8 b-16 |
-      o4 b-8 b-8. g8 b-16 b-8. a-8 g16 g8 |
-      o4 f4. f16 c16 c4&c16 f8. |
-      o4 c8 e-16 e-16 c16 c8. d-8. d-16 o5 c8 o4 b-8 |
-      o4 b-16 d-16 c2&c16 d-4 d-16 |
-      o4 d-16 c4. a-8 o3 b-4 b-16 o4 e8 |
-      o4 e16 c4 c4&c16 a-8 a-8 o5 d-8 |
-      o5 d-8 e-8 c16 d-4 d-16 o4 b-8. o5 d-16 c8 |
-      o4 b-8 a-8 a-8 f8. f8. b-4 |
-      o4 b-8 o5 c4 o4 c16 a-16 a-8 b-8 b-8 a-8 |
-      o4 a-2 r4 o3 f16 g16 a-16 b-16 |`,
-    backing: { arp: '16up', arpInst: 'bell', arpVol: 0.04, bass: 'oct8', pad: true },
+    comment: '6面のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    audio: 'stage6', // js/bgmfiles.js の音声（2.6.0 でユーザーの指定）
+    bpm: 164, vol: 1.92, // vol：ほかの曲と音の大きさをそろえる
   },
 
   boss6: {
@@ -604,7 +468,7 @@ const SONGS = {
     comment: '6面ボス・座敷 宿美のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
     // 音声ファイルの曲（js/bgmfiles.js の BGM_FILES。tools/embed-audio.js で入れる）。2.5.0 でユーザーの指定
     audio: 'boss6',
-    bpm: 120,
+    bpm: 120, vol: 0.92, // vol：ほかの曲と音の大きさをそろえる（2.6.0）
   },
 };
 

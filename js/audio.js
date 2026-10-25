@@ -20,7 +20,7 @@ const Sound = {
   songId: null,
   wantSong: null,
   compiled: {},
-  decoded: {},    // 音声ファイルの曲（BGM_FILES）をデコードしたもの
+  decoded: new Map(), // 音声ファイルの曲（BGM_FILES）をデコードして、ループ用に整えたもの（メモリを使うので最近の数曲だけ）
 
   unlock() {
     if (!this.ctx) {
@@ -69,8 +69,6 @@ const Sound = {
         else this.ctx.resume();
       });
       if (this.wantSong) { const id = this.wantSong; this.wantSong = null; this.playBgm(id); }
-      // 音声ファイルの曲は、使うときに待たないよう先にデコードしておく
-      setTimeout(() => { for (const id of Object.keys(SONGS)) if (SONGS[id].audio) this.decodeAudio(SONGS[id].audio); }, 1500);
     }
     if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume();
   },
@@ -172,28 +170,38 @@ const Sound = {
     this.songId = id;
     this.decodeAudio(def.audio).then(buf => {
       if (!buf || this.song !== song) return;
-      const f = BGM_FILES[def.audio];
+      // buf はループする範囲だけを切り出したもの（makeLoopBuffer）なので、全体をくり返す
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       src.loop = true;
-      src.loopStart = f.loopStart || 0;
-      src.loopEnd = f.loopEnd && f.loopEnd < buf.duration ? f.loopEnd : buf.duration;
       src.connect(gain);
       song.t0 = this.ctx.currentTime + 0.03;
       src.start(song.t0);
       song.src = src;
     });
   },
+  // 音声ファイルの曲を、鳴らす前にデコードしておく（少しあとで。いま鳴っている曲のじゃまをしないように）
+  prefetch(id) {
+    const def = SONGS[id];
+    if (def && def.audio && this.ctx) setTimeout(() => this.decodeAudio(def.audio), 2000);
+  },
   decodeAudio(key) {
-    if (!this.decoded[key]) {
+    const cache = this.decoded;
+    if (!cache.has(key)) {
       const f = typeof BGM_FILES !== 'undefined' && BGM_FILES[key];
       if (!f || !this.ctx) return Promise.resolve(null);
       const bin = atob(f.data);
       const bytes = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      this.decoded[key] = new Promise(res => this.ctx.decodeAudioData(bytes.buffer, res, () => res(null)));
+      cache.set(key, new Promise(res => this.ctx.decodeAudioData(bytes.buffer, buf => res(makeLoopBuffer(this.ctx, buf, f)), () => res(null))));
+      // 古いものから捨てる（1曲で数MB〜数十MBのメモリを使うため）
+      while (cache.size > 3) cache.delete(cache.keys().next().value);
+    } else {
+      const p = cache.get(key);
+      cache.delete(key);
+      cache.set(key, p);
     }
-    return this.decoded[key];
+    return cache.get(key);
   },
   stopBgm(fade = 1.0) {
     this.wantSong = null;
@@ -233,6 +241,33 @@ const Sound = {
 };
 
 function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+// 音声ファイルの曲をループ用に整える：前後の無音を切り（f.trim が false なら切らない）、loopStart〜loopEnd の範囲だけにして、
+// 終わりの f.crossfade 秒（ふつう 0.03 秒）を始まりに重ねる。くり返したときに「プツッ」と鳴らず、なめらかにつながる
+function makeLoopBuffer(ctx, buf, f) {
+  const sr = buf.sampleRate, nch = buf.numberOfChannels;
+  const chs = Array.from({ length: nch }, (_, c) => buf.getChannelData(c));
+  let a = Math.max(0, Math.floor((f.loopStart || 0) * sr));
+  let b = f.loopEnd ? Math.min(buf.length, Math.floor(f.loopEnd * sr)) : buf.length;
+  if (f.trim !== false) {
+    const loud = i => chs.some(ch => Math.abs(ch[i]) > 0.003);
+    while (a < b && !loud(a)) a++;
+    while (b > a && !loud(b - 1)) b--;
+  }
+  const xf = Math.min(Math.floor((f.crossfade ?? 0.03) * sr), (b - a) >> 2);
+  const len = b - a - xf;
+  if (len <= 0) return buf;
+  const out = ctx.createBuffer(nch, len, sr);
+  chs.forEach((src, c) => {
+    const dst = out.getChannelData(c);
+    dst.set(src.subarray(a, a + len));
+    for (let i = 0; i < xf; i++) {
+      const t = (i / xf) * Math.PI / 2;
+      dst[i] = src[a + i] * Math.sin(t) + src[a + len + i] * Math.cos(t);
+    }
+  });
+  return out;
+}
 
 // ------------------------------------------------------------
 //  効果音定義

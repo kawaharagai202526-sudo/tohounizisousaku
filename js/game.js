@@ -164,6 +164,8 @@ class GameScene {
 
   *stageFlow() {
     Sound.playBgm(this.stage.bgm);
+    // 音声ファイルのボス曲は、デコードに少し時間がかかるので先に用意しておく
+    for (const b of this.stage.bosses || []) if (b.bgm) Sound.prefetch(b.bgm);
     this.showBgmTitle(this.stage.bgm);
     this.stageTitle = { frame: 0 };
     if (this.opts.bossTest) { yield* this.bossTestFlow(this.opts.bossTest); return; }

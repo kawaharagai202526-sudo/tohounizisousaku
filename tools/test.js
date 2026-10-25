@@ -241,11 +241,13 @@ test('音声ファイルの曲をデコードしてループで鳴らせる', as
     if (!ids.length) return out;
     Sound.unlock();
     for (const id of ids) {
-      const f = BGM_FILES[SONGS[id].audio];
       Sound.playBgm(id);
       const buf = await Sound.decodeAudio(SONGS[id].audio);
       if (!buf || !(buf.duration > 1)) { out.push(`曲 ${id}: 音声をデコードできない`); continue; }
-      if (f.loopEnd > buf.duration + 0.1 || f.loopStart >= (f.loopEnd || buf.duration)) out.push(`曲 ${id}: ループの範囲がおかしい（${f.loopStart}〜${f.loopEnd}、長さ ${buf.duration.toFixed(2)}秒）`);
+      // ループ用に整えたもの：前後の無音が切れている
+      const ch = buf.getChannelData(0), n = Math.floor(buf.sampleRate * 0.05);
+      const quiet = arr => arr.every(v => Math.abs(v) < 0.003);
+      if (quiet(Array.from(ch.subarray(0, n))) || quiet(Array.from(ch.subarray(ch.length - n)))) out.push(`曲 ${id}: ループの前後に無音が残っている`);
       await new Promise(res => setTimeout(res, 50));
       const s = Sound.song;
       if (!s || !s.src || !s.src.loop || Sound.songId !== id) out.push(`曲 ${id}: ループで鳴っていない`);

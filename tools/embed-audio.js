@@ -26,6 +26,7 @@ function save(files) {
     '//  音声ファイルの曲（MML ではなく、もらった音をそのまま鳴らす曲）',
     '//  tools/embed-audio.js で作る（手で書きかえない）。file:// でも読めるように、音声を base64 で埋めこんである。',
     '//  { mime, name: もとのファイル名, loopStart / loopEnd: ループする範囲（秒。loopEnd が 0 なら最後まで）, data }',
+    '//  鳴らすときに、前後の無音を切り、つなぎ目を 0.03 秒重ねてループする（js/audio.js の makeLoopBuffer）',
     '// ============================================================',
     '',
     'const BGM_FILES = {',

@@ -197,7 +197,11 @@ index.html?stage=2&phase=1&only=1
 - 動画や音声から曲データ（MML）を作るときは `tools/song-from-audio`（手順はその中の README。自動の耳コピなので音はおおよそ）
 - 音声ファイルをそのまま曲にするときは `node tools/embed-audio.js 曲ID ファイル [ループの終わりの秒] [ループの始まりの秒]`。
   `js/bgmfiles.js` に base64 で入り（file:// でも読める）、`SONGS` に `{ title, comment, audio: '曲ID', bpm }` と書けば鳴る
-  （`bpm` はキーの演出が拍を合わせるのに使うだけ。`vol` で音量）。音声は1ファイル版にもそのまま入るので、大きいほど dist が重くなる。
+  （`bpm` はキーの演出が拍を合わせるのに使うだけ。`vol` で音量。ほかの曲とそろえるなら、ならした大きさ（RMS）が 0.15 くらいになるように）。
+  鳴らすときに前後の無音を自動で切り、つなぎ目を 0.03 秒重ねてループする（`makeLoopBuffer`）。動画（mp4）の音声は
+  `ffmpeg -i 動画.mp4 -vn -c:a copy 音声.m4a` で変換せずに取り出せる。
+  デコードしたものはメモリを使うので最近の3曲だけ覚えておく。ボスの曲は、その面が始まったときに先にデコードしておく（`Sound.prefetch`）。
+  音声は1ファイル版にもそのまま入るので、大きいほど dist が重くなる。
   消すときは `node tools/embed-audio.js --remove 曲ID`
 - 曲を使う場所：ステージの `bgm`、`bosses` の `bgm`、会話の `{ bgm }`、タイトルは `'title'`
 - ミュージックルームの並びは `MUSIC_ROOM`
