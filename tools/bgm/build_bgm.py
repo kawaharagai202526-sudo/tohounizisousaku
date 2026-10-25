@@ -1,9 +1,13 @@
 """3 曲が繋がった原曲から、曲調を統一した完成版 BGM を 5 パターン作る。
 
+現行は 3 曲目 (P3) を削除した 2 曲版 (build_two_part)。P2 は原曲で Gsus4 の途中で
+切れているので、パターンごとに終わり方 (着地 / キメ / フェード / P1 再現 / ループ) を作る。
+3 曲版 (build_common) も --with-part3 で作り直せる。
+
 方針 (ユーザー指定):
   * 1 曲目 (P1) はほぼそのまま残す
   * 2 曲目 (P2) を全体の基準にする (テンポ 166BPM / チューニング / 音量感 / ノリ)
-  * 3 曲目 (P3) は P2 の曲調に合わせる
+  * 3 曲目 (P3) は P2 の曲調に合わせる (3 曲版のみ)
   * 繋ぎ目を自然にする。音の追加・削除は可
 
 共通処理:
@@ -14,8 +18,11 @@
   * 繋ぎ目には ライザー / スネアロール / 逆再生シンバル / クラッシュ / インパクト /
     フィル を入れて自然に繋ぐ。
 
-使い方: python3 tools/bgm/build_bgm.py [v1 v2 ...]
+使い方:
+  python3 tools/bgm/build_bgm.py [v1 v2 ...]                 # 2 曲版 (P3 を削除, 現行)
+  python3 tools/bgm/build_bgm.py --with-part3 [v1 v2 ...]    # 3 曲版
 出力: assets/bgm/*.ogg (ゲーム用) と build/bgm/*.wav, *.mp3 (試聴・作業用)
+      3 曲版は assets/bgm/with_part3/, build/bgm/with_part3/
 """
 import hashlib
 import json
@@ -345,7 +352,8 @@ def detect_accents(x, L, bars, thr_pct=93):
     return [(b, s) for b, s, v in acc if v >= th]
 
 
-def finish(mix, name, loop=None, tail_fade=None, loop_xfade=0.0):
+def finish(mix, name, loop=None, tail_fade=None, loop_xfade=0.0, loop_add=False,
+           out_dir=OUT_DIR, build_dir=BUILD):
     """最終段: 安全のためのリミッター (-1dBFS)。P1/P2 の素材はピークが低いので触れない。
     loop=(始点, 終点) のときは、終点の後に続く音 (残響など) を始点に重ねてから終点で切る。"""
     if tail_fade:
@@ -359,24 +367,29 @@ def finish(mix, name, loop=None, tail_fade=None, loop_xfade=0.0):
         ls, le = loop
         xf = int(loop_xfade * SR)
         w = np.cos(np.linspace(0, np.pi / 2, xf))[:, None] ** 2
-        mix[ls:ls + xf] = mix[ls:ls + xf] * (1 - w) + mix[le:le + xf] * w
+        if loop_add:
+            # 終点の後ろには「はみ出した残響」だけがある → 始点に足し込む
+            mix[ls:ls + xf] += mix[le:le + xf] * w
+            mix[:le] = dsp.limit(mix[:le], -1.0, 80)
+        else:
+            mix[ls:ls + xf] = mix[ls:ls + xf] * (1 - w) + mix[le:le + xf] * w
         mix = mix[:le]
     # 末尾の無音を詰める
     nz = np.where(np.abs(mix).max(axis=1) > db(-70))[0]
     if loop is None and len(nz):
         mix = mix[: nz[-1] + int(0.2 * SR)]
-    os.makedirs(BUILD, exist_ok=True)
-    os.makedirs(OUT_DIR, exist_ok=True)
-    wav = os.path.join(BUILD, f"{name}.wav")
+    os.makedirs(build_dir, exist_ok=True)
+    os.makedirs(out_dir, exist_ok=True)
+    wav = os.path.join(build_dir, f"{name}.wav")
     sf.write(wav, mix, SR, subtype="PCM_16")
-    ogg = os.path.join(OUT_DIR, f"{name}.ogg")
+    ogg = os.path.join(out_dir, f"{name}.ogg")
     meta = []
     if loop:
         ls, le = loop
         meta = ["-metadata", f"LOOPSTART={ls}", "-metadata", f"LOOPLENGTH={le - ls}"]
     run(["ffmpeg", "-hide_banner", "-y", "-i", wav, "-c:a", "libvorbis", "-q:a", "6", *meta, ogg])
     run(["ffmpeg", "-hide_banner", "-y", "-i", wav, "-c:a", "libmp3lame", "-b:a", "192k",
-         os.path.join(BUILD, f"{name}.mp3")])
+         os.path.join(build_dir, f"{name}.mp3")])
     info = {"name": name, "seconds": round(len(mix) / SR, 3), "lufs": round(lufs(mix), 2),
             "peak_db": round(float(20 * np.log10(np.abs(mix).max() + 1e-9)), 2)}
     if loop:
@@ -405,11 +418,11 @@ def place_p1_original(tr, L, g0=0, bars=range(0, 16), head=0.035, tail=0.06, fin
     tr.add(fade(cut(s0, s1), fin, fout), L.gt(g0) - head)
 
 
-def place_p2(tr, L, g_pickup, fin=0.006):
+def place_p2(tr, L, g_pickup, fin=0.006, end_pad=0.02, fout=0.012):
     """P2 は加工せずそのまま (ピックアップ小節 + 32 小節)。"""
     s0 = p2_beat(-4)
-    s1 = min(p2_beat(128) + 0.02, P2_END)
-    tr.add(fade(cut(s0, s1), fin, 0.012), L.gt(g_pickup))
+    s1 = min(p2_beat(128) + end_pad, P2_END)
+    tr.add(fade(cut(s0, s1), fin, fout), L.gt(g_pickup))
     return L.gt(g_pickup + 1)
 
 
@@ -435,31 +448,8 @@ def p2_tail_reverb(L, g_end, gain_db=-18.0, dur=1.0):
 
 # ======================================================================= バージョン
 
-def song_length_bars(n_p1, n_tail_p3):
-    return n_p1 + 1 + 32 + 1 + n_tail_p3
-
-
-def build_common(version, *, p1_mode="stretch", breakdown="as_is", t1="build", t2="fill",
-                 p3_style="standard", ending="natural"):
-    """各バージョンの組み立て。引数で繋ぎ方・P3 の寄せ方・終わり方を切り替える。"""
-    kit = Kit()
-
-    # ---------------- 小節割り
-    p1_main = 16
-    bd_bars = [16, 17, 18, 19, 20] if breakdown == "as_is" else [16, 17, 18, 19, 18, 19, 20]
-    n_bd = len(bd_bars)
-    g_pick = p1_main + n_bd              # P2 のピックアップ小節
-    g_p2 = g_pick + 1                    # P2 の 0 小節目
-    g_p3i = g_p2 + 32                    # P3 のイントロ小節 (P3 の -1 小節目)
-    g_p3 = g_p3i + 1                     # P3 の 0 小節目
-    if ending == "short":
-        p3_last = P3_D + 2
-    elif ending == "loop":
-        p3_last = P3_A2.stop             # A2 の終わりで P2 へ戻る
-    else:
-        p3_last = P3_LAST
-    g_end = g_p3 + p3_last
-    durs = [BAR] * (g_end + 8)
+def make_layout(n_bars, p1_mode, p1_main, n_bd):
+    durs = [BAR] * n_bars
     if p1_mode == "original":
         P1BAR = 4 * P1_BEAT
         for k in range(p1_main):
@@ -468,14 +458,11 @@ def build_common(version, *, p1_mode="stretch", breakdown="as_is", t1="build", t
         for i in range(n_bd):
             a = (i + 1) / (n_bd + 1)
             durs[p1_main + i] = P1BAR * (1 - a) + BAR * a
-    L = Layout(durs)
-    total = L.gt(g_end + 8) + 6.0
-    n = int(total * SR)
+    return Layout(durs)
 
-    orig = Track(total)      # P1 / P2 の原音
-    fx = Track(total)        # 効果音
-    dr = Drums(total, kit)
 
+def place_p1_t1_p2(L, orig, fx, dr, kit, p1_mode, breakdown, t1, p1_main, n_bd, g_pick, g_p2, p2_kw=None):
+    """P1 (+ブレイク) → 繋ぎ (T1) → P2 を配置する。2 曲版・3 曲版で共通。"""
     # ---------------- P1
     if p1_mode == "stretch":
         if breakdown == "as_is":
@@ -526,7 +513,39 @@ def build_common(version, *, p1_mode="stretch", breakdown="as_is", t1="build", t
         dr.hit("crash", L.gt(g_p2), 2)
 
     # ---------------- P2 (無加工)
-    place_p2(orig, L, g_pick)
+    place_p2(orig, L, g_pick, **(p2_kw or {}))
+
+
+
+def build_common(version, *, p1_mode="stretch", breakdown="as_is", t1="build", t2="fill",
+                 p3_style="standard", ending="natural"):
+    """各バージョンの組み立て。引数で繋ぎ方・P3 の寄せ方・終わり方を切り替える。"""
+    kit = Kit()
+
+    # ---------------- 小節割り
+    p1_main = 16
+    bd_bars = [16, 17, 18, 19, 20] if breakdown == "as_is" else [16, 17, 18, 19, 18, 19, 20]
+    n_bd = len(bd_bars)
+    g_pick = p1_main + n_bd              # P2 のピックアップ小節
+    g_p2 = g_pick + 1                    # P2 の 0 小節目
+    g_p3i = g_p2 + 32                    # P3 のイントロ小節 (P3 の -1 小節目)
+    g_p3 = g_p3i + 1                     # P3 の 0 小節目
+    if ending == "short":
+        p3_last = P3_D + 2
+    elif ending == "loop":
+        p3_last = P3_A2.stop             # A2 の終わりで P2 へ戻る
+    else:
+        p3_last = P3_LAST
+    g_end = g_p3 + p3_last
+    L = make_layout(g_end + 8, p1_mode, p1_main, n_bd)
+    total = L.gt(g_end + 8) + 6.0
+    n = int(total * SR)
+
+    orig = Track(total)      # P1 / P2 の原音
+    fx = Track(total)        # 効果音
+    dr = Drums(total, kit)
+
+    place_p1_t1_p2(L, orig, fx, dr, kit, p1_mode, breakdown, t1, p1_main, n_bd, g_pick, g_p2)
 
     # ---------------- T2: P2 → P3
     g_last_p2 = g_p3i - 1
@@ -699,17 +718,144 @@ def build_common(version, *, p1_mode="stretch", breakdown="as_is", t1="build", t
     fxm = fx.x[:n] + dsp.reverb(fx.x[:n], room=0.7, damp=0.5)[:n] * db(-12)
     mix = orig.x[:n] + p3sum + fxm
 
+    dirs = dict(out_dir=os.path.join(OUT_DIR, "with_part3"), build_dir=os.path.join(BUILD, "with_part3"))
     if loop_pts:
         ls, le = int(round(loop_pts[0] * SR)), int(round(loop_pts[1] * SR))
-        info = finish(mix, version, loop=(ls, le), loop_xfade=2 * BAR)
+        info = finish(mix, version, loop=(ls, le), loop_xfade=2 * BAR, **dirs)
     else:
-        info = finish(mix, version, tail_fade=tail_fade)
+        info = finish(mix, version, tail_fade=tail_fade, **dirs)
     info["layout"] = {"p2_bar0_sec": round(L.gt(g_p2), 3), "p3_bar0_sec": round(L.gt(g_p3), 3),
                       "p3_intro_sec": round(L.gt(g_p3i), 3)}
     return info
 
 
+# ======================================================================= 2 曲版 (P3 を削除)
+
+def landing(s0, s1, tail_sec, wet_db=-5.0, room=0.9):
+    """原曲の一瞬 (s0..s1 秒) を最後の「ジャーン」にする。頭は原音のまま、後ろは残響で伸ばす。"""
+    dry = fade(cut(s0, s1), 0.0, (s1 - s0) * 0.6)
+    wet = dsp.reverb(dsp.lp(dry, 7000), room=room, damp=0.45)
+    n = len(dry) + int(tail_sec * SR)
+    out = np.zeros((n, 2), dtype=np.float32)
+    out[:len(dry)] += dry
+    m = min(n, len(wet))
+    out[:m] += wet[:m] * db(wet_db)
+    return fade(out, 0.0, tail_sec * 0.85)
+
+
+def tail_reverb(x, t0, t1, gain_db=-8.0, room=0.88):
+    """x の t0..t1 秒の残響 (wet のみ) を t0 から足して、終わりを自然に減衰させる。"""
+    seg = x[int(t0 * SR):int(t1 * SR)]
+    wet = dsp.reverb(seg, room=room, damp=0.5)
+    i = int(t0 * SR)
+    m = min(len(wet), len(x) - i)
+    x[i:i + m] += wet[:m] * db(gain_db)
+
+
+# P2 の最後は Gm → F → G/B → Gsus4。30 小節目の頭 (G5) を「Gsus4 → G」の着地音に使う
+P2_LAND = 120
+
+
+def build_two_part(version, *, p1_mode="stretch", breakdown="as_is", t1="build", ending="land"):
+    """P1 → P2 の 2 曲構成。P2 は原曲で途中 (Gsus4) のまま切れているので終わり方を作る。"""
+    kit = Kit()
+    p1_main = 16
+    n_bd = 5 if breakdown == "as_is" else 7
+    g_pick = p1_main + n_bd
+    g_p2 = g_pick + 1
+    g_end = g_p2 + 32              # P2 の次の小節 (= 終わり方を置く小節)
+    g_last = g_end - 1
+    L = make_layout(g_end + 20, p1_mode, p1_main, n_bd)
+    total = L.gt(g_end + 20) + 8.0
+    n = int(total * SR)
+    orig, fx, dr = Track(total), Track(total), Drums(total, kit)
+
+    place_p1_t1_p2(L, orig, fx, dr, kit, p1_mode, breakdown, t1, p1_main, n_bd, g_pick, g_p2,
+                   p2_kw=dict(end_pad=0.0, fout=0.01) if ending == "loop" else None)
+
+    loop_pts = None
+    tail_fade = None
+    post = []   # ミックス後に足す残響 (t0, t1)
+    if ending == "land":
+        # タムのフィル → Gsus4 が G に解決して「ジャーン」
+        dr.fill(L, g_last, "toms", gain=-2)
+        orig.add(landing(p2_beat(P2_LAND) - 0.01, p2_beat(P2_LAND + 2), 5.5, wet_db=-1.0, room=0.95),
+                 L.gt(g_end) - 0.01)
+        dr.hit("crash", L.gt(g_end), 2)
+        dr.hit("crash2", L.gt(g_end), -5)
+        dr.hit("kick", L.gt(g_end), 1)
+        fx.add(dsp.impact(3.0), L.gt(g_end), -8)
+    elif ending == "short":
+        # スネアで詰めて短い「キメ」で終わる
+        dr.fill(L, g_last, "snare8", gain=-2)
+        orig.add(landing(p2_beat(P2_LAND) - 0.01, p2_beat(P2_LAND + 1), 2.2, wet_db=-8, room=0.75),
+                 L.gt(g_end) - 0.01)
+        dr.hit("crash", L.gt(g_end), 3)
+        dr.hit("kick", L.gt(g_end), 2)
+        fx.add(dsp.impact(2.5), L.gt(g_end), -6)
+        tail_fade = (L.gt(g_end) + 2 * BEAT, 2.4)
+    elif ending == "fade":
+        # 最後の 8 小節 (24-31) をもう一度繰り返し、だんだん小さくして終わる (足す音は無し)
+        s0 = p2_beat(96) - 0.025
+        orig.add(fade(cut(s0, P2_END), 0.05, 0.012), L.gt(g_end) - 0.025)
+        tail_fade = (L.gt(g_end + 2), L.gt(g_end + 8) - L.gt(g_end + 2))
+    elif ending == "reprise":
+        # P1 のテーマ (8-15 小節) をもう一度。P1 自身のブレイク頭 (D#sus4) の和音で着地
+        dr.fill(L, g_last, "toms", gain=-3)
+        fx.add(dsp.reverse_crash(2 * BEAT), L.gt(g_last, 2), -6)
+        place_p1_stretched(orig, L, g_end, range(8, 20), head=0.03, tail=0.0, fin=0.03, fout=BAR)
+        dr.hit("crash", L.gt(g_end), 2)
+        fx.add(dsp.impact(), L.gt(g_end), -9)
+        g_fin = g_end + 8
+        dr.hit("crash", L.gt(g_fin), 1)
+        dr.hit("crash2", L.gt(g_fin), -5)
+        dr.hit("kick", L.gt(g_fin), 0)
+        fx.add(dsp.impact(3.0), L.gt(g_fin), -9)
+        post.append((L.gt(g_fin), L.gt(g_fin + 1)))
+        tail_fade = (L.gt(g_fin, 2), L.gt(g_fin + 2) - L.gt(g_fin, 2) + 1.0)
+    elif ending == "loop":
+        # P2 の後に P1 の頭へ戻って曲全体をループ (P1→P2 と同じくクラッシュで着地)
+        dr.fill(L, g_last, "toms", gain=-2)
+        fx.add(dsp.reverse_crash(2 * BEAT), L.gt(g_last, 2), -8)
+        dr.hit("crash", L.gt(0), 0)
+        fx.add(dsp.impact(), L.gt(0), -12)
+        loop_pts = (L.gt(0) - 0.035, L.gt(g_end) - 0.035)
+
+    drums = dr.mix(n) * db(-2.5)
+    fxm = fx.x[:n] + dsp.reverb(fx.x[:n], room=0.7, damp=0.5)[:n] * db(-12)
+    mix = orig.x[:n] + drums + fxm
+    for t0, t1 in post:
+        tail_reverb(mix, t0, t1)
+    if os.environ.get("BGM_DEBUG"):
+        for nm, xx in (("drums", drums), ("orig", orig.x[:n]), ("fx", fxm)):
+            sf.write(os.path.join(BUILD, f"{version}_stem_{nm}.wav"), xx, SR, subtype="FLOAT")
+
+    if loop_pts:
+        ls, le = int(round(loop_pts[0] * SR)), int(round(loop_pts[1] * SR))
+        info = finish(mix, version, loop=(ls, le), loop_xfade=2 * BAR, loop_add=True)
+    else:
+        info = finish(mix, version, tail_fade=tail_fade)
+    info["layout"] = {"p2_pickup_sec": round(L.gt(g_pick), 3), "p2_bar0_sec": round(L.gt(g_p2), 3),
+                      "p2_end_sec": round(L.gt(g_end), 3)}
+    return info
+
+
+# 2 曲版 (P3 を削除)。assets/bgm/ に出力
 VERSIONS = {
+    # 1: 標準。166BPM に統一、ビルドアップで繋いで、Gsus4 → G の「ジャーン」で終わる
+    "bgm_v1_standard": dict(p1_mode="stretch", breakdown="as_is", t1="build", ending="land"),
+    # 2: 原曲重視。P1 は原速のまま。最後は P2 の最後の 8 小節を繰り返してフェードアウト
+    "bgm_v2_faithful": dict(p1_mode="original", breakdown="as_is", t1="gentle", ending="fade"),
+    # 3: 疾走。キックで助走をつけて P2 へ。短い「キメ」で終わる
+    "bgm_v3_drive": dict(p1_mode="stretch", breakdown="as_is", t1="drive", ending="short"),
+    # 4: ドラマチック。ブレイクを 8 小節に整え、最後に P1 のテーマを再現して締める
+    "bgm_v4_cinematic": dict(p1_mode="stretch", breakdown="extend", t1="cinematic", ending="reprise"),
+    # 5: ゲーム用ループ。P2 の後に P1 の頭へ戻る (曲全体がループ)
+    "bgm_v5_loop": dict(p1_mode="stretch", breakdown="as_is", t1="build", ending="loop"),
+}
+
+# 3 曲版 (前回のもの)。assets/bgm/with_part3/ に出力
+VERSIONS_3PART = {
     # 1: 標準。全体を 166BPM に統一、王道のビルドアップで繋ぐ
     "bgm_v1_standard": dict(p1_mode="stretch", breakdown="as_is", t1="build", t2="fill",
                             p3_style="standard", ending="natural"),
@@ -729,14 +875,20 @@ VERSIONS = {
 
 
 def main():
-    names = sys.argv[1:] or list(VERSIONS)
+    args = sys.argv[1:]
+    three = "--with-part3" in args
+    args = [a for a in args if a != "--with-part3"]
+    table, builder = (VERSIONS_3PART, build_common) if three else (VERSIONS, build_two_part)
+    names = args or list(table)
     os.makedirs(CACHE, exist_ok=True)
     infos = []
     for name in names:
-        key = next(k for k in VERSIONS if k == name or k.startswith(name + "_") or k.split("_")[1] == name)
-        print("building", key, flush=True)
-        infos.append(build_common(key, **VERSIONS[key]))
-    with open(os.path.join(BUILD, "build_info.json"), "w") as f:
+        key = next(k for k in table if k == name or k.startswith(name + "_") or k.split("_")[1] == name)
+        print("building", key, "(3 曲版)" if three else "(2 曲版)", flush=True)
+        infos.append(builder(key, **table[key]))
+    out = os.path.join(BUILD, "with_part3" if three else "", "build_info.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, "w") as f:
         json.dump(infos, f, indent=1, ensure_ascii=False)
 
 
