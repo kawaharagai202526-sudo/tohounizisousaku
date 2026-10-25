@@ -8,11 +8,13 @@
 P1/P2 はテンポが一定なので「拍グリッド (BPM と 1 拍目の時刻)」を回帰で求める。
 P3 はテンポが揺れるので拍を個別に追跡し、平滑化した拍時刻の列を保存する。
 
-使い方: python3 tools/bgm/analyze_source.py
+使い方: python3 tools/bgm/analyze_source.py               # 原曲
+      python3 tools/bgm/analyze_source.py --new-part1   # 差し替え用の新しい 1 曲目
 """
 import json
 import os
 import subprocess
+import sys
 import tempfile
 
 import librosa
@@ -94,7 +96,43 @@ def tuning_cents(y, a, b):
     return float(librosa.pitch_tuning(f, resolution=0.01) * 100)
 
 
+NEW_P1_SRC = os.path.join(ROOT, "assets", "bgm", "source", "new_part1.m4a")
+NEW_P1_OUT = os.path.join(HERE, "new_part1_analysis.json")
+
+
+def analyze_new_part1():
+    """差し替え用の新しい 1 曲目 (new_part1.m4a, 約 21 秒) を解析する。
+    前半 8 小節は 159BPM、9 小節目 (ブレイク) から 152BPM に変わる。
+      0-7 小節: 本編 / 8-9 小節: ブレイク (低音なし) / 10-12 小節: 再開 / 13 小節目は途中で切れている"""
+    with tempfile.TemporaryDirectory() as td:
+        wav = os.path.join(td, "p1.wav")
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", NEW_P1_SRC,
+                        "-ac", "1", "-ar", str(SR), wav], check=True)
+        y, _ = librosa.load(wav, sr=SR, mono=True)
+    oenv = librosa.onset.onset_strength(y=y, sr=SR, hop_length=HOP)
+    bpm1, beat0, res1 = fit_grid(oenv, 1.8, 13.8, 159.0, 1.811)
+    change = beat0 + 32 * 60.0 / bpm1          # 8 小節目の頭でテンポが変わる
+
+    def score(bpm):
+        per = 60.0 / bpm / 4
+        ks = np.arange(1, int((21.8 - change) / per))
+        return oenv[((change + ks * per) * FPS).astype(int)].mean()
+    cands = np.arange(148.0, 156.0, 0.02)
+    bpm2 = float(cands[int(np.argmax([score(b) for b in cands]))])
+    res = {"sample_rate": SR, "bpm1": bpm1, "beat0": beat0, "fit_residual_ms": res1,
+           "change_beat": 32, "bpm2": bpm2, "bars_complete": 13,
+           "sections": {"main": [0, 8], "break": [8, 10], "return": [10, 13]},
+           "tuning_cents": tuning_cents(y, 1.8, 22.8)}
+    with open(NEW_P1_OUT, "w") as f:
+        json.dump(res, f, indent=1, ensure_ascii=False)
+    print(f"new P1: {bpm1:.3f} BPM (bars 0-7) beat0={beat0:.4f} resid={res1:.1f}ms, "
+          f"{bpm2:.2f} BPM from {change:.3f}s, tuning={res['tuning_cents']:+.0f}c")
+
+
 def main():
+    if "--new-part1" in sys.argv:
+        analyze_new_part1()
+        return
     y = load_mono()
     oenv = librosa.onset.onset_strength(y=y, sr=SR, hop_length=HOP)
 

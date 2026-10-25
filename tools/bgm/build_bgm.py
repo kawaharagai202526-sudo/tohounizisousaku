@@ -42,6 +42,8 @@ from pedalboard import HighShelfFilter
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 SRC_M4A = os.path.join(ROOT, "assets", "bgm", "source", "original.m4a")
+NEW_P1_M4A = os.path.join(ROOT, "assets", "bgm", "source", "new_part1.m4a")
+SOURCES = {"orig": SRC_M4A, "newp1": NEW_P1_M4A}
 OUT_DIR = os.path.join(ROOT, "assets", "bgm")
 BUILD = os.environ.get("BGM_BUILD_DIR", os.path.join(ROOT, "build", "bgm"))
 CACHE = os.path.join(BUILD, "cache")
@@ -122,32 +124,32 @@ def run(cmd):
     subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
-def load_source():
+def load_source(name):
     os.makedirs(CACHE, exist_ok=True)
-    wav = os.path.join(CACHE, "original.wav")
+    wav = os.path.join(CACHE, "original.wav" if name == "orig" else f"{name}.wav")
     if not os.path.exists(wav):
-        run(["ffmpeg", "-hide_banner", "-y", "-i", SRC_M4A, "-ac", "2", "-ar", str(SR), "-c:a", "pcm_f32le", wav])
+        run(["ffmpeg", "-hide_banner", "-y", "-i", SOURCES[name], "-ac", "2", "-ar", str(SR),
+             "-c:a", "pcm_f32le", wav])
     x, sr = sf.read(wav, dtype="float32")
     assert sr == SR
     return x
 
 
-SRC = None
+_sources = {}
 
 
-def src():
-    global SRC
-    if SRC is None:
-        SRC = load_source()
-    return SRC
+def src(name="orig"):
+    if name not in _sources:
+        _sources[name] = load_source(name)
+    return _sources[name]
 
 
-def cut(s0, s1):
-    x = src()
+def cut(s0, s1, name="orig"):
+    x = src(name)
     return x[max(0, int(round(s0 * SR))):int(round(s1 * SR))].copy()
 
 
-def warp(s_beats, d_beats, head, tail, pitch=0.0):
+def warp(s_beats, d_beats, head, tail, pitch=0.0, name="orig"):
     """原曲の拍 s_beats を出力の時刻 d_beats に合わせて伸縮 (rubberband R3)。
     戻り値: (音, 出力上の開始時刻)"""
     s_beats, d_beats = np.asarray(s_beats, float), np.asarray(d_beats, float)
@@ -155,12 +157,12 @@ def warp(s_beats, d_beats, head, tail, pitch=0.0):
     r1 = (d_beats[-1] - d_beats[-2]) / (s_beats[-1] - s_beats[-2])
     s0, s1 = s_beats[0] - head, s_beats[-1] + tail
     d0, d1 = d_beats[0] - head * r0, d_beats[-1] + tail * r1
-    key = hashlib.sha1(np.r_[s_beats, d_beats - d0, head, tail, pitch].tobytes()).hexdigest()[:16]
+    key = hashlib.sha1(np.r_[s_beats, d_beats - d0, head, tail, pitch].tobytes() + name.encode()).hexdigest()[:16]
     out = os.path.join(CACHE, f"warp_{key}.wav")
     if not os.path.exists(out):
         inp = os.path.join(CACHE, f"in_{key}.wav")
         mp = os.path.join(CACHE, f"map_{key}.txt")
-        sf.write(inp, cut(s0, s1), SR, subtype="FLOAT")
+        sf.write(inp, cut(s0, s1, name), SR, subtype="FLOAT")
         with open(mp, "w") as f:
             last = -1
             for s, d in zip(s_beats, d_beats):
@@ -446,6 +448,32 @@ def p2_tail_reverb(L, g_end, gain_db=-18.0, dur=1.0):
     return fade(wet, 0.01, dur * 0.8) * db(gain_db), L.gt(g_end)
 
 
+# ----------------------------------------------------------------------- 新しい 1 曲目
+
+NP = json.load(open(os.path.join(HERE, "new_part1_analysis.json")))
+NEWP1_USABLE = NP["bars_complete"]   # 13 小節目は途中で切れているので 0-12 小節を使う
+NEWP1_GAIN = 2.0                     # 原音は -15.8 LUFS と小さめ。P2 前半 (-15.6) より少しだけ前に出す
+NEWP1_REPRISE_GAIN = 4.0             # P2 の最後 (-10 LUFS) の後に再現するときはさらに上げる
+
+
+def np1_beat(j):
+    """新しい 1 曲目の拍 j の時刻。32 拍目 (8 小節目の頭) で 159 → 152 BPM に変わる。"""
+    j = np.asarray(j, dtype=float)
+    p1, p2 = 60.0 / NP["bpm1"], 60.0 / NP["bpm2"]
+    c = NP["change_beat"]
+    return np.where(j <= c, NP["beat0"] + j * p1, NP["beat0"] + c * p1 + (j - c) * p2)
+
+
+def place_newp1(tr, L, g0, bars, head=0.035, tail=0.03, fin=0.0, fout=0.04, gain_db=0.0):
+    """新しい 1 曲目の小節 bars を全体の小節 g0.. に 166BPM で配置。"""
+    bars = list(bars)
+    js = np.arange(bars[0] * 4, (bars[-1] + 1) * 4 + 1)
+    s = np1_beat(js)
+    d = np.array([L.gt(g0 + (j - js[0]) // 4, (j - js[0]) % 4) for j in js])
+    y, d0 = warp(s, d, head, tail, name="newp1")
+    tr.add(fade(y, fin, fout), d0, gain_db)
+
+
 # ======================================================================= バージョン
 
 def make_layout(n_bars, p1_mode, p1_main, n_bd):
@@ -462,9 +490,12 @@ def make_layout(n_bars, p1_mode, p1_main, n_bd):
 
 
 def place_p1_t1_p2(L, orig, fx, dr, kit, p1_mode, breakdown, t1, p1_main, n_bd, g_pick, g_p2, p2_kw=None):
-    """P1 (+ブレイク) → 繋ぎ (T1) → P2 を配置する。2 曲版・3 曲版で共通。"""
+    """P1 (+ブレイク) → 繋ぎ (T1) → P2 を配置する。2 曲版・3 曲版・新 1 曲目版で共通。
+    p1_mode="new" のときは差し替え用の新しい 1 曲目を置く。"""
     # ---------------- P1
-    if p1_mode == "stretch":
+    if p1_mode == "new":
+        place_newp1(orig, L, 0, range(0, NEWP1_USABLE), gain_db=NEWP1_GAIN)
+    elif p1_mode == "stretch":
         if breakdown == "as_is":
             place_p1_stretched(orig, L, 0, range(0, 21))
         else:
@@ -759,8 +790,12 @@ P2_LAND = 120
 def build_two_part(version, *, p1_mode="stretch", breakdown="as_is", t1="build", ending="land"):
     """P1 → P2 の 2 曲構成。P2 は原曲で途中 (Gsus4) のまま切れているので終わり方を作る。"""
     kit = Kit()
-    p1_main = 16
-    n_bd = 5 if breakdown == "as_is" else 7
+    if p1_mode == "new":
+        # 新しい 1 曲目: 本編 8 小節 + ブレイク 2 小節 + 再開 3 小節 → P2 の助走小節 (C#)
+        p1_main, n_bd = 8, NEWP1_USABLE - 8
+    else:
+        p1_main = 16
+        n_bd = 5 if breakdown == "as_is" else 7
     g_pick = p1_main + n_bd
     g_p2 = g_pick + 1
     g_end = g_p2 + 32              # P2 の次の小節 (= 終わり方を置く小節)
@@ -803,7 +838,11 @@ def build_two_part(version, *, p1_mode="stretch", breakdown="as_is", t1="build",
         # P1 のテーマ (8-15 小節) をもう一度。P1 自身のブレイク頭 (D#sus4) の和音で着地
         dr.fill(L, g_last, "toms", gain=-3)
         fx.add(dsp.reverse_crash(2 * BEAT), L.gt(g_last, 2), -6)
-        place_p1_stretched(orig, L, g_end, range(8, 20), head=0.03, tail=0.0, fin=0.03, fout=BAR)
+        if p1_mode == "new":
+            # 新しい 1 曲目の本編 8 小節を再現し、自身のブレイク頭 (9 小節目) の和音で着地
+            place_newp1(orig, L, g_end, range(0, 10), tail=0.0, fout=BAR, gain_db=NEWP1_REPRISE_GAIN)
+        else:
+            place_p1_stretched(orig, L, g_end, range(8, 20), head=0.03, tail=0.0, fin=0.03, fout=BAR)
         dr.hit("crash", L.gt(g_end), 2)
         fx.add(dsp.impact(), L.gt(g_end), -9)
         g_fin = g_end + 8
@@ -852,6 +891,8 @@ VERSIONS = {
     "bgm_v4_cinematic": dict(p1_mode="stretch", breakdown="extend", t1="cinematic", ending="reprise"),
     # 5: ゲーム用ループ。P2 の後に P1 の頭へ戻る (曲全体がループ)
     "bgm_v5_loop": dict(p1_mode="stretch", breakdown="as_is", t1="build", ending="loop"),
+    # 採用版: v4 の 1 曲目を新しい曲 (new_part1.m4a) に差し替えたもの
+    "bgm_v4_cinematic_newpart1": dict(p1_mode="new", t1="cinematic", ending="reprise"),
 }
 
 # 3 曲版 (前回のもの)。assets/bgm/with_part3/ に出力
@@ -883,7 +924,7 @@ def main():
     os.makedirs(CACHE, exist_ok=True)
     infos = []
     for name in names:
-        key = next(k for k in table if k == name or k.startswith(name + "_") or k.split("_")[1] == name)
+        key = name if name in table else next(k for k in table if k.split("_")[1] == name)
         print("building", key, "(3 曲版)" if three else "(2 曲版)", flush=True)
         infos.append(builder(key, **table[key]))
     out = os.path.join(BUILD, "with_part3" if three else "", "build_info.json")
