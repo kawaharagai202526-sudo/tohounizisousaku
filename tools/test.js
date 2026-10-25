@@ -209,6 +209,8 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
       }
     } finally { console.warn = warn; }
     for (const id of MUSIC_ROOM) song(id, 'MUSIC_ROOM');
+    // 難易度で変わる曲（byDiff）の行き先がある
+    for (const [id, def] of Object.entries(SONGS)) for (const [d, to] of Object.entries(def.byDiff || {})) if (!SONGS[to]) out.push(`曲 ${id}: 難易度 ${d} の曲 ${to} がない`);
     // テンポが途中で変わる曲（parts）：音が時刻の順に並び、曲の長さが小節ごとのテンポの合計になる
     for (const [id, def] of Object.entries(SONGS)) {
       if (!def.parts) continue;
@@ -256,6 +258,19 @@ test('音声ファイルの曲をデコードしてループで鳴らせる', as
     return out;
   });
   assert(!r.length, r.join('\n    '));
+});
+
+test('6面ボスの曲は Lunatic のときだけ音声ファイルの曲', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    for (const diff of [0, 1, 2, 3]) {
+      startBossTest({ boss: 'zashiki', diff });
+      for (let i = 0; i < 5; i++) Game.update();
+      out[diff] = Sound.songId;
+    }
+    return out;
+  });
+  assert(r[0] === 'boss6' && r[1] === 'boss6' && r[2] === 'boss6' && r[3] === 'boss6lunatic', `難易度ごとの曲: ${JSON.stringify(r)}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

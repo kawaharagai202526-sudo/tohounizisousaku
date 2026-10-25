@@ -204,6 +204,8 @@ index.html?stage=2&phase=1&only=1
   音声は1ファイル版にもそのまま入るので、大きいほど dist が重くなる。
   消すときは `node tools/embed-audio.js --remove 曲ID`
 - 曲を使う場所：ステージの `bgm`、`bosses` の `bgm`、会話の `{ bgm }`、タイトルは `'title'`
+- 難易度でちがう曲にするときは、もとの曲に `byDiff: { 難易度: '曲ID' }`（0=Easy〜3=Lunatic）。ゲーム中は `songForDiff(曲ID)` で選ぶ
+  （例：6面ボス `boss6` は Lunatic のとき `boss6lunatic`）。ミュージックルームでは選ばれないので、両方を `MUSIC_ROOM` に入れる
 - ミュージックルームの並びは `MUSIC_ROOM`
 
 ## 古い内容を消すとき

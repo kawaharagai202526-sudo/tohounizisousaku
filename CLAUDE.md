@@ -59,7 +59,7 @@
 | キャラクターの絵 | js/characters.js | `CHARA_INFO`（名前・肩書き・画像）、`CHARA` と `drawChibi`（キャンバスで描く絵） |
 | 画像 | js/images.js `IMAGE_FILES` | `img/` のPNG。読み込み前は `Images.get()` が null なので、描く側で代わりを用意する |
 | 会話・エンディング | js/story.js | `STORY.stageN[キャラ].before / after`（中ボスは `stage3mid`・`stage6mid`）、`ENDINGS`。ト書き `{ narration }`、背景の演出 `{ event }` |
-| 曲 | js/music.js | `SONGS`（MML とコード進行。`parts` で途中のテンポとドラムを変えられる。`audio` なら js/bgmfiles.js の音声をそのままループ）、`MUSIC_ROOM`。もらった音から MML を作るのは `tools/song-from-audio` |
+| 曲 | js/music.js | `SONGS`（MML とコード進行。`parts` で途中のテンポとドラムを変えられる。`audio` なら js/bgmfiles.js の音声をそのままループ。`byDiff` で難易度ごとに別の曲）、`MUSIC_ROOM`。もらった音から MML を作るのは `tools/song-from-audio` |
 | ゲームの名前 | js/util.js `GAME_INFO` | タイトル・ロゴ・ブラウザのタブ（index.html の `<title>` と README にも同じ名前） |
 | メニューの背景 | js/menubg.js `MenuBG` | タイトルなどのメニュー画面で共有する背景（青空・古びた人里の家々・そびえたつ屋敷の影） |
 | ステージの背景 | js/backgrounds.js | 1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`（`event('mansion')`）・4面 `RoomsBG`・5面 `CollapseBG`・6面 `RubbleSkyBG`、スペルカードの背景 `drawSpellBG` |
@@ -127,11 +127,13 @@
   対応（ユーザーの指定）：1つ目=1面、2つ目=6面、3つ目=3面、4つ目=2面、5つ目=4面、6つ目=5面（`js/bgmfiles.js` の name にもとのファイル名）。
   音声は変換せずに取り出した AAC（.m4a）。鳴らすときに前後の無音を切り、つなぎ目を 0.03 秒重ねてループする（`makeLoopBuffer`）。
   音の大きさは `SONGS` の `vol` でほかの曲とそろえた（ならした大きさ 0.15。3面は音の山が大きいので 0.1 くらいまで）。
-  6面ボスの曲は、2.5.0 でユーザーがくれた MP3（bgm_v4_cinematic_newpart1.mp3、82秒）をそのまま流す（`audio: 'boss6'`。
-  ユーザーの言葉は「6面bgmをこれに変更」。前の指定で「6面」と「6面道中」を分けていたので、6面ボスの曲と解釈した。
-  ループは最初から 81.05 秒まで（最後の無音を除く）。2.4.0 の耳コピの6面ボスの曲はなくした）。
-  4面ボス・5面ボスの曲は、2.4.0 でユーザーがくれた動画（いくつかの曲をつないだもの）から作ったアレンジ
-  （2.4.0 では6面ボスと6面道中も同じように作ったが、2.5.0・2.6.0 で音声ファイルに入れかわった）。
+  6面ボスの曲は難易度で変わる（2.7.0 でユーザーの指定「難易度ルナティックのときのみ6面ボスbgmをこの曲にする」）：
+  Lunatic はユーザーがくれた MP3（bgm_v4_cinematic_newpart1.mp3、82秒）をそのまま流す（曲ID `boss6lunatic`、`audio: 'boss6lunatic'`）。
+  ほかの難易度は 2.4.0 の耳コピのアレンジ（`boss6`）。`boss6` の `byDiff: { 3: 'boss6lunatic' }` と `songForDiff`（js/music.js）で選ぶ。
+  ゲーム中（面の始まり・会話の { bgm }・ボスの攻撃を試す機能）だけ難易度を見る。ミュージックルームには両方ある。
+  （2.5.0〜2.6.0 では、この MP3 を全部の難易度で流していた。そのときのユーザーの言葉は「6面bgmをこれに変更」で、6面ボスと解釈した）
+  4面ボス・5面ボス・6面ボス（Lunatic 以外）の曲は、2.4.0 でユーザーがくれた動画（いくつかの曲をつないだもの）から作ったアレンジ
+  （2.4.0 では6面道中も同じように作ったが、2.6.0 で音声ファイルに入れかわった）。
   2.4.0 の対応：1つ目=6面ボス（boss6）、2つ目=5面（boss5）、3つ目=4面（boss4）、4つ目=6面道中（stage6）。「5面」「4面」はボスの曲と解釈した。
   ユーザーの指定は「繋ぎ目などの違和感をできるだけカバーし、音調を統一し、ループする感じのアレンジ」。
   `tools/song-from-audio` で旋律とコードを自動で取り出し（Basic Pitch）、部分ごとに主音か調号をそろえ、

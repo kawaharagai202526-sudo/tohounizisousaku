@@ -27,7 +27,8 @@ class Dialogue {
     this.i++;
     while (this.i < this.lines.length && !Array.isArray(this.lines[this.i]) && !this.lines[this.i].narration) {
       const a = this.lines[this.i];
-      if (a.bgm) { Sound.playBgm(a.bgm); this.g.showBgmTitle(a.bgm); }
+      // 難易度で曲が変わることがある（SONGS の byDiff）
+      if (a.bgm) { const id = songForDiff(a.bgm); Sound.playBgm(id); this.g.showBgmTitle(id); }
       if (a.title) this.g.bossTitle = { id: a.title, frame: 0 };
       if (a.event && this.g.bg && this.g.bg.event) this.g.bg.event(a.event);
       this.i++;

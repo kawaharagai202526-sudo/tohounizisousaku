@@ -163,10 +163,12 @@ class GameScene {
   }
 
   *stageFlow() {
-    Sound.playBgm(this.stage.bgm);
+    // 曲は難易度で変わることがある（SONGS の byDiff）
+    const bgm = songForDiff(this.stage.bgm);
+    Sound.playBgm(bgm);
     // 音声ファイルのボス曲は、デコードに少し時間がかかるので先に用意しておく
-    for (const b of this.stage.bosses || []) if (b.bgm) Sound.prefetch(b.bgm);
-    this.showBgmTitle(this.stage.bgm);
+    for (const b of this.stage.bosses || []) if (b.bgm) Sound.prefetch(songForDiff(b.bgm));
+    this.showBgmTitle(bgm);
     this.stageTitle = { frame: 0 };
     if (this.opts.bossTest) { yield* this.bossTestFlow(this.opts.bossTest); return; }
     if (Cheats.on.bossOnly) yield 150;
@@ -182,7 +184,7 @@ class GameScene {
   // ボスの攻撃を試すとき（startBossTest）の流れ：会話なしで、すぐ指定のボスと戦う
   *bossTestFlow(bt) {
     const meta = this.stage.bosses.find(b => b.id === bt.id);
-    if (meta.bgm) { Sound.playBgm(meta.bgm); this.showBgmTitle(meta.bgm); }
+    if (meta.bgm) { const bgm = songForDiff(meta.bgm); Sound.playBgm(bgm); this.showBgmTitle(bgm); }
     yield 30;
     const boss = this.spawnStageBoss(meta.id, { x: FIELD_W / 2, y: -50 });
     yield* boss.moveTo(FIELD_W / 2, 100, 40);
