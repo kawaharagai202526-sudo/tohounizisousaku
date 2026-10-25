@@ -38,7 +38,8 @@
   - 読み込み順が効くのは「読み込んだ瞬間に動くコード」だけ。関数の中から呼ぶものは順番に関係ない
   - ファイルを増やしたら `index.html` に `<script src>` を足す（`tools/build-single.js` は自動で埋め込む）
 - ES モジュール・npm のライブラリ・外部の画像や音声ファイルは使わない（`file://` で直接開いても動くようにするため）。
-  音楽・効果音・ほとんどの絵はコードで作っている。差し替え用の画像だけ `img/` に置く
+  音楽・効果音・ほとんどの絵はコードで作っている。差し替え用の画像だけ `img/` に置く。
+  ユーザーがくれた音声ファイルの曲だけは、base64 にして `js/bgmfiles.js` に埋めこむ（`node tools/embed-audio.js 曲ID ファイル`。fetch は file:// で使えないため）
 - 論理画面は 640×480、弾幕のフィールドは 384×448（左上が (32,16)）。60fps 固定で更新する
 - `localStorage` は必ず `Store`（js/util.js）を通す。キーには `zashiki.` が付く（前のゲームは `hoshifuru.`。記録はまざらない）
 
@@ -58,7 +59,7 @@
 | キャラクターの絵 | js/characters.js | `CHARA_INFO`（名前・肩書き・画像）、`CHARA` と `drawChibi`（キャンバスで描く絵） |
 | 画像 | js/images.js `IMAGE_FILES` | `img/` のPNG。読み込み前は `Images.get()` が null なので、描く側で代わりを用意する |
 | 会話・エンディング | js/story.js | `STORY.stageN[キャラ].before / after`（中ボスは `stage3mid`・`stage6mid`）、`ENDINGS`。ト書き `{ narration }`、背景の演出 `{ event }` |
-| 曲 | js/music.js | `SONGS`（MML とコード進行。`parts` で途中のテンポとドラムを変えられる）、`MUSIC_ROOM`。もらった音から作るのは `tools/song-from-audio` |
+| 曲 | js/music.js | `SONGS`（MML とコード進行。`parts` で途中のテンポとドラムを変えられる。`audio` なら js/bgmfiles.js の音声をそのままループ）、`MUSIC_ROOM`。もらった音から MML を作るのは `tools/song-from-audio` |
 | ゲームの名前 | js/util.js `GAME_INFO` | タイトル・ロゴ・ブラウザのタブ（index.html の `<title>` と README にも同じ名前） |
 | メニューの背景 | js/menubg.js `MenuBG` | タイトルなどのメニュー画面で共有する背景（青空・古びた人里の家々・そびえたつ屋敷の影） |
 | ステージの背景 | js/backgrounds.js | 1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`（`event('mansion')`）・4面 `RoomsBG`・5面 `CollapseBG`・6面 `RubbleSkyBG`、スペルカードの背景 `drawSpellBG` |
@@ -122,7 +123,10 @@
 - ボスはゲーム中はドット絵、スペルカードのカットインと会話は原画。提供画像の対応：18.jpg=4面、19.jpg=3面、20.jpg=5面、21.jpg=2面、22.jpg=1面、23.jpg=6面、24.jpg=4面中ボス
 - 新しいボスのスペルカード名・曲名・ステージ名・英語の副題（〜 Mansion of Borrowed Rooms.）・あらすじ・エンディングは Claude が考えた仮のもの
 - 曲は前のゲームのメロディのまま名前だけ新しい物語に合わせた（5面・6面の曲は新しく作った）。
-  4面ボス・5面ボス・6面道中・6面ボスの曲は、2.4.0 でユーザーがくれた動画（いくつかの曲をつないだもの）から作ったアレンジ。
+  6面ボスの曲は、2.5.0 でユーザーがくれた MP3（bgm_v4_cinematic_newpart1.mp3、82秒）をそのまま流す（`audio: 'boss6'`。
+  ユーザーの言葉は「6面bgmをこれに変更」。前の指定で「6面」と「6面道中」を分けていたので、6面ボスの曲と解釈した。
+  ループは最初から 81.05 秒まで（最後の無音を除く）。2.4.0 の耳コピの6面ボスの曲はなくした）。
+  4面ボス・5面ボス・6面道中の曲は、2.4.0 でユーザーがくれた動画（いくつかの曲をつないだもの）から作ったアレンジ。
   対応：1つ目=6面ボス（boss6）、2つ目=5面（boss5）、3つ目=4面（boss4）、4つ目=6面道中（stage6）。「5面」「4面」はボスの曲と解釈した。
   ユーザーの指定は「繋ぎ目などの違和感をできるだけカバーし、音調を統一し、ループする感じのアレンジ」。
   `tools/song-from-audio` で旋律とコードを自動で取り出し（Basic Pitch）、部分ごとに主音か調号をそろえ、

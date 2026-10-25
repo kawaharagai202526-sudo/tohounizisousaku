@@ -203,6 +203,8 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
     console.warn = m => out.push(String(m));
     try {
       for (const [id, def] of Object.entries(SONGS)) {
+        // 音声ファイルの曲は、BGM_FILES に音が入っていればよい（デコードは別のテストで確かめる）
+        if (def.audio) { if (!(typeof BGM_FILES !== 'undefined' && BGM_FILES[def.audio] && BGM_FILES[def.audio].data)) out.push(`曲 ${id}: 音声 ${def.audio} が BGM_FILES にない`); continue; }
         try { compileSong(def); } catch (e) { out.push(`曲 ${id}: ${e.message}`); }
       }
     } finally { console.warn = warn; }
@@ -230,6 +232,28 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
     return out;
   });
   assert(!problems.length, `データの問題:\n    ${problems.join('\n    ')}`);
+});
+
+test('音声ファイルの曲をデコードしてループで鳴らせる', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const out = [];
+    const ids = Object.keys(SONGS).filter(id => SONGS[id].audio);
+    if (!ids.length) return out;
+    Sound.unlock();
+    for (const id of ids) {
+      const f = BGM_FILES[SONGS[id].audio];
+      Sound.playBgm(id);
+      const buf = await Sound.decodeAudio(SONGS[id].audio);
+      if (!buf || !(buf.duration > 1)) { out.push(`曲 ${id}: 音声をデコードできない`); continue; }
+      if (f.loopEnd > buf.duration + 0.1 || f.loopStart >= (f.loopEnd || buf.duration)) out.push(`曲 ${id}: ループの範囲がおかしい（${f.loopStart}〜${f.loopEnd}、長さ ${buf.duration.toFixed(2)}秒）`);
+      await new Promise(res => setTimeout(res, 50));
+      const s = Sound.song;
+      if (!s || !s.src || !s.src.loop || Sound.songId !== id) out.push(`曲 ${id}: ループで鳴っていない`);
+      Sound.stopBgm(0.05);
+    }
+    return out;
+  });
+  assert(!r.length, r.join('\n    '));
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

@@ -298,6 +298,7 @@ const Admin = {
     this.table(body, 'ボスの攻撃（体力は Normal・難易度ごとの倍率をかける前）', ['登場', 'ボス', '順番', '種類', '名前', '体力', '制限時間'], rows);
     // テンポが途中で変わる曲（parts）は「いちばん遅い〜速い」
     const tempoText = def => {
+      if (def.audio) return '（音声ファイル）';
       if (!def.parts) return def.bpm;
       const b = def.parts.map(p => p.bpm ?? def.bpm);
       return `${Math.min(...b)}〜${Math.max(...b)}`;

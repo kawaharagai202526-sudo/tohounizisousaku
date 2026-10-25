@@ -20,6 +20,7 @@ const Sound = {
   songId: null,
   wantSong: null,
   compiled: {},
+  decoded: {},    // 音声ファイルの曲（BGM_FILES）をデコードしたもの
 
   unlock() {
     if (!this.ctx) {
@@ -68,6 +69,8 @@ const Sound = {
         else this.ctx.resume();
       });
       if (this.wantSong) { const id = this.wantSong; this.wantSong = null; this.playBgm(id); }
+      // 音声ファイルの曲は、使うときに待たないよう先にデコードしておく
+      setTimeout(() => { for (const id of Object.keys(SONGS)) if (SONGS[id].audio) this.decodeAudio(SONGS[id].audio); }, 1500);
     }
     if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume();
   },
@@ -151,12 +154,46 @@ const Sound = {
     this.stopBgm(0.4);
     const def = SONGS[id];
     if (!def) return;
+    if (def.audio) { this.playAudioBgm(id, def); return; }
     if (!this.compiled[id]) this.compiled[id] = compileSong(def);
     const gain = this.ctx.createGain();
     gain.connect(this.bgmBus);
     this.song = { c: this.compiled[id], gain, t0: this.ctx.currentTime + 0.08, idx: 0 };
     this.songId = id;
     this.schedule();
+  },
+  // 音声ファイルの曲（def.audio が BGM_FILES のID）：デコードしてから、ループで鳴らす
+  playAudioBgm(id, def) {
+    const gain = this.ctx.createGain();
+    gain.gain.value = def.vol ?? 1;
+    gain.connect(this.bgmBus);
+    const song = { audio: true, gain, src: null, c: { bpm: def.bpm || 120, events: [] }, t0: this.ctx.currentTime + 0.08, idx: 0 };
+    this.song = song;
+    this.songId = id;
+    this.decodeAudio(def.audio).then(buf => {
+      if (!buf || this.song !== song) return;
+      const f = BGM_FILES[def.audio];
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.loop = true;
+      src.loopStart = f.loopStart || 0;
+      src.loopEnd = f.loopEnd && f.loopEnd < buf.duration ? f.loopEnd : buf.duration;
+      src.connect(gain);
+      song.t0 = this.ctx.currentTime + 0.03;
+      src.start(song.t0);
+      song.src = src;
+    });
+  },
+  decodeAudio(key) {
+    if (!this.decoded[key]) {
+      const f = typeof BGM_FILES !== 'undefined' && BGM_FILES[key];
+      if (!f || !this.ctx) return Promise.resolve(null);
+      const bin = atob(f.data);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      this.decoded[key] = new Promise(res => this.ctx.decodeAudioData(bytes.buffer, res, () => res(null)));
+    }
+    return this.decoded[key];
   },
   stopBgm(fade = 1.0) {
     this.wantSong = null;
@@ -165,6 +202,7 @@ const Sound = {
     const t = this.ctx.currentTime;
     g.gain.setValueAtTime(g.gain.value, t);
     g.gain.linearRampToValueAtTime(0, t + fade);
+    if (this.song.src) this.song.src.stop(t + fade + 0.05);
     setTimeout(() => g.disconnect(), fade * 1000 + 3000);
     this.song = null;
     this.songId = null;
@@ -172,7 +210,7 @@ const Sound = {
 
   schedule() {
     const s = this.song;
-    if (!s || !this.ctx) return;
+    if (!s || !this.ctx || s.audio) return;
     const c = s.c;
     if (!c.events.length) return;
     const now = this.ctx.currentTime;
