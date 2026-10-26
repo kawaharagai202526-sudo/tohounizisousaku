@@ -14,6 +14,7 @@
 - [化物屋敷異変 キャラクター名前案](docs/bakemono_yashiki_names.md)（[PDF](docs/pdf/bakemono_yashiki_names.pdf)） — ボス7人の名前案、各60個（計420個）とおすすめ3
 - [化物屋敷異変 キャラクター名前案（漢字版）](docs/bakemono_yashiki_names_kanji.md)（[PDF](docs/pdf/bakemono_yashiki_names_kanji.pdf)） — 名前案60個すべてを、下の名前まで漢字にした版（計420個）
 - [化物屋敷異変 二つ名案](docs/bakemono_yashiki_epithets.md)（[PDF](docs/pdf/bakemono_yashiki_epithets.pdf)） — ボス7人の二つ名案、各30個（計210個）とおすすめ3
+- [化物屋敷異変 タイトル案](docs/bakemono_yashiki_titles.md)（[PDF](docs/pdf/bakemono_yashiki_titles.pdf)） — ゲーム本編のタイトル案30個（東方＋漢字3文字 〜 英語の副題）とおすすめ3
 
 ## 音楽
 - [6面ボス曲 アレンジ資料](docs/bakemono_yashiki_stage6_bgm.md)（[PDF](docs/pdf/bakemono_yashiki_stage6_bgm.pdf)） — 3つの節を1曲にまとめた6面ボス曲の構成と変更点
