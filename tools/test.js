@@ -266,17 +266,24 @@ test('音声ファイルの曲をデコードしてループで鳴らせる', as
   assert(!r.length, r.join('\n    '));
 });
 
-test('6面ボスの曲は Lunatic のときだけ音声ファイルの曲', async ({ page }) => {
-  const r = await page.evaluate(() => {
+test('6面ボスの曲は Lunatic のときだけ別の曲', async ({ page }) => {
+  const r = await page.evaluate(async () => {
     const out = {};
     for (const diff of [0, 1, 2, 3]) {
       startBossTest({ boss: 'zashiki', diff });
       for (let i = 0; i < 5; i++) Game.update();
       out[diff] = Sound.songId;
     }
+    // どちらも、もらった音声ファイル（2.9.0）。Lunatic の曲は 93 秒のところで最初へ戻る（ユーザーの指定）
+    out.audio = [SONGS.boss6.audio, SONGS.boss6lunatic.audio];
+    Sound.unlock();
+    const buf = await Sound.decodeAudio('boss6lunatic');
+    out.lunaticLoop = buf && +buf.duration.toFixed(2);
     return out;
   });
   assert(r[0] === 'boss6' && r[1] === 'boss6' && r[2] === 'boss6' && r[3] === 'boss6lunatic', `難易度ごとの曲: ${JSON.stringify(r)}`);
+  assert(r.audio.join() === 'boss6,boss6lunatic', `6面ボスの曲が音声ファイルではない: ${JSON.stringify(r)}`);
+  assert(r.lunaticLoop > 92.9 && r.lunaticLoop <= 93, `Lunatic の6面ボスの曲が 93 秒でループしていない: ${r.lunaticLoop} 秒`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

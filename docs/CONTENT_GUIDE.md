@@ -207,7 +207,7 @@ js/extra.js の `setKyou(g, 方角, { next, power })` で凶方を決める。�
 - `js/music.js` の `SONGS`。1曲は `{ title, comment, bpm, lead, chords, melody, backing }`。
   メロディは MML（`o5 e4. d8 c4 |` のように書く。`|` は小節線で、長さのずれをテストが見つける）
 - 曲の途中でテンポとドラムを変えるときは `parts: [{ bar: 何小節目から, bpm, drums, ramp: 前の何小節で次のテンポへ近づけるか }]`
-  （2.4.0 の4面ボス・5面ボス・6面・6面ボスの曲）。ループは曲の最後から `loopBar`（書かなければ最初）へ戻る
+  （2.4.0 の4面ボス・5面ボスの曲）。ループは曲の最後から `loopBar`（書かなければ最初）へ戻る
 - 動画や音声から曲データ（MML）を作るときは `tools/song-from-audio`（手順はその中の README。自動の耳コピなので音はおおよそ）
 - 音声ファイルをそのまま曲にするときは `node tools/embed-audio.js 曲ID ファイル [ループの終わりの秒] [ループの始まりの秒]`。
   `js/bgmfiles.js` に base64 で入り（file:// でも読める）、`SONGS` に `{ title, comment, audio: '曲ID', bpm }` と書けば鳴る

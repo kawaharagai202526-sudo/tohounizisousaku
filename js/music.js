@@ -6,9 +6,9 @@
 //  backing: 自動伴奏の設定
 //  parts: 曲の途中でテンポとドラムを変える（[{ bar: 何小節目から, bpm, drums, ramp: 前の何小節で近づけるか }]）
 //  audio: 音声ファイルの曲（js/bgmfiles.js の BGM_FILES のID）。MML ではなく、もらった音をそのままループで鳴らす
-//         （1〜6面の道中は 2.6.0、6面ボスの Lunatic は 2.7.0）。vol で音の大きさ
+//         （1〜6面の道中は 2.6.0、6面ボスは 2.9.0）。vol で音の大きさ
 //  byDiff: 難易度でちがう曲にする（{ 3: '曲ID' } なら Lunatic のときその曲。songForDiff）
-//  4面ボス・5面ボス・6面ボスの曲は、ユーザーがくれた音（いくつかの曲をつないだもの）から
+//  4面ボス・5面ボスの曲は、ユーザーがくれた音（いくつかの曲をつないだもの）から
 //  tools/song-from-audio で旋律とコードを取り出し、調とテンポのつなぎ目をそろえてループするようにしたアレンジ（2.4.0）。
 //  ほかの曲はオリジナル（エキストラの2曲は 2.8.0 で作った仮のもの）
 // ============================================================
@@ -466,136 +466,19 @@ const SONGS = {
 
   boss6: {
     title: '座敷わらしの家運隆盛',
-    comment: '6面ボス・座敷 宿美のテーマ（曲名は仮）。\nユーザーが選んだ曲をつなぎ、調をそろえたアレンジです。',
-    bpm: 162,
-    byDiff: { 3: 'boss6lunatic' }, // Lunatic のときは音声ファイルの曲（2.7.0 でユーザーの指定）
-    lead: 'trumpet', leadVol: 0.14,
-    double: { inst: 'bell', vol: 0.04, shift: 12 },
-    // 途中でテンポとドラムが変わる（つなぎ目の小節で次のテンポへ近づける）
-    parts: [
-      { bar: 0, bpm: 162, drums: 'drive' },
-      { bar: 22, bpm: 164, drums: 'rock', ramp: 1 },
-      { bar: 38, bpm: 164, drums: 'drive', ramp: 1 },
-      { bar: 54, bpm: 162, drums: 'light', ramp: 1 },
-      { bar: 76, bpm: 160, drums: 'light', ramp: 1 },
-      { bar: 92, bpm: 161.0, drums: 'light' },
-    ],
-    chords: [
-      'Eb Eb', 'E E', 'Gbm Gbm', 'E E', 'Eb Eb', 'E E', 'Gbm Gbm', 'E E',
-      'Ebm Ebm', 'E E', 'Gbm Gbm', 'E E', 'Eb Eb', 'E E', 'Gbm Gbm', 'G Abm',
-      'Abm Abm', 'Abm Abm', 'Abm Abm', 'Abm Abm', 'Abm Abm', 'Abm Gb', 'B Db', 'Db Ebm',
-      'Ebm Ebm', 'Ebm B', 'B Db', 'Db Ebm', 'Ebm Ebm', 'Ebm B', 'B Db', 'Db Ebm',
-      'Ebm Ebm', 'Ebm B', 'B Db', 'Db Ebm', 'Ebm Ebm', 'Ebm D', 'Gm Gm', 'F F',
-      'Gm Gm', 'Gm Gm', 'Gm Gm', 'F F', 'Gm Gm', 'Gm Gm', 'Gm Gm', 'F F',
-      'Gm Gm', 'Gm Gm', 'Gm Gm', 'F F', 'G G', 'G F', 'Bb Bb', 'Bb Bb',
-      'Bb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Fm', 'Fm Fm', 'Fm Eb', 'Eb Eb',
-      'Eb Eb', 'Eb Cm', 'Cm Eb', 'Eb Eb', 'Eb Eb', 'Eb Dm', 'Fm Bb', 'Bb Cm',
-      'Cm Ab', 'Ab Bb', 'Bb Gm', 'Gm Bb', 'Eb Bb', 'Eb Eb', 'Eb Eb', 'Eb Cm',
-      'Cm Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb',
-      'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Eb', 'Eb Bb',
-    ],
-    melody: `
-      o4 e16 e-8 e-8. e-16 o3 b-4 b-8. o4 e-16 e-16 |
-      o4 e-16 e16 e16 o3 b4 b16 o4 e4 e8 o3 b8 |
-      o3 b16 o4 g-16 g-4&g-16 g-16 d-8. d-4&d-16 |
-      o4 d-16 o3 b8 b8. b16 o4 e8 e8 e4&e16 |
-      o4 e16 o3 b-8 b-16 o4 e-8 e-16 o3 b-4 b-8. o4 e-16 e-16 |
-      o4 e-16 e16 e4.&e16 e4&e16 e8 |
-      o4 e16 g-16 g-16 d-8. d-16 g-8 g-4 g-8 g-16 |
-      o4 g-16 e16 e8. e16 o3 b8. b8. b16 o4 e8 e16 |
-      o3 b16 o5 e-16 o4 e-8. e-4&e-16 e-16 o3 b-4 o4 e-16 |
-      o4 e-16 o5 e8 o3 b16 b16 o4 e4&e16 e4&e16 e16 |
-      o4 e16 g-8 g-4.&g-16 g-16 o5 e-8 g-8 o4 g-16 |
-      o4 g-16 e16 e8 e8 o3 b8 o4 e8 e8. e8 e16 |
-      o4 e16 e-16 e-8. e-16 o3 b-4 b-8. o4 b-8 b-16 |
-      o4 b-16 g-16 e8. e8. e8 e8. e8. |
-      o4 e16 e16 g-8 g-4&g-16 g-16 d-16 d-8 o5 g-8. |
-      o5 g-8 g16 g4 g8 o4 g16 a-8 o3 a-16 a-16 o5 a-16 a-16 |
-      o3 a-16 o4 e-16 e-16 a-8. a-8 a-8 o5 d-16 d-8 o4 a-16 a-8 |
-      o4 a-16 o5 d-16 e-16 a-8 o6 d-8 o5 a-8 a-8 o6 d-8 o5 a-8 o4 a-16 |
-      o4 a-16 o5 d-8 o4 a-8 a-8 o5 d-8 o4 a-8 a-8 o5 d-16 e-16 a-16 |
-      o5 a-16 o6 d-8 o4 a-8. a-16 a-16 e-8. o5 d-16 o4 a-16 a-8 a-16 |
-      o4 b-16 o5 d-16 e-16 e-8 a-8 a-16 e-8. o4 b-8. b-16 a-16 |
-      o4 a-2 r4 o3 a-16 b-16 o4 c16 d16 |
-      o4 e-8 e-4. o5 f16 f8. o4 f8 f8 |
-      o4 f8 f4. o5 g-8. o4 e-16 g-4 |
-      o4 g-8 g-4. g-8 g-8. g-8. |
-      o4 e-8 o5 f4 g-4&g-16 g-16 o4 e-4 |
-      o4 e-8. g-8 g-8. o5 f16 f8. o4 a-16 a-8. |
-      o4 a-16 a-4.&a-16 o5 g-16 g-8. b-16 b-8 g-16 |
-      o5 f8 g-16 g-8. g-16 g-8 f8 g-16 g-16 f16 f16 e-16 |
-      o5 e-8 d-16 o4 g-8. g-16 b-16 o5 e-16 f16 g-16 o4 e-4 e-16 |
-      o4 e-8. e-4. o5 f4 f8. |
-      o5 f16 f8 o4 a-16 f8. f8 o5 g-8 o4 a-8 g-8 g-16 |
-      o4 g-16 g-4 g-8 b-8 b-8 o5 e-4 e-16 |
-      o5 e-16 e-8. e-4 g-16 g-8 g-8 e-8. |
-      o5 e-16 e-8 g-8 e-4 e-8 f4 f16 |
-      o5 f4&f16 f8. f8 f8 e-8 e-8 |
-      o5 e-4&e-16 e-4 e-8 e-4 f16 |
-      o5 f2 r4 o4 g16 a-16 b-16 o5 c16 |
-      o5 d4 d8 d8 d8 d4 d8 |
-      o5 d16 o4 a8 a8 a16 o5 a8 f4.&f16 f16 |
-      o5 d8 d4 d4 d4&d16 d16 |
-      o5 d4&d16 d8. o4 b-8 o5 d8 f8. f16 |
-      o5 g4 g4&g16 g8 g8. g8 |
-      o5 f8 o4 a8 b-8 a4 a8 o5 e-16 e-16 f16 f16 |
-      o5 e-8 e-8. e-16 d8. d8. d8. d16 |
-      o5 d2.&d8 d8 |
-      o5 d16 d2&d8 d8 d8 d16 |
-      o4 a8 a16 o5 c16 c8. c8 c16 o4 b-16 a8 a8. |
-      o4 a16 o5 g4 g8. g8 g8 g4 |
-      o5 g4 g4 g4. g8 |
-      o5 g16 g8. g8. g2 g16 |
-      o5 g16 f4 f4 f8. b-8 b-16 a16 |
-      o5 a16 g8. g2&g8 g8 |
-      o5 g2 r4 o4 e-16 f16 g16 a-16 |
-      o4 b-4&b-16 b-8. b-4&b-16 a-16 a-16 d16 |
-      o4 d16 f16 b-16 b-4. b-8 b-4 b-16 |
-      o4 b-8 f16 f16 e-16 e-8 o3 b-16 o4 b-8. b-8 o5 g8 f16 |
-      o5 f8 f16 f8 g16 g8 e-16 e-8 e-16 o4 e-8 e-16 o5 e-16 |
-      o5 e-8 e-4&e-16 o4 b-8 b-8 o5 f8 g16 g16 f16 |
-      o5 f16 e-8 f8 g8 g16 e-16 e-4 e-8 e-16 |
-      o5 e-16 e-4. c8 f8 g16 c16 f16 f16 c16 |
-      o5 c16 o4 a-16 a-16 o5 c16 c8. c4 c8 f16 f8 |
-      o5 f8. f4&f16 g8 e-8 f16 o6 e-8 o4 b-16 |
-      o4 b-8. b-8 o5 e-8 o4 b-4&b-16 b-16 o5 e-8 e-16 |
-      o5 e-8 e-8 e-8 o3 b-4.&b-16 b-8 b-16 |
-      o3 b-8 b-8. o4 c8. c8 c4 c16 o5 e-16 |
-      o5 e-16 e-4&e-16 o4 b-8 o3 b-16 b-16 o4 b-8 b-8 b-8 |
-      o4 b-8 o5 e-16 f16 f16 e-16 g8. e-16 e-8 g8 e-16 e-16 |
-      o5 e-4. o4 e-4&e-16 e-8. o5 e-16 e-16 |
-      o5 e-16 o4 e-16 e-8 o5 c8 d4&d16 d8. f8 |
-      o5 f16 f8 f4 o3 b-8 o4 b-8. b-8. b-16 |
-      o4 b-4&b-16 b-16 o5 c16 c16 o4 c8 c4. |
-      o5 e-8 e-8. c16 o4 a-8 a-16 o5 e-16 c16 o4 a-8 a-16 o5 e-8 |
-      o5 e-8 c4&c16 o3 b-8 b-16 o4 b-4&b-16 b-16 |
-      o4 b-8 b-16 b-8. o5 f8. d16 d16 o4 b-4 b-16 |
-      o4 b-2 r4 e-16 f16 g16 a-16 |
-      o4 b-16 o6 e-8 o5 b-4 b-8. f16 f16 d8 d16 o4 b-16 |
-      o4 b-16 o6 e-16 e-8 d4 e-8. d16 d8 e-8 |
-      o6 e-8 e-16 o5 d16 d4 e-16 e-8 d16 d8. e-16 |
-      o6 e-16 e-8 d16 o5 b16 b8 o6 e-16 e-16 c8 d16 d16 g16 g16 o5 e-16 |
-      o5 e-16 e-8 g16 d8 e-8. e-8 o6 b-16 d8 e-16 e-16 |
-      o6 e-8. e-16 f16 f16 g16 g16 f16 f16 e-8 f16 f16 e-16 e-16 |
-      o5 g8 g8 b-16 b-16 o6 e-8 e-16 o5 b-8. b-16 b-8 o6 e-16 |
-      o6 e-16 o5 e-8 e-8 f8 g8 f4 f8 o6 e-16 |
-      o6 e-4 o5 b-8 b-16 e-16 e-16 b-8 g8 b-16 b-16 o6 e-16 |
-      o6 e-4 r8. o5 e-8. e-8 o4 b-8. b-16 |
-      o4 b-16 b-8 b-4 b-8 o5 g16 g4 g8 |
-      o5 g4 g8. g8 o4 b-4.&b-16 |
-      r8 o5 b-16 b-16 e-16 e-8 o6 g8 g8 o5 b-8 e-8. |
-      o5 e-16 g16 o4 b-2&b-8 b-8. b-16 |
-      o4 b-8. o5 g8. g4 g4 e-16 e-16 |
-      o5 e-16 e-16 b-8. g8. g8 b-16 o6 e-4&e-16 |
-      o6 e-2 r4 o3 b-16 o4 c16 d16 e-16 |`,
-    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.045, bass: 'drive', pad: true },
+    comment: '6面ボス・座敷 宿美のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
+    // 音声ファイルの曲（js/bgmfiles.js の BGM_FILES。tools/embed-audio.js で入れる）。
+    // 2.9.0 でユーザーの指定（2.5.0〜2.8.x は Lunatic の曲だった MP3。2.4.0〜2.8.x のほかの難易度は、もらった動画から作ったアレンジだった）
+    audio: 'boss6',
+    byDiff: { 3: 'boss6lunatic' }, // Lunatic のときは別の曲（2.7.0 でユーザーの指定。曲は 2.9.0 で入れかえた）
+    bpm: 120, vol: 0.92, // vol：ほかの曲と音の大きさをそろえる
   },
   boss6lunatic: {
     title: '座敷わらしの家運隆盛（Lunatic）',
     comment: '6面ボス・座敷 宿美のテーマ（難易度 Lunatic のとき。曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
-    // 音声ファイルの曲（js/bgmfiles.js の BGM_FILES。tools/embed-audio.js で入れる）。2.5.0 から、2.7.0 で Lunatic のときだけに
+    // 音声ファイルの曲。2.9.0 でユーザーの指定。93秒のところから最初へ戻る（そのあとの終わりの部分は流さない）
     audio: 'boss6lunatic',
-    bpm: 120, vol: 0.92, // vol：ほかの曲と音の大きさをそろえる
+    bpm: 166, vol: 0.83, // vol：ほかの曲と音の大きさをそろえる
   },
 
   stageEx: {
