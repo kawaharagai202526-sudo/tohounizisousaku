@@ -117,6 +117,7 @@ class PShot {
     this.r = kind === 'missile' ? 7 : 6;
     this.frame = 0;
     this.target = null;
+    this.turned = 0; // 誘導弾が曲がった角度の合計
   }
   update() {
     this.frame++;
@@ -124,9 +125,15 @@ class PShot {
       if (!this.target || !this.target.alive || this.target.untouchable) this.target = G.nearestTarget(this.x, this.y);
       const sp = 11;
       let a = Math.atan2(this.vy, this.vx);
-      if (this.target) {
+      // 合わせて1回転より多く曲がった弾は、目標のまわりを回っているので、追うのをやめてまっすぐ飛ばす（2.8.1）
+      if (this.target && this.turned < TAU) {
         const want = angleTo(this.x, this.y, this.target.x, this.target.y);
-        a += clamp(normAngle(want - a), -0.22, 0.22);
+        // 曲がれる角度は1フレームに 0.22 まで。ただし目標に近いほど鋭く曲がれる。
+        // 0.22 のままだと小回りが利かず（半径 50px）、目標のすぐ横を通った弾がそのまわりを回り続けていた
+        const lim = Math.min(0.8, Math.max(0.22, (sp / Math.max(1, dist(this.x, this.y, this.target.x, this.target.y))) * 1.3));
+        const da = clamp(normAngle(want - a), -lim, lim);
+        a += da;
+        this.turned += Math.abs(da);
       }
       this.vx = Math.cos(a) * sp;
       this.vy = Math.sin(a) * sp;

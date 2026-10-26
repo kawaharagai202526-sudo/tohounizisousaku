@@ -447,6 +447,32 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
   assert(r.all.endsWith(',5面,6面,Extra'), `面の一覧: ${r.all}`);
 });
 
+test('霊夢の誘導弾が目標のまわりを回り続けない', async ({ page }) => {
+  // 2.8.0 までは小回りが利かず、目標のすぐ横を通った誘導弾が、そのまわりを何秒も回り続けていた
+  const r = await page.evaluate(() => {
+    Game.setScene(new GameScene({ difficulty: 1, character: 'reimu', stage: 0, practice: true }));
+    const g = G;
+    g.tasks.clear(); // 道中は止めておく
+    g.cheat = true;
+    // 目標：画面の中央にいる、ボスと同じ大きさ（r 22）の倒れない敵（6面で座敷のまわりを回っていたときと同じ形）
+    const e = spawnEnemy({ x: FIELD_W / 2, y: 120, hp: 1e9, r: 22, keep: true, drops: {}, script: function* () { for (;;) yield; } });
+    // 目標から 50〜60px 離れたところを、目標のまわりを回る向き（右回り・左回り）に飛ぶ誘導弾
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 12) * TAU, d = 50 + (i % 3) * 5, dir = i < 12 ? 1 : -1;
+      const s = new PShot('homing', e.x + Math.cos(a) * d, e.y + Math.sin(a) * d, Math.cos(a + dir * Math.PI / 2) * 11, Math.sin(a + dir * Math.PI / 2) * 11, 0);
+      s.target = e;
+      g.shots.push(s);
+    }
+    let maxAge = 0;
+    for (let f = 0; f < 300; f++) {
+      Game.update();
+      for (const s of g.shots) if (s.kind === 'homing') maxAge = Math.max(maxAge, s.frame);
+    }
+    return { maxAge, left: g.shots.filter(s => s.kind === 'homing').length };
+  });
+  assert(r.left === 0 && r.maxAge < 150, `誘導弾が回り続けている（いちばん長く残った弾 ${r.maxAge} フレーム、残り ${r.left} 発）`);
+});
+
 test('エキストラの方違え（凶方へ動くと祟りがたまる）', async ({ page }) => {
   const r = await page.evaluate(() => {
     // 金神の「方違え知らず」で、凶方へ動く／反対へ動く／動かない
