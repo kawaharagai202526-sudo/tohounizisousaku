@@ -137,106 +137,149 @@ function* waitClear(timeout = 1200) {
 //  1面：一夜で古びた里 ― ボス：軒端 鬼乃（屋根の付喪神。本人は鬼のつもり）
 // ============================================================
 
+// 1面ボス：軒端 鬼乃（鬼瓦の付喪神）。2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作りかえた
+//   弾の見た目：瓦の欠片の弾（tile）、鬼の顔の大玉（鬼面弾 oni）、睨みの細いレーザー
+//   1面なので、ちょん避けと誘導の基本を覚える弾幕。生まれたてらしく、弾の間隔が少し不揃い
+//   流れ：通常1 → スペル1 → 通常2 → スペル2（Hard/Lunatic：→ 通常3 → スペル3）
 const NOKIBA_PHASES = [
   {
-    // 瓦を放り投げる：上へ投げた弾が、放物線を描いて落ちてくる
+    // 通常1：鬼面弾をゆっくり自機狙いで撃ち、そのまわりに瓦の小弾をばら撒く
     type: 'non', hp: 900, time: 30,
     *script(b) {
       yield 40;
       for (let loop = 0; ; loop++) {
-        const n = dv(4, 5, 7, 9);
+        const a = b.aim();
+        fire({ x: b.x, y: b.y, angle: a, speed: dv(1.3, 1.5, 1.8, 2.0), type: 'oni', color: 'orange' });
+        const n = dv(6, 8, 12, 16);
         for (let i = 0; i < n; i++) {
-          const a = -Math.PI / 2 + (i - (n - 1) / 2) * dv(0.32, 0.28, 0.24, 0.2) + rand(-0.05, 0.05);
           fire({
-            x: b.x, y: b.y, angle: a, speed: rand(2.4, 3.1), accel: -0.05, minSpeed: 0, ay: 0.045, maxFall: dv(1.9, 2.3, 2.7, 3.1),
-            type: 'rice', color: 'blue', silent: i > 0,
+            x: b.x, y: b.y, angle: a + rand(-1.0, 1.0), speed: rand(1.2, 2.2) * dv(0.85, 1, 1.1, 1.2),
+            type: 'tile', color: pick(['blue', 'purple', 'white']), silent: true, delay: randInt(6, 14),
           });
         }
-        yield 36;
-        fireRing({ x: b.x, y: b.y, n: dv(10, 14, 20, 26), angle: rand(TAU), speed: dv(1.4, 1.7, 2.0, 2.3), type: 'small', color: 'orange' });
-        yield 30;
-        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.6, type: 'ball', color: 'red' });
-        b.wander(60);
-        yield 50;
+        // 生まれたてらしく、間隔が少し不揃い
+        yield dv(70, 56, 44, 36) + randInt(-8, 8);
+        if (loop % 2) b.wander(60, 60);
       }
     },
   },
   {
-    // 焼きたての鬼瓦：大きな弾が止まって、火の粉の輪に割れる
-    type: 'spell', name: '瓦符「焼きたての鬼瓦」', hp: 1100, time: 40,
+    // 自機を「睨む」と細いレーザーで狙いの線が引かれ、一拍おいてその方向へ鬼面弾と瓦の弾の扇が飛ぶ。
+    // 横に少しずらすだけで避けられる（ちょん避けの練習）。Hard は2連続、Lunatic は3連続で、ときどき目を逸らすふりをして逆方向にも撃つ
+    type: 'spell', name: '瓦符「鬼瓦の睨み」', hp: 1000, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let loop = 0; ; loop++) {
-        const n = dv(2, 2, 3, 4), base = b.aim();
-        for (let i = 0; i < n; i++) {
+        const glares = dv(1, 1, 2, 3);
+        for (let k = 0; k < glares; k++) {
+          const a = b.aim();
+          fireLaser({ x: b.x, y: b.y, angle: a, length: 720, width: 4, warn: 34, dur: 8, color: 'red' });
+          yield 42;
+          const feint = DIFF >= 3 && loop % 3 === 2 && k === glares - 1;
+          for (const d of feint ? [a, a + Math.PI] : [a]) {
+            fire({ x: b.x, y: b.y, angle: d, speed: 2.4, type: 'oni', color: 'red' });
+            fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 9), spread: dv(0.9, 0.8, 0.75, 0.7), angle: d, speed: 2.1, type: 'tile', color: 'orange', silent: true });
+          }
+          yield dv(30, 24, 18, 14);
+        }
+        yield dv(60, 50, 40, 34);
+        b.wander(50, 50);
+      }
+    },
+  },
+  {
+    // 通常2：左右に揺れながら、瓦の弾を扇状に3連射する
+    type: 'non', hp: 1000, time: 30,
+    *script(b) {
+      yield 30;
+      for (let loop = 0; ; loop++) {
+        b.move(FIELD_W / 2 + (loop % 2 ? 1 : -1) * dv(60, 70, 80, 90), 90 + rand(-15, 15), 50);
+        yield 20;
+        for (let k = 0; k < 3; k++) {
+          fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: dv(1.0, 1.1, 1.2, 1.3), angle: b.aim(), speed: dv(1.8, 2.1, 2.4, 2.6) - k * 0.15, type: 'tile', color: ['blue', 'cyan', 'white'][k] });
+          yield dv(12, 10, 8, 7) + randInt(0, 4);
+        }
+        yield dv(50, 40, 32, 26);
+      }
+    },
+  },
+  {
+    // 画面の上から瓦が降ってきて、下の端（地面）に落ちると割れ、小弾になって上向きに跳ね返る。
+    // 降ってくる瓦より、割れたあとの跳ね返りに注意（下に張り付きすぎない）
+    type: 'spell', name: '屋符「屋根の上から失礼」', hp: 1100, time: 40,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 70, 40);
+      for (let f = 0; ; f++) {
+        if (f % dv(26, 20, 15, 12) === 0) {
           fire({
-            x: b.x, y: b.y, angle: base + (i - (n - 1) / 2) * 0.55, speed: 3.2, accel: -0.06, minSpeed: 0, type: 'large', color: 'orange',
+            x: rand(16, FIELD_W - 16), y: -10, angle: Math.PI / 2, speed: 0.6, ay: 0.03, maxFall: dv(2.2, 2.6, 3.0, 3.3),
+            type: 'tile', color: 'purple', scale: 1.6, hitR: 4.2, silent: true,
             script: function* (bl) {
-              yield 50;
-              fireRing({ x: bl.x, y: bl.y, n: dv(8, 10, 14, 18), angle: rand(TAU), speed: dv(1.3, 1.6, 1.9, 2.2), type: 'small', color: 'red', silent: true });
-              if (DIFF >= 2) fireRing({ x: bl.x, y: bl.y, n: 8, angle: rand(TAU), speed: 1.1, type: 'rice', color: 'orange', silent: true });
+              while (bl.y < FIELD_H - 6) yield;
+              const n = dv(3, 4, 6, 7);
+              for (let i = 0; i < n; i++) {
+                fire({ x: bl.x, y: FIELD_H - 8, angle: -Math.PI / 2 + rand(-0.9, 0.9), speed: rand(2.0, 3.0), ay: 0.05, maxFall: 2.4, type: 'small', color: 'blue', silent: true });
+              }
               Sound.se('tan');
               bl.alive = false;
             },
           });
         }
-        // 合間に舞う火の粉
-        for (let k = 0; k < 45; k++) {
-          if (k % dv(12, 9, 6, 5) === 0) fire({ x: b.x + rand(-20, 20), y: b.y, angle: Math.PI / 2 + rand(-0.7, 0.7), speed: rand(1.2, 2), type: 'dot', color: 'orange', silent: true });
-          yield;
-        }
-        if (loop % 2) b.wander(50, 60);
-        yield dv(54, 42, 32, 24);
-      }
-    },
-  },
-  {
-    // 軒のしずく：上から弾の雨が降る。すき間はゆっくり左右に動く
-    type: 'non', hp: 1000, time: 30,
-    *script(b) {
-      yield 30;
-      for (let f = 0; ; f++) {
-        const gapX = FIELD_W / 2 + Math.sin(f * 0.012) * 120;
-        if (f % dv(44, 36, 30, 24) === 0) {
-          for (let x = 12; x < FIELD_W; x += 32) {
-            if (Math.abs(x - gapX) < dv(84, 72, 60, 52)) continue;
-            fire({ x: x + rand(-4, 4), y: -6, angle: Math.PI / 2, speed: dv(1.4, 1.6, 1.8, 2.0), type: 'kunai', color: 'cyan', silent: true });
-          }
-          Sound.se('tan');
-        }
-        if (f % 70 === 35) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2.2, type: 'ball', color: 'blue' });
-        if (f % 140 === 139) b.wander(60, 50);
+        if (f % dv(100, 90, 70, 60) === 50) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.45, angle: b.aim(), speed: 2.2, type: 'ball', color: 'red' });
+        if (f % 240 === 200) b.wander(60, 50);
         yield;
       }
     },
   },
   {
-    // 反逆児：外へ飛んだ弾が、逆らうように向きを変えて戻ってくる
-    type: 'spell', name: '鬼符「軒下の反逆児」', hp: 1300, time: 45,
+    // 通常3（Hard/Lunatic）：鬼面弾を左右から交互に撃ち、間を瓦の小弾で埋める
+    type: 'non', hp: 1000, time: 30, minDiff: 2,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 110, 40);
+      yield 30;
       for (let loop = 0; ; loop++) {
-        const n = dv(12, 16, 22, 30), off = rand(TAU), dir = loop % 2 ? 1 : -1;
-        Sound.se('kira');
-        for (let i = 0; i < n; i++) {
-          fire({
-            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 3.4, accel: -0.08, minSpeed: 0,
-            type: 'ball', color: loop % 2 ? 'red' : 'dark', silent: true,
-            script: function* (bl) {
-              yield 45;
-              bl.angle += Math.PI + dir * 0.35;
-              bl.accel = 0.03;
-              bl.maxSpeed = dv(1.2, 1.5, 1.9, 2.3);
-            },
-          });
+        const sx = FIELD_W / 2 + (loop % 2 ? 1 : -1) * 150, sy = 40;
+        fire({ x: sx, y: sy, angle: aimAt(sx, sy), speed: 1.9, type: 'oni', color: 'red', delay: 24 });
+        for (let k = 0; k < dv(6, 8, 10, 14); k++) {
+          fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.1, 1.1), speed: rand(1.4, 2.4), type: 'tile', color: 'blue', silent: true });
+          if (k % 2) yield 3;
         }
-        yield 24;
-        for (let k = 0; k < dv(1, 2, 2, 3); k++) {
-          fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.8, type: 'rice', color: 'orange' });
-          yield 12;
+        yield dv(44, 40, 34, 28);
+      }
+    },
+  },
+  {
+    // 瓦の弾を並べて画面に「境界線」を引く。線は少しずつ自機の側へ迫り、いられる範囲がだんだん狭くなる。
+    // 線の向こうからは鬼面弾が撃ちこまれる。線の継ぎ目は一定間隔で開くので、そこを抜けて向こう側へ出ると楽になる
+    type: 'spell', name: '縄符「ここから先は私の縄張り」', hp: 1200, time: 45, minDiff: 2,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      const step = 16, xs = [];
+      for (let x = step / 2; x < FIELD_W; x += step) xs.push(x);
+      const line = xs.map(() => null);
+      let lineY = 120, gap = -1, gapUntil = 0;
+      for (let f = 0; ; f++) {
+        lineY = Math.min(FIELD_H - 110, lineY + dv(0.12, 0.14, 0.16, 0.2));
+        // 継ぎ目：一定間隔で、どこか1か所が開く
+        if (f % 150 === 0) { gap = randInt(2, xs.length - 5); gapUntil = f + dv(90, 80, 70, 60); }
+        if (f >= gapUntil) gap = -1;
+        xs.forEach((x, i) => {
+          const open = gap >= 0 && i >= gap && i < gap + 3;
+          const bl = line[i];
+          if (open) {
+            if (bl && bl.alive) { bl.alive = false; Fx.cancel(bl.x, bl.y, bl.color); }
+            line[i] = null;
+            return;
+          }
+          if (!bl || !bl.alive) line[i] = fire({ x, y: lineY, speed: 0, type: 'tile', color: 'orange', silent: true, delay: 10 });
+          else bl.y = lineY + Math.sin(f * 0.08 + i * 0.6) * 1.5;
+        });
+        // 線の向こうから鬼面弾を撃ちこむ
+        if (f % dv(80, 70, 56, 44) === 30) {
+          const sx = rand(40, FIELD_W - 40);
+          fire({ x: sx, y: lineY - 50, angle: aimAt(sx, lineY - 50), speed: 1.7, type: 'oni', color: 'red', delay: 20 });
         }
-        yield dv(84, 68, 54, 42);
-        b.wander(60, 60);
+        if (f % 60 === 0) fireFan({ x: b.x, y: b.y, n: 5, spread: 1.2, angle: Math.PI / 2, speed: 1.6, type: 'tile', color: 'blue', silent: true });
+        yield;
       }
     },
   },

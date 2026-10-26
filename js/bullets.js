@@ -34,9 +34,10 @@ class Bullet {
     this.sprite = getBulletSprite(this.type, this.color);
     this.size = def.size * (o.scale || 1);
     this.additive = !!def.additive;
-    this.rotates = !!def.rotate;
+    // noRotate：進行方向を向く弾でも、最初の向き（angle）のまま回さない（落ちてくる梁など）
+    this.rotates = !!def.rotate && !o.noRotate;
     this.spin = def.spin ? def.spin * (Math.random() < 0.5 ? -1 : 1) : 0;
-    this.rot = this.rotates ? this.angle : Math.random() * TAU;
+    this.rot = def.rotate ? this.angle : Math.random() * TAU;
     this.delay = this.delayMax = o.delay ?? 8;
     this.frame = 0;
     this.life = o.life || 0;
@@ -100,10 +101,11 @@ class Bullet {
 class BulletManager {
   constructor() {
     this.list = [];
-    this.pool = [];
   }
+  // 弾は使い回さない（2.8.0）。攻撃のなかで弾を覚えておいて、あとで alive を見て動かすことが多いので、
+  // 消えた弾が別の弾として生き返ると、関係のない弾を動かしてしまう
   spawn(o) {
-    const b = (this.pool.pop() || new Bullet()).init(o);
+    const b = new Bullet().init(o);
     this.list.push(b);
     return b;
   }
@@ -115,7 +117,7 @@ class BulletManager {
     for (let i = 0; i < list.length; i++) {
       const b = list[i];
       if (b.alive) list[j++] = b;
-      else { b.script = null; this.pool.push(b); }
+      else b.script = null;
     }
     list.length = j;
   }
@@ -184,6 +186,7 @@ class Laser {
     this.angVel = o.angVel || 0;
     this.angVelWarn = o.angVelWarn ?? this.angVel;
     this.follow = o.follow || null;
+    this.silent = !!o.silent; // 光るときの音を鳴らさない（通り道の予告の線など）
     this.frame = 0;
     this.alive = true;
     this.grazeCd = 0;
@@ -199,7 +202,7 @@ class Laser {
     this.frame++;
     this.angle += this.frame < this.warn ? this.angVelWarn : this.angVel;
     if (this.follow) this.follow(this);
-    if (this.frame === this.warn) Sound.se('laser');
+    if (this.frame === this.warn && !this.silent) Sound.se('laser');
     if (this.frame >= this.warn + this.dur + this.fadeOut) this.alive = false;
     if (this.grazeCd > 0) this.grazeCd--;
   }

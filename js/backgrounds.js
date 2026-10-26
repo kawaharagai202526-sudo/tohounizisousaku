@@ -1249,6 +1249,106 @@ class RubbleSkyBG {
 }
 
 // ------------------------------------------------------------
+//  エキストラ：方位の果て（2.8.0）
+//  はじめは崩れた屋敷の瓦礫の空（6面と同じ RubbleSkyBG）。中ボスのあと event('compass') で、
+//  金色の方位盤がゆっくり回る異界に変わる（'compassNow' ですぐ変わる。ボス戦から始めるとき）
+// ------------------------------------------------------------
+
+// 方位盤（同心円・八方の線・十二支の文字・八卦の印）。lit：光らせる十二支の番号
+function drawCompassDisc(ctx, cx, cy, r, rot, alpha, lit = null) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.strokeStyle = `rgba(255,214,120,${alpha})`;
+  ctx.lineWidth = 2;
+  for (const k of [0.22, 0.5, 0.62, 0.86, 1]) { ctx.beginPath(); ctx.arc(0, 0, r * k, 0, TAU); ctx.stroke(); }
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * TAU, r0 = i % 3 === 0 ? r * 0.22 : r * 0.5;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62); ctx.stroke();
+  }
+  // 八卦の印（三本の線。ここでは長短の線の組み合わせだけを模様として描く）
+  for (let i = 0; i < 8; i++) {
+    ctx.save();
+    ctx.rotate((i / 8) * TAU);
+    ctx.translate(0, -r * 0.36);
+    ctx.fillStyle = `rgba(255,214,120,${alpha * 1.2})`;
+    for (let j = 0; j < 3; j++) {
+      const broken = (i >> j) & 1, y = j * 7 - 7, w = r * 0.13;
+      if (broken) { ctx.fillRect(-w, y, w * 0.8, 3); ctx.fillRect(w * 0.2, y, w * 0.8, 3); } else ctx.fillRect(-w, y, w * 2, 3);
+    }
+    ctx.restore();
+  }
+  // 十二支
+  ctx.font = `700 ${Math.round(r * 0.11)}px ${FONT_JP}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ZODIAC_SIGNS.forEach((ch, i) => {
+    const a = -Math.PI / 2 + (i / 12) * TAU, x = Math.cos(a) * r * 0.74, y = Math.sin(a) * r * 0.74;
+    if (lit === i) {
+      ctx.fillStyle = `rgba(255,120,60,${Math.min(0.4, alpha * 1.4)})`;
+      ctx.beginPath(); ctx.arc(x, y, r * 0.1, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = `rgba(255,226,150,${Math.min(1, alpha * (lit === i ? 4 : 1.6))})`;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a + Math.PI / 2); ctx.fillText(ch, 0, 0); ctx.restore();
+  });
+  ctx.restore();
+}
+
+class CompassRealmBG {
+  constructor() {
+    this.rubble = new RubbleSkyBG();
+    this.t = 0;
+    this.shift = 0; // 0：瓦礫の空 → 1：方位盤の異界
+    this.fog = makeFogTile(FIELD_W, 448, 10, 0.07, 81, '255,200,120');
+    this.cards = [];
+    for (let i = 0; i < 18; i++) this.cards.push({ x: frand(FIELD_W), y: frand(FIELD_H), v: frand(0.6, 1.6), r: frand(TAU), vr: frand(-0.02, 0.02), s: frand(0.6, 1.1) });
+  }
+  event(name) {
+    if (name === 'compass' && this.shift === 0) this.shift = 0.001;
+    if (name === 'compassNow') this.shift = 1;
+  }
+  update() {
+    this.t++;
+    if (this.shift < 1) this.rubble.update();
+    if (this.shift > 0 && this.shift < 1) this.shift = Math.min(1, this.shift + 1 / 200);
+    if (this.shift > 0) for (const c of this.cards) { c.y += c.v; c.r += c.vr; if (c.y > FIELD_H + 20) { c.y = -20; c.x = frand(FIELD_W); } }
+  }
+  draw(ctx) {
+    if (this.shift < 1) this.rubble.draw(ctx);
+    if (this.shift <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = Ease.inOutQuad(this.shift);
+    const g = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+    g.addColorStop(0, '#0c0a1e');
+    g.addColorStop(0.5, '#2a1830');
+    g.addColorStop(1, '#4a2a1a');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    // 遠くの大きな方位盤と、手前の小さな方位盤（逆向きに回る）
+    drawCompassDisc(ctx, FIELD_W / 2, 200, 300, this.t * 0.0012, 0.16, G && G.boss && G.boss.zodiacLit);
+    drawCompassDisc(ctx, FIELD_W / 2, 200, 130, -this.t * 0.003, 0.12);
+    drawScrollingTile(ctx, this.fog, this.t * 0.5, 0.9);
+    // 流れていく金色の札
+    for (const c of this.cards) {
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      ctx.rotate(c.r);
+      ctx.scale(c.s, c.s);
+      ctx.fillStyle = 'rgba(255,214,120,0.22)';
+      ctx.fillRect(-5, -9, 10, 18);
+      ctx.fillStyle = 'rgba(200,60,40,0.25)';
+      ctx.fillRect(-2, -6, 4, 12);
+      ctx.restore();
+    }
+    // 弾が見やすいように、少し暗くする
+    ctx.fillStyle = 'rgba(8,4,16,0.3)';
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    ctx.restore();
+  }
+}
+
+// ------------------------------------------------------------
 //  スペルカード背景（ボスの bosses の def.spellBg で選ぶ）
 // ------------------------------------------------------------
 function drawSpellBG(ctx, kind, t) {
@@ -1428,6 +1528,26 @@ function drawSpellBG(ctx, kind, t) {
         for (const s of [-1, 1]) {
           ctx.beginPath(); ctx.ellipse(x + s * 7 * flap, y - 3, 8 * flap, 6, s * 0.4, 0, TAU); ctx.fill();
         }
+      }
+      break;
+    }
+    case 'konjin': {
+      // エキストラ・金神：回る方位盤（十二支方位盤では、いま撃ってくる干支が光る）
+      const g = ctx.createRadialGradient(FIELD_W / 2, 200, 20, FIELD_W / 2, 200, 420);
+      g.addColorStop(0, '#5a3410');
+      g.addColorStop(0.5, '#2a1424');
+      g.addColorStop(1, '#0c0812');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+      drawCompassDisc(ctx, FIELD_W / 2, 200, 250, t * 0.004, 0.3, G && G.boss && G.boss.zodiacLit);
+      drawCompassDisc(ctx, FIELD_W / 2, 200, 110, -t * 0.008, 0.22);
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 14; i++) {
+        const a = 0.25 + 0.25 * Math.sin(t * 0.06 + i * 2.1);
+        const x = (i * 83.3 + t * 0.2) % FIELD_W, y = (i * 61.7 + t * (0.5 + (i % 3) * 0.2)) % FIELD_H;
+        ctx.fillStyle = `rgba(255,210,110,${a})`;
+        ctx.fillRect(x - 0.5, y - 5, 1, 10);
+        ctx.fillRect(x - 5, y - 0.5, 10, 1);
       }
       break;
     }

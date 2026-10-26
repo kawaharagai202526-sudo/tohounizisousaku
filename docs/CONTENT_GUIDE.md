@@ -119,8 +119,14 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
   - `type: 'spell'` がスペルカード（名前とカットインが出る）、`survival: true` は時間切れまで耐える攻撃
   - `minDiff` を付けると、その難易度以上だけに出る（例：`minDiff: 2` は Hard と Lunatic）
 - 弾は `fire` / `fireRing` / `fireFan`（js/bullets.js）。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)`
+- 弾の形は js/sprites.js の `BTYPES`、色は `BCOL`。2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」に合わせて
+  瓦 `tile`・鬼の顔 `oni`・虫 `bug`・湯呑み `cup`・針 `needle`・札 `card`・小判 `koban`・手鞠 `temari`・足跡 `foot`・餅 `mochi`・小鬼 `kobun`・
+  瓦礫 `rubble`・十二支の印 `zodiac0`〜`zodiac11` と、色 `gold`・`brown`・`soot` を足した
+- 弾は使い回さない（2.8.0）。攻撃の中で弾を覚えておき、あとで `alive` を見て動かしたり消したりしてよい
+- 1〜6面のボスとエキストラのスペルカードは、資料「化物屋敷異変 スペルカード・弾幕案」をもとにしている（2.8.0）。
+  それぞれの攻撃のコメントに、資料の「弾幕」「避け方」「テーマ」を短く書いてある
 - スペルカードの背景は js/backgrounds.js の `drawSpellBG`（ボスの `def.spellBg` で選ぶ）
-- ステージの背景は js/backgrounds.js のクラス（1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`・4面 `RoomsBG`・5面 `CollapseBG`）。
+- ステージの背景は js/backgrounds.js のクラス（1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`・4面 `RoomsBG`・5面 `CollapseBG`・6面 `RubbleSkyBG`・エキストラ `CompassRealmBG`）。
   `update()` と `draw(ctx)` を持ち、ステージの `bg` に書く。会話の `{ event }` を受けるときは `event(名前)` も書く
 - 道中の敵の出し方は各ステージの `script(g)`。`yield n` で n フレーム待つ
 
@@ -146,13 +152,13 @@ index.html?stage=2&phase=1&only=1
 
 ## 面の数とエキストラステージ
 
-本編は全6面＋エキストラステージ。本編の6面はそろっている（2.1.0）。エキストラのしくみはあるが、面はまだない。
+本編は全6面＋エキストラステージ。本編の6面はそろっている（2.1.0）。エキストラの面は 2.8.0 で作った（js/extra.js。ボスは金神）。
 
 | もの | 場所 | ひとこと |
 | --- | --- | --- |
 | 本編の面の数 | js/game.js の `MAIN_STAGE_COUNT`（6） | プラクティスはこの数だけ並び、まだない面は「準備中」で選べない |
 | 本編の面 | `STAGES`（js/stage1〜6.js） | 最後の面（6面）をクリアするとエンディング |
-| エキストラステージ | js/game.js の `EXTRA_STAGES`（いまは空） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
+| エキストラステージ | js/game.js の `EXTRA_STAGES`（js/extra.js が足す） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
 | 解放の条件 | js/game.js の `EXTRA_UNLOCK` | いまは Normal 以上・コンティニューなしで、本編の最後（6面）をクリア |
 | 解放したかどうか | 保存データ `extraUnlocked` | 管理者ページのデータベースで見られる |
 
@@ -173,7 +179,15 @@ index.html?stage=2&phase=1&only=1
 4. ボスの攻撃は `index.html?stage=extra&phase=2` か、`?boss=ボスのID` ですぐ試せる
 5. エキストラのハイスコアは難易度 4（Extra）として `hi_4_自機のID` に保存される
 
-テストの「本編6面とエキストラステージのしくみ」は、まだない面（いまは6面）とエキストラを仮に足して、解放の条件と流れを確かめている。
+テストの「本編6面とエキストラステージのしくみ」は、本物のエキストラの面をいったん外し、仮の面を足して、解放の条件と流れを確かめている。
+
+### エキストラの方違え（凶方）
+
+js/extra.js の `setKyou(g, 方角, { next, power })` で凶方を決める。方角は八方の番号（0 北・1 北東・2 東 … 7 北西。北が画面の上）、
+`'boss'`（金神のいる方角）、`'all'`（四方塞がり。どこへ動いても凶）、`null`（なし）。`next` は次の凶方（方位盤で予告する）。
+`g.kyou` があると、毎フレーム `updateKyou` が自機の動きを見て祟り（`meter`）をため、凶方の画面の端から祟りの弾を撃つ。
+画面の左下の方位盤（`drawKyouDial`）と、凶方の端の赤い光（`drawKyouEdge`）で知らせる。面が終わるとき `g.kyou = null` にする。
+資料では凶方へ動くと家運ゲージも減ることになっているが、家運システムはまだ作っていない
 
 ## ストーリー
 

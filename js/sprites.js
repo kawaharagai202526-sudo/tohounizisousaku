@@ -16,6 +16,10 @@ const BCOL = {
   pink: { rim: '#ff5ad2', core: '#ffffff' },
   white: { rim: '#c8c8e0', core: '#ffffff' },
   dark: { rim: '#e8286e', core: '#14000a' },
+  // 2.8.0 で足した色：金（福の神・方位神）、茶（古びた弾）、煤（黒い煙の粒）
+  gold: { rim: '#ffc828', core: '#fffbe2' },
+  brown: { rim: '#b27a42', core: '#fff0d8' },
+  soot: { rim: '#8c8498', core: '#16121c' },
 };
 const BCOLOR_NAMES = Object.keys(BCOL);
 
@@ -133,6 +137,197 @@ const BTYPES = {
     },
   },
 };
+
+// 2.8.0 で足した弾（資料「化物屋敷異変 スペルカード・弾幕案」の見た目）
+Object.assign(BTYPES, {
+  // 瓦の欠片（反りのある小さな瓦）
+  tile: {
+    size: 18, hitR: 2.8, rotate: true,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.ellipse(0, 0, 8.5, 5.5, 0, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.moveTo(-7, -3); c.quadraticCurveTo(0, -7, 7, -3); c.lineTo(7, 3); c.quadraticCurveTo(0, -1, -7, 3); c.closePath(); c.fill();
+      c.fillStyle = hexA(col.core, 0.85);
+      c.beginPath(); c.moveTo(-5, -2.6); c.quadraticCurveTo(0, -5.4, 5, -2.6); c.lineTo(5, -1); c.quadraticCurveTo(0, -3.6, -5, -1); c.closePath(); c.fill();
+    },
+  },
+  // 鬼面弾（鬼の顔の大玉）
+  oni: {
+    size: 46, hitR: 9.5,
+    draw: (c, col) => {
+      radialOrb(c, 21, col, 0.5);
+      c.fillStyle = 'rgba(30,8,8,0.85)';
+      // 角
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 6, -10); c.lineTo(s * 11, -19); c.lineTo(s * 12, -8); c.closePath(); c.fill(); }
+      // 眉と目（にらみ）
+      c.lineWidth = 2.2; c.strokeStyle = 'rgba(30,8,8,0.9)';
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 2, -5); c.lineTo(s * 10, -8); c.stroke(); }
+      c.fillStyle = '#fff6c0';
+      for (const s of [-1, 1]) { c.beginPath(); c.ellipse(s * 6, -2, 3, 2.2, s * 0.3, 0, TAU); c.fill(); }
+      c.fillStyle = '#200404';
+      for (const s of [-1, 1]) { c.beginPath(); c.arc(s * 6, -2, 1.2, 0, TAU); c.fill(); }
+      // 口と牙
+      c.fillStyle = 'rgba(30,8,8,0.9)';
+      c.beginPath(); c.ellipse(0, 7, 8, 4, 0, 0, TAU); c.fill();
+      c.fillStyle = '#fffbe8';
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 5, 4); c.lineTo(s * 3.5, 8); c.lineTo(s * 2, 4); c.closePath(); c.fill(); }
+    },
+  },
+  // 虫（群れで動く小さな虫）
+  bug: {
+    size: 16, hitR: 2.6, rotate: true,
+    draw: (c, col) => {
+      c.strokeStyle = hexA(col.rim, 0.9); c.lineWidth = 1;
+      for (const k of [-3, 0, 3]) { c.beginPath(); c.moveTo(k, -2); c.lineTo(k - 1, -6); c.moveTo(k, 2); c.lineTo(k - 1, 6); c.stroke(); }
+      c.fillStyle = hexA(col.rim, 0.4);
+      c.beginPath(); c.ellipse(0, 0, 7.5, 4.6, 0, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.ellipse(-1, 0, 5.5, 3.4, 0, 0, TAU); c.fill();
+      c.beginPath(); c.arc(5, 0, 2.2, 0, TAU); c.fill();
+      c.fillStyle = hexA(col.core, 0.8);
+      c.beginPath(); c.ellipse(-2, -1, 2.6, 1.1, 0, 0, TAU); c.fill();
+    },
+  },
+  // 湯呑み
+  cup: {
+    size: 20, hitR: 3.6,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.ellipse(0, 0, 9, 9, 0, 0, TAU); c.fill();
+      c.fillStyle = '#f4ecdc';
+      c.beginPath(); c.moveTo(-6.5, -5); c.lineTo(6.5, -5); c.lineTo(5, 6); c.lineTo(-5, 6); c.closePath(); c.fill();
+      c.fillStyle = col.rim;
+      c.fillRect(-6.2, -1.5, 12.4, 3.2);
+      c.fillStyle = '#5a7a3a';
+      c.beginPath(); c.ellipse(0, -5, 6.5, 1.8, 0, 0, TAU); c.fill();
+      c.strokeStyle = 'rgba(60,40,20,0.6)'; c.lineWidth = 0.8;
+      c.beginPath(); c.ellipse(0, -5, 6.5, 1.8, 0, 0, TAU); c.stroke();
+    },
+  },
+  // 細い針（茶柱・金の針）
+  needle: {
+    size: 22, hitR: 2.0, rotate: true,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.ellipse(0, 0, 10.5, 2.8, 0, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.moveTo(10, 0); c.lineTo(-8, -1.6); c.lineTo(-9.5, 0); c.lineTo(-8, 1.6); c.closePath(); c.fill();
+      c.strokeStyle = col.core; c.lineWidth = 0.9;
+      c.beginPath(); c.moveTo(-6, 0); c.lineTo(8, 0); c.stroke();
+    },
+  },
+  // 表札の札（木の板に名前）
+  card: {
+    size: 22, hitR: 3.0, rotate: true,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.4);
+      c.fillRect(-9.5, -6, 19, 12);
+      c.fillStyle = '#c99a62';
+      c.fillRect(-8, -4.8, 16, 9.6);
+      c.strokeStyle = col.rim; c.lineWidth = 1.4;
+      c.strokeRect(-8, -4.8, 16, 9.6);
+      c.fillStyle = 'rgba(40,24,10,0.85)';
+      for (const x of [-4, 0, 4]) c.fillRect(x - 1.2, -1, 2.4, 2);
+    },
+  },
+  // 小判（福アイテムと見まちがえないよう、楕円で縁を光らせる）
+  koban: {
+    size: 22, hitR: 3.6,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.ellipse(0, 0, 10, 7, 0, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.ellipse(0, 0, 8, 5.6, 0, 0, TAU); c.fill();
+      c.strokeStyle = hexA(col.core, 0.85); c.lineWidth = 0.9;
+      for (const y of [-2.5, 0, 2.5]) { c.beginPath(); c.moveTo(-5, y); c.lineTo(5, y); c.stroke(); }
+      c.strokeStyle = 'rgba(80,50,0,0.6)';
+      c.beginPath(); c.ellipse(0, 0, 8, 5.6, 0, 0, TAU); c.stroke();
+    },
+  },
+  // 手鞠
+  temari: {
+    size: 26, hitR: 5.2, spin: 0.06,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.arc(0, 0, 12, 0, TAU); c.fill();
+      c.fillStyle = '#fff6ee';
+      c.beginPath(); c.arc(0, 0, 10, 0, TAU); c.fill();
+      c.strokeStyle = col.rim; c.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { c.save(); c.rotate((k * Math.PI) / 3); c.beginPath(); c.ellipse(0, 0, 10, 4, 0, 0, TAU); c.stroke(); c.restore(); }
+      c.strokeStyle = '#3a6ad8'; c.lineWidth = 1.2;
+      c.beginPath(); c.arc(0, 0, 10, 0, TAU); c.stroke();
+    },
+  },
+  // 足跡
+  foot: {
+    size: 20, hitR: 3.0, rotate: true,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.ellipse(0, 0, 9, 6, 0, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.ellipse(-1.5, 0, 5.5, 3.6, 0, 0, TAU); c.fill();
+      for (const [x, y] of [[5, -3], [6.5, -1], [7, 1], [6.5, 3]]) { c.beginPath(); c.arc(x, y, 1.2, 0, TAU); c.fill(); }
+      c.fillStyle = hexA(col.core, 0.8);
+      c.beginPath(); c.ellipse(-2, -1, 2.5, 1.2, 0, 0, TAU); c.fill();
+    },
+  },
+  // 餅（上棟式の餅撒き）
+  mochi: {
+    size: 40, hitR: 9,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.3);
+      c.beginPath(); c.ellipse(0, 1, 18, 15, 0, 0, TAU); c.fill();
+      c.fillStyle = '#fbf8f0';
+      c.beginPath(); c.ellipse(0, 1, 15, 12, 0, 0, TAU); c.fill();
+      c.fillStyle = 'rgba(180,190,220,0.45)';
+      c.beginPath(); c.ellipse(2, 5, 12, 7, 0, 0, Math.PI); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.arc(0, -1, 2.6, 0, TAU); c.fill();
+    },
+  },
+  // 子分の家鳴（小鬼）
+  kobun: {
+    size: 22, hitR: 4,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.arc(0, 1, 10, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.arc(0, 2, 7, 0, TAU); c.fill();
+      for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 3, -3); c.lineTo(s * 6, -9); c.lineTo(s * 6.5, -2); c.closePath(); c.fill(); }
+      c.fillStyle = '#fff8e0';
+      for (const s of [-1, 1]) { c.beginPath(); c.arc(s * 2.6, 1, 1.6, 0, TAU); c.fill(); }
+      c.fillStyle = '#100008';
+      for (const s of [-1, 1]) { c.beginPath(); c.arc(s * 2.6, 1.2, 0.8, 0, TAU); c.fill(); }
+    },
+  },
+  // 瓦礫（木片や崩れた壁のかけら）
+  rubble: {
+    size: 20, hitR: 3.4, spin: 0.08,
+    draw: (c, col) => {
+      c.fillStyle = hexA(col.rim, 0.35);
+      c.beginPath(); c.arc(0, 0, 9, 0, TAU); c.fill();
+      c.fillStyle = col.rim;
+      c.beginPath(); c.moveTo(-6, -4); c.lineTo(1, -7); c.lineTo(7, -2); c.lineTo(5, 5); c.lineTo(-2, 6); c.lineTo(-7, 2); c.closePath(); c.fill();
+      c.strokeStyle = hexA(col.core, 0.7); c.lineWidth = 1;
+      c.beginPath(); c.moveTo(-3, -3); c.lineTo(3, 2); c.stroke();
+    },
+  },
+});
+// 十二支の印の大玉（zodiac0〜zodiac11。子・丑・寅…）
+const ZODIAC_SIGNS = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+ZODIAC_SIGNS.forEach((ch, i) => {
+  BTYPES['zodiac' + i] = {
+    size: 42, hitR: 9,
+    draw: (c, col) => {
+      radialOrb(c, 19, col, 0.55);
+      c.fillStyle = 'rgba(60,30,0,0.85)';
+      c.font = `700 15px ${FONT_JP}`;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(ch, 0, 1);
+    },
+  };
+});
 
 const spriteCache = new Map();
 function getBulletSprite(type, color) {

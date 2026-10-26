@@ -368,18 +368,31 @@ class StageSelectScene {
 // ------------------------------------------------------------
 //  ミュージックルーム
 // ------------------------------------------------------------
+// 曲が多いので、一度に MUSIC_ROOM_ROWS 曲ずつ見せて、選んでいる曲に合わせて送る（2.8.0）
+const MUSIC_ROOM_ROWS = 7;
 class MusicRoomScene {
   constructor() {
     this.sel = Math.max(0, MUSIC_ROOM.indexOf(Sound.songId));
+    this.top = 0;
     this.frame = 0;
     this.rects = [];
+    this.scrollTo();
+  }
+  // 選んでいる曲が見える位置まで一覧を送る
+  scrollTo() {
+    this.top = clamp(this.top, this.sel - MUSIC_ROOM_ROWS + 1, this.sel);
+    this.top = clamp(this.top, 0, Math.max(0, MUSIC_ROOM.length - MUSIC_ROOM_ROWS));
   }
   update() {
     this.frame++;
     menuBG().update();
     this.sel = menuMove(this.sel, MUSIC_ROOM.length);
+    // ▲▼をタップすると一覧を送る
+    if (Input.tapIn(60, 80, 320, 22) && this.top > 0) { this.top--; this.sel = Math.min(this.sel, this.top + MUSIC_ROOM_ROWS - 1); Sound.se('cursor'); }
+    if (Input.tapIn(60, 306, 320, 22) && this.top + MUSIC_ROOM_ROWS < MUSIC_ROOM.length) { this.top++; this.sel = Math.max(this.sel, this.top); Sound.se('cursor'); }
     const tap = menuTapIndex(this.rects);
-    if (tap >= 0) this.sel = tap;
+    if (tap >= 0) this.sel = this.top + tap;
+    this.scrollTo();
     if (Input.pressed('shot') || tap >= 0) {
       Sound.se('ok');
       Sound.playBgm(MUSIC_ROOM[this.sel]);
@@ -394,7 +407,14 @@ class MusicRoomScene {
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     drawHeading(ctx, 'ミュージックルーム', 'Music Room');
     const items = MUSIC_ROOM.map((id, i) => `${String(i + 1).padStart(2, '0')}. ${SONGS[id].title}` + (Sound.songId === id ? '  ♪' : ''));
-    this.rects = drawMenuList(ctx, items, this.sel, 70, 110, 30, { size: 16, hitW: 500 });
+    const shown = items.slice(this.top, this.top + MUSIC_ROOM_ROWS);
+    this.rects = drawMenuList(ctx, shown, this.sel - this.top, 70, 112, 30, { size: 16, hitW: 500 });
+    // まだ上や下に曲があるときの印
+    ctx.textAlign = 'left';
+    ctx.font = `12px ${FONT_JP}`;
+    ctx.fillStyle = `rgba(255,224,138,${0.6 + 0.4 * Math.sin(this.frame * 0.1)})`;
+    if (this.top > 0) ctx.fillText('▲', 74, 92);
+    if (this.top + MUSIC_ROOM_ROWS < MUSIC_ROOM.length) ctx.fillText('▼', 74, 318);
     const song = SONGS[MUSIC_ROOM[this.sel]];
     ctx.fillStyle = 'rgba(16,10,40,0.75)';
     ctx.fillRect(60, 330, 520, 110);

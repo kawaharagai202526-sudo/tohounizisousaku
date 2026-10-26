@@ -101,6 +101,13 @@ class Enemy {
         break;
       }
       case 'bug': drawBeetle(ctx, this.frame, this.angle, this.phase); break;
+      // 2.8.0：撃ち落とせる弾のような敵（4面の餅・5面の子分の家鳴）と、6面の瓦礫の陰
+      case 'mochi': ctx.drawImage(getBulletSprite('mochi', this.color), -20, -20, 40, 40); break;
+      case 'kobun':
+        ctx.translate(0, Math.abs(Math.sin(this.frame * 0.15)) * -3);
+        ctx.drawImage(getBulletSprite('kobun', this.color), -15, -15, 30, 30);
+        break;
+      case 'decoy': drawRubblePile(ctx, 0); break;
       case 'pillar': drawPillar(ctx, this.frame, this.side || 1); break;
       case 'paper': drawPaperScrap(ctx, this.frame, this.phase, this.angle); break;
       case 'hand':
@@ -140,6 +147,21 @@ function drawRoofTile(ctx) {
   ctx.strokeStyle = 'rgba(20,24,34,0.9)';
   ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(-4, -9); ctx.lineTo(-5, 6); ctx.moveTo(4, -9); ctx.lineTo(5, 6); ctx.stroke();
+}
+
+// 瓦礫の山（6面の隠れ鬼で、ボスが陰に隠れる。ボスと見分けがつかないように、どれも同じ形）
+function drawRubblePile(ctx, seed) {
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(2, 10, 24, 7, 0, 0, TAU); ctx.fill();
+  const r = k => 0.5 + 0.5 * Math.sin(seed * 7.1 + k * 3.7);
+  ctx.fillStyle = '#5a4a3e';
+  ctx.beginPath(); ctx.moveTo(-24, 10); ctx.lineTo(-16, -6 - r(1) * 6); ctx.lineTo(-4, -12 - r(2) * 6); ctx.lineTo(8, -8 - r(3) * 6); ctx.lineTo(20, -2); ctx.lineTo(24, 10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7a6656';
+  ctx.beginPath(); ctx.moveTo(-14, 6); ctx.lineTo(-8, -6 - r(4) * 4); ctx.lineTo(4, -4); ctx.lineTo(10, 6); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#4a5468';
+  ctx.save(); ctx.translate(12, -2); ctx.rotate(0.4 + r(5)); ctx.fillRect(-7, -3, 14, 6); ctx.restore();
+  ctx.strokeStyle = '#3a2a1e'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(-20, 0); ctx.lineTo(6, -16 - r(6) * 4); ctx.stroke();
 }
 
 // 空き家の虫（2面）。脚を動かしながら進む
@@ -292,6 +314,17 @@ class Boss {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.globalAlpha = this.alpha;
+    if (this.disguise) {
+      // 瓦礫の陰に隠れている（隠れ鬼）。ほかの瓦礫と見分けがつかないように、魔法陣も出さない
+      drawRubblePile(ctx, 0);
+      if (this.flash > 0) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath(); ctx.arc(0, 0, 18, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+      return;
+    }
     // 魔法陣
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';

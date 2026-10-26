@@ -55,126 +55,233 @@ const RURI_MID_PHASES = [
 //  ボス：喰代 守子（家を守るやもり。虫が大好物）
 // ------------------------------------------------------------
 const KURAISHIRO_PHASES = [
+  // 2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作りかえた
+  //   弾の見た目：虫の形の小粒弾（群れで動く）、尻尾の形の曲がるレーザー（弾をつないだ尻尾）、灯りの光弾
+  //   壁や天井を這い回る動きと、自機に寄ってくる虫の群れが特徴
+  //   流れ：通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3（Hard/Lunatic：→ スペル4）
   {
-    // 虫の群れと、まっすぐ伸びる舌
+    // 通常1：画面の左右の端（壁）に張り付いて移動しながら、横向きに虫弾の列を撃つ
     type: 'non', hp: 1000, time: 30,
-    *script(b) {
-      yield 30;
-      for (let loop = 0; ; loop++) {
-        const n = dv(10, 14, 20, 26);
-        for (let i = 0; i < n; i++) {
-          fire({
-            x: b.x, y: b.y, angle: b.aim() + rand(-1.2, 1.2), speed: rand(1.2, 2.4), type: 'dot', color: pick(['green', 'yellow']), silent: i > 0,
-            script: function* (bl) { for (let k = 0; k < 6; k++) { yield 12; bl.angle += rand(-0.5, 0.5); } },
-          });
-        }
-        yield 40;
-        const a = b.aim();
-        for (let k = 0; k < dv(4, 6, 8, 10); k++) fire({ x: b.x, y: b.y, angle: a, speed: 2.4 + k * 0.35, type: 'kunai', color: 'pink', silent: k > 0 });
-        yield 40;
-        b.wander(55, 60);
-        yield 20;
-      }
-    },
-  },
-  {
-    // 窓辺に集まる虫：左右から波打って飛ぶ蝶の弾。ときどき舌（レーザー）で狙う
-    type: 'spell', name: '虫符「窓辺のごちそう」', hp: 1200, time: 40,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 80, 40);
-      let side = 1;
-      for (let f = 0; ; f++) {
-        if (f % dv(14, 10, 8, 6) === 0) {
-          side = -side;
-          const ph = rand(TAU);
-          fire({
-            x: side < 0 ? -8 : FIELD_W + 8, y: rand(40, 250), angle: side < 0 ? 0 : Math.PI, speed: dv(1.3, 1.5, 1.8, 2.0),
-            type: 'butterfly', color: pick(['green', 'yellow', 'orange']), margin: 20, silent: true,
-            script: function* (bl) { const base = bl.angle; for (let k = 0; ; k++) { bl.angle = base + Math.sin(k * 0.08 + ph) * 0.6; yield; } },
-          });
-        }
-        if (f % dv(150, 120, 100, 80) === 60) {
-          fireLaser({ x: b.x, y: b.y, angle: b.aim(), width: 12, warn: 40, dur: 24, color: 'pink', follow: l => { l.x = b.x; l.y = b.y; } });
-        }
-        if (f % 90 === 0 && DIFF >= 1) fireRing({ x: b.x, y: b.y, n: dv(8, 10, 14, 18), angle: rand(TAU), speed: 1.5, type: 'small', color: 'green' });
-        if (f % 240 === 200) b.wander(60, 50);
-        yield;
-      }
-    },
-  },
-  {
-    // しっぽの渦：左右に曲がっていく米粒弾
-    type: 'non', hp: 1100, time: 30,
-    *script(b) {
-      yield 30;
-      let a = rand(TAU);
-      for (let f = 0; ; f++) {
-        if (f % dv(6, 5, 4, 3) === 0) {
-          for (const s of [1, -1]) {
-            fire({ x: b.x, y: b.y, angle: a * s, speed: 2.2, angVel: s * dv(0.006, 0.008, 0.01, 0.012), type: 'rice', color: s > 0 ? 'cyan' : 'blue', silent: true });
-          }
-          a += 0.23;
-        }
-        if (f % 20 === 0) Sound.se('tan');
-        if (f % 100 === 50) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.6, type: 'ball', color: 'green' });
-        if (f % 160 === 159) b.wander(50, 50);
-        yield;
-      }
-    },
-  },
-  {
-    // 夜回り：壁ぞいを下りながら、部屋の反対側へ弾を撃つ
-    type: 'spell', name: '守符「家守の夜回り」', hp: 1400, time: 45,
     *script(b) {
       for (let loop = 0; ; loop++) {
         const side = loop % 2 ? 1 : -1;
-        yield* b.moveTo(side < 0 ? 36 : FIELD_W - 36, 60, 40);
-        for (let f = 0; f < 120; f++) {
-          b.y = 60 + f * 1.2;
-          if (f % dv(10, 8, 6, 5) === 0) {
-            const n = dv(3, 4, 5, 6);
-            for (let i = 0; i < n; i++) {
-              fire({ x: b.x, y: b.y, angle: (side < 0 ? 0 : Math.PI) + (i - (n - 1) / 2) * 0.22, speed: dv(1.8, 2.1, 2.4, 2.7), type: 'ball', color: 'blue', silent: i > 0 });
-            }
+        const wx = side < 0 ? 26 : FIELD_W - 26;
+        yield* b.moveTo(wx, rand(60, 110), 50);
+        for (let k = 0; k < dv(5, 6, 7, 8); k++) {
+          b.move(wx, clamp(b.y + rand(-50, 70), 50, 230), 30);
+          const a = (side < 0 ? 0 : Math.PI) + rand(-0.12, 0.12);
+          for (let i = 0; i < dv(4, 5, 6, 7); i++) {
+            fire({ x: b.x, y: b.y, angle: a, speed: 1.4 + i * 0.32, type: 'bug', color: 'yellow', silent: i > 0 });
           }
-          yield;
+          if (DIFF >= 2) fire({ x: b.x, y: b.y, angle: b.aim(), speed: 2.2, type: 'small', color: 'orange', silent: true });
+          yield dv(34, 30, 24, 20);
         }
-        fireRing({ x: b.x, y: b.y, n: dv(12, 16, 22, 28), angle: rand(TAU), speed: 1.6, type: 'small', color: 'cyan' });
-        yield* b.moveTo(FIELD_W / 2, 90, 50);
-        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.0, angle: b.aim(), speed: 2.4, type: 'rice', color: 'green' });
-        yield 30;
       }
     },
   },
   {
-    // しっぽ切り：切って置いていったしっぽが、動きながら弾をまき、最後にはじける
-    type: 'spell', name: '尾符「とかげのしっぽ切り」', hp: 1300, time: 40,
+    // ボスが画面の端を一周するように這い回り、通った壁から内側へ向けて弾が伸びてくる。一周ごとに伸びる弾の列が増える。
+    // ボスと反対側の端は安全になりやすい。Hard/Lunatic では二周目から逆回りも混ざる
+    type: 'spell', name: '守符「家守の夜回り」', hp: 1300, time: 45,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 90, 40);
-      for (let loop = 0; ; loop++) {
-        const tails = dv(2, 3, 3, 4);
-        for (let i = 0; i < tails; i++) {
-          fire({
-            x: b.x, y: b.y, angle: b.aim() + (i - (tails - 1) / 2) * 0.7, speed: 1.6, accel: -0.012, minSpeed: 0.3, type: 'large', color: 'cyan',
-            script: function* (bl) {
-              for (let k = 0; k < 8; k++) {
-                yield dv(22, 18, 15, 12);
-                bl.angle += Math.sin(k * 1.7) * 0.5;
-                fire({ x: bl.x, y: bl.y, angle: aimAt(bl.x, bl.y) + rand(-0.3, 0.3), speed: 1.8, type: 'small', color: 'blue', silent: true });
-              }
-              fireRing({ x: bl.x, y: bl.y, n: dv(8, 10, 12, 16), angle: rand(TAU), speed: 1.5, type: 'rice', color: 'cyan', silent: true });
-              bl.alive = false;
-            },
-          });
+      const m = 24, W = FIELD_W - m * 2, H = FIELD_H - m * 2;
+      const per = (W + H) * 2;
+      const at = d => {
+        d = ((d % per) + per) % per;
+        if (d < W) return [m + d, m, Math.PI / 2];
+        d -= W;
+        if (d < H) return [FIELD_W - m, m + d, Math.PI];
+        d -= H;
+        if (d < W) return [FIELD_W - m - d, FIELD_H - m, -Math.PI / 2];
+        d -= W;
+        return [m, FIELD_H - m - d, 0];
+      };
+      yield* b.moveTo(m, m, 50);
+      let d = 0;
+      const speed = dv(3.0, 3.4, 3.8, 4.2);
+      for (let f = 0; ; f++) {
+        const lap = Math.floor(f * speed / per);
+        const dir = DIFF >= 2 && lap % 2 === 1 ? -1 : 1;
+        d += speed * dir;
+        const [x, y, inward] = at(d);
+        b.x = x; b.y = y;
+        if (f % dv(12, 10, 8, 7) === 0) {
+          const rows = Math.min(1 + lap, dv(3, 3, 4, 5));
+          for (let i = 0; i < rows; i++) {
+            fire({ x, y, angle: inward + rand(-0.05, 0.05), speed: 0.9 + i * 0.35, type: 'bug', color: i % 2 ? 'green' : 'yellow', silent: true });
+          }
+          if (f % 40 === 0) Sound.se('tan');
         }
+        yield;
+      }
+    },
+  },
+  {
+    // 通常2：画面の上端（天井）を這いながら、真下に虫弾を雨のように落とす
+    type: 'non', hp: 1000, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 28, 40);
+      for (let f = 0; ; f++) {
+        if (f % 120 === 0) b.move(rand(50, FIELD_W - 50), 28, 110);
+        if (f % dv(8, 6, 5, 4) === 0) {
+          fire({ x: b.x + rand(-30, 30), y: b.y + 6, angle: Math.PI / 2 + rand(-0.25, 0.25), speed: rand(1.3, 2.2), type: 'bug', color: 'orange', silent: true });
+        }
+        if (f % dv(70, 60, 48, 40) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 2.4, type: 'small', color: 'yellow' });
+        yield;
+      }
+    },
+  },
+  {
+    // 天井から虫の群れの弾がばらばらと湧いて降ってくる。群れは途中でばらけて、ゆっくり自機の方へ寄ってくる。
+    // 寄ってくる性質を利用して、大きく動いて群れをまとめてから切り返す（誘導して避ける）
+    type: 'spell', name: '虫符「湧き放題の天井裏」', hp: 1200, time: 40,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      const home = dv(1.0, 1.2, 1.5, 1.8);
+      for (let f = 0; ; f++) {
+        if (f % dv(44, 36, 28, 22) === 0) {
+          const cx = rand(30, FIELD_W - 30), n = dv(5, 6, 7, 8);
+          for (let i = 0; i < n; i++) {
+            fire({
+              x: cx + rand(-12, 12), y: -6 + rand(-8, 8), angle: Math.PI / 2, speed: 1.5, type: 'bug', color: 'green', silent: true,
+              script: function* (bl) {
+                yield randInt(50, 80);
+                // 途中でばらける
+                bl.angle = rand(TAU); bl.speed = 1.0; bl.accel = -0.02; bl.minSpeed = 0.2;
+                yield 40;
+                // ゆっくり自機の方へ寄ってくる
+                bl.angle = aimAt(bl.x, bl.y); bl.accel = 0.02; bl.maxSpeed = home;
+              },
+            });
+          }
+          Sound.se('tan');
+        }
+        if (f % 120 === 90) b.wander(60, 60);
+        yield;
+      }
+    },
+  },
+  {
+    // 通常3：中央に戻り、虫弾の群れを放射状に撃つ。群れは少し遅れて自機の方へ寄ってくる
+    type: 'non', hp: 1100, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 100, 40);
+      for (let loop = 0; ; loop++) {
+        const k = dv(5, 6, 7, 8), off = rand(TAU);
+        for (let j = 0; j < k; j++) {
+          const a = off + (j * TAU) / k;
+          for (let i = 0; i < 3; i++) {
+            fire({
+              x: b.x, y: b.y, angle: a + rand(-0.12, 0.12), speed: 2.2 + i * 0.2, accel: -0.04, minSpeed: 0.3, type: 'bug', color: 'yellow', silent: true,
+              script: function* (bl) { yield 70; bl.angle = aimAt(bl.x, bl.y) + rand(-0.15, 0.15); bl.accel = 0.025; bl.maxSpeed = dv(1.1, 1.3, 1.6, 1.9); },
+            });
+          }
+        }
+        Sound.se('tan');
+        yield dv(100, 90, 76, 64);
+      }
+    },
+  },
+  {
+    // ボスの尻尾が、曲がるレーザー（弾をつないだ尻尾）で画面をなぎ払う。ボスに一定のダメージを与えると尻尾が「切れて」独立し、
+    // 画面を跳ね回りながら撃ってくる。ボスは新しい尻尾を生やして同じ攻撃を続ける。切れた尻尾は一定時間で消える。
+    // 撃ちこみすぎると尻尾が増えるので、攻撃の手加減が攻略になる。Hard/Lunatic は切れた尻尾が残る時間が長い
+    type: 'spell', name: '尾符「トカゲの尻尾切り」', hp: 1400, time: 45,
+    *script(b, g) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      const SEG = 16, gap = 13;
+      const makeTail = () => {
+        const segs = [];
+        for (let i = 0; i < SEG; i++) segs.push(fire({ x: b.x, y: b.y, speed: 0, type: i === SEG - 1 ? 'ball' : 'small', color: 'green', silent: true, delay: 20 }));
+        return segs;
+      };
+      let tail = makeTail();
+      let lastHp = b.hp;
+      const cutAt = b.maxHp * 0.18;
+      for (let f = 0; ; f++) {
+        // 尻尾のつけ根から、しなるように振る
+        const sw = Math.sin(f * dv(0.018, 0.022, 0.026, 0.03));
+        let a = Math.PI / 2, x = b.x, y = b.y + 10;
+        tail.forEach((bl, i) => {
+          a = Math.PI / 2 + sw * 1.25 * (0.3 + (i / SEG) * 0.9) + Math.sin(f * 0.05 - i * 0.35) * 0.08 * i / SEG;
+          x += Math.cos(a) * gap; y += Math.sin(a) * gap;
+          if (bl.alive) { bl.x = x; bl.y = y; }
+        });
+        // 切れる：一定のダメージを受けたら、尻尾が独立して跳ね回る
+        if (lastHp - b.hp >= cutAt) {
+          lastHp = b.hp;
+          const segs = tail.filter(bl => bl.alive);
+          g.tasks.add(cutTail(segs, dv(300, 360, 480, 560)));
+          Sound.se('kira');
+          tail = makeTail();
+        }
+        if (f % dv(70, 56, 46, 38) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.35, angle: b.aim(), speed: 2.4, type: 'bug', color: 'yellow' });
+        yield;
+      }
+    },
+  },
+  {
+    // 画面の中央に「灯り」の光弾が置かれ、虫弾が四方から灯りに向かって集まってくる。集まりきると灯りが弾けて、虫弾が一斉に飛び散る。
+    // 灯りから離れた位置で虫の流れを見て、弾ける直前に、虫が通り過ぎたあとの灯りの近くへ入る
+    type: 'spell', name: '灯符「軒下の誘蛾灯」', hp: 1400, time: 45, minDiff: 2,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      const lx = FIELD_W / 2, ly = 210;
+      for (let loop = 0; ; loop++) {
+        const light = fire({ x: lx, y: ly, speed: 0, type: 'large', color: 'yellow', delay: 30 });
+        const moths = [];
+        for (let f = 0; f < 150; f++) {
+          if (f < 110 && f % dv(6, 5, 4, 3) === 0) {
+            const side = randInt(0, 3);
+            const [sx, sy] = [[rand(0, FIELD_W), -6], [FIELD_W + 6, rand(0, FIELD_H)], [rand(0, FIELD_W), FIELD_H + 6], [-6, rand(0, FIELD_H)]][side];
+            const d = dist(sx, sy, lx, ly);
+            moths.push(fire({
+              x: sx, y: sy, angle: angleTo(sx, sy, lx, ly), speed: d / 120, type: 'bug', color: 'orange', silent: true,
+              script: function* (bl) { while (dist(bl.x, bl.y, lx, ly) > rand(18, 40)) yield; bl.speed = 0; },
+            }));
+          }
+          yield;
+        }
+        // 弾ける
+        light.alive = false;
+        Fx.explosion(lx, ly, 'rgba(255,230,120,0.8)', 1.4);
         Sound.se('kira');
-        yield 40;
-        b.wander(70, 80);
-        yield dv(90, 75, 60, 50);
+        for (const bl of moths) {
+          if (!bl.alive) continue;
+          bl.script = null;
+          bl.angle = angleTo(lx, ly, bl.x, bl.y) + rand(-0.3, 0.3);
+          bl.speed = 0.5; bl.accel = 0.04; bl.maxSpeed = dv(1.6, 1.9, 2.2, 2.6);
+        }
+        fireRing({ x: lx, y: ly, n: dv(12, 16, 20, 24), angle: rand(TAU), speed: 1.6, type: 'small', color: 'yellow', silent: true });
+        yield 70;
       }
     },
   },
 ];
+
+// 切れた尻尾：つないだ弾が、頭を先にして画面を跳ね回りながら撃ってくる。life フレームで消える
+function* cutTail(segs, life) {
+  if (!segs.length) return;
+  let hx = segs[segs.length - 1].x, hy = segs[segs.length - 1].y;
+  let a = rand(TAU), sp = 2.4;
+  const trail = segs.map(bl => [bl.x, bl.y]).reverse();
+  for (let f = 0; f < life; f++) {
+    hx += Math.cos(a) * sp; hy += Math.sin(a) * sp;
+    if (hx < 10 || hx > FIELD_W - 10) { a = Math.PI - a; hx = clamp(hx, 10, FIELD_W - 10); }
+    if (hy < 10 || hy > FIELD_H - 60) { a = -a; hy = clamp(hy, 10, FIELD_H - 60); }
+    a += Math.sin(f * 0.07) * 0.03;
+    trail.unshift([hx, hy]);
+    trail.length = Math.min(trail.length, segs.length * 5);
+    segs.forEach((bl, i) => {
+      const p = trail[Math.min(trail.length - 1, i * 5)];
+      if (bl.alive) { bl.x = p[0]; bl.y = p[1]; }
+    });
+    if (f % 50 === 25 && segs.some(bl => bl.alive)) fire({ x: hx, y: hy, angle: aimAt(hx, hy), speed: 1.8, type: 'small', color: 'green', silent: true });
+    if (!segs.some(bl => bl.alive)) return;
+    yield;
+  }
+  for (const bl of segs) if (bl.alive) { bl.alive = false; Fx.cancel(bl.x, bl.y, bl.color); }
+}
 
 // ------------------------------------------------------------
 //  道中の敵

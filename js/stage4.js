@@ -56,133 +56,309 @@ const MIDBOSS4_PHASES = [
 //  柱（縦のレーザー）・梁（横のレーザー）・年輪・掛矢の一撃
 // ------------------------------------------------------------
 const TOGANOO_PHASES = [
+  // 2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作りかえた
+  //   弾の見た目：柱や梁の形の太いレーザー、木組みの格子、部屋の形の囲い弾、上棟式の餅（白い大玉）
+  //   家を「建てる」弾幕。画面が柱や壁で区切られ、決められた通り道を進ませる
+  //   流れ：通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3（Hard/Lunatic：→ スペル4）→ 通常4 → 最後のスペル
   {
-    // 柱を立てる：上から弾の柱が何本も降りてくる
+    // 通常1：梁のレーザーを横に渡し、その間に小弾を流す
     type: 'non', hp: 1100, time: 30,
-    *script(b) {
-      yield 30;
-      for (let loop = 0; ; loop++) {
-        const cols = dv(3, 4, 5, 6);
-        const xs = [];
-        for (let i = 0; i < cols; i++) xs.push(((i + 0.5) / cols) * FIELD_W + rand(-20, 20));
-        for (let k = 0; k < dv(8, 10, 12, 14); k++) {
-          for (const x of xs) fire({ x, y: -6, angle: Math.PI / 2, speed: dv(2.2, 2.6, 3, 3.4), type: 'rice', color: 'orange', silent: true });
-          Sound.se('tan');
-          yield 4;
-        }
-        yield 20;
-        fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: 1.2, angle: b.aim(), speed: 2.2, type: 'ball', color: 'red' });
-        yield 30;
-        b.wander(60, 60);
-        yield 20;
-      }
-    },
-  },
-  {
-    // 大黒柱：縦のレーザーが立ち、合間に米粒弾の輪
-    type: 'spell', name: '柱符「大黒柱の意地」', hp: 1500, time: 45,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 80, 40);
-      for (let loop = 0; ; loop++) {
-        const n = dv(2, 3, 4, 4);
-        for (let i = 0; i < n; i++) {
-          const x = i === 0 ? clamp(G.player.x + rand(-30, 30), 20, FIELD_W - 20) : rand(20, FIELD_W - 20);
-          fireLaser({ x, y: -10, angle: Math.PI / 2, length: FIELD_H + 20, width: 22, warn: 50, dur: 60, color: 'orange' });
-        }
-        for (let f = 0; f < 110; f++) {
-          if (f % dv(36, 30, 24, 20) === 0) fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 22), angle: rand(TAU), speed: dv(1.4, 1.7, 2, 2.3), type: 'rice', color: 'yellow' });
-          yield;
-        }
-        if (loop % 2) b.wander(60, 50);
-      }
-    },
-  },
-  {
-    // 年輪：回る向きの違う三重の輪
-    type: 'non', hp: 1200, time: 30,
-    *script(b) {
-      yield 30;
-      for (let loop = 0; ; loop++) {
-        const n = dv(18, 24, 30, 36), off = rand(TAU);
-        for (let r = 0; r < 3; r++) {
-          const dir = r % 2 ? 1 : -1;
-          for (let i = 0; i < n; i++) fire({ x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 1.3 + r * 0.35, angVel: dir * 0.004, type: 'rice', color: ['orange', 'yellow', 'red'][r], silent: true });
-          Sound.se('tan');
-          yield 8;
-        }
-        yield dv(60, 48, 40, 32);
-        fireFan({ x: b.x, y: b.y, n: 3, spread: 0.25, angle: b.aim(), speed: 3, type: 'large', color: 'orange' });
-        b.wander(60, 50);
-        yield 30;
-      }
-    },
-  },
-  {
-    // 渡り廊下の梁：横のレーザーが段々に渡され、梁からほこりが落ちる
-    type: 'spell', name: '梁符「渡り廊下の梁」', hp: 1500, time: 45,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 70, 40);
       for (let loop = 0; ; loop++) {
-        const rows = dv(2, 3, 3, 4);
-        const gap = dv(90, 80, 72, 64);
-        const top = rand(140, 200) - (rows - 1) * 30;
-        for (let i = 0; i < rows; i++) {
-          const fromLeft = (loop + i) % 2 === 0;
-          fireLaser({ x: fromLeft ? -10 : FIELD_W + 10, y: top + i * gap, angle: fromLeft ? 0 : Math.PI, length: FIELD_W + 20, width: 16, warn: 55, dur: 50, color: 'yellow' });
-        }
-        for (let f = 0; f < 120; f++) {
-          if (f % dv(8, 6, 5, 4) === 0) fire({ x: rand(10, FIELD_W - 10), y: -6, angle: Math.PI / 2, speed: rand(1.2, 2), type: 'dot', color: 'white', silent: true });
-          if (f % 60 === 30) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'ball', color: 'orange' });
+        const py = clamp(G.player.y, 200, FIELD_H - 40);
+        const ys = [py - dv(80, 74, 66, 60), py + dv(80, 74, 66, 60)].filter(y => y > 120 && y < FIELD_H - 8);
+        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 18, warn: 50, dur: 100, color: 'orange' });
+        yield 50;
+        for (let f = 0; f < 100; f++) {
+          if (f % dv(12, 10, 8, 7) === 0) {
+            const side = f % 2 ? 1 : -1;
+            const y = py + rand(-50, 50);
+            fire({ x: side < 0 ? -6 : FIELD_W + 6, y, angle: side < 0 ? 0 : Math.PI, speed: dv(1.4, 1.6, 1.9, 2.2), type: 'small', color: 'yellow', silent: true });
+          }
+          if (f % 40 === 20) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.2, type: 'rice', color: 'orange' });
           yield;
         }
-      }
-    },
-  },
-  {
-    // 掛矢の一撃：振りかぶって打ちおろし、衝撃が広がる
-    type: 'spell', name: '槌符「掛矢の大一番」', hp: 1600, time: 45,
-    *script(b) {
-      for (let loop = 0; ; loop++) {
-        yield* b.moveTo(clamp(G.player.x, 60, FIELD_W - 60), 60, 40);
-        yield 20;
-        yield* b.moveTo(b.x, 150, 12, Ease.inQuad);
-        Sound.se('kill');
-        G.shake = 16;
-        const n = dv(20, 26, 34, 42), off = rand(TAU);
-        fireRing({ x: b.x, y: b.y, n, angle: off, speed: 2.4, type: 'ball', color: 'orange', silent: true });
-        fireRing({ x: b.x, y: b.y, n: Math.round(n * 0.6), angle: off, speed: 1.5, type: 'large', color: 'red', silent: true });
-        for (const s of [-1, 1]) {
-          for (let k = 0; k < dv(4, 5, 6, 8); k++) fire({ x: b.x, y: b.y + 10, angle: s > 0 ? 0.25 : Math.PI - 0.25, speed: 1.2 + k * 0.35, type: 'rice', color: 'yellow', silent: true });
-        }
         yield 40;
-        yield* b.moveTo(b.x, 90, 30);
-        yield dv(40, 30, 20, 14);
       }
     },
   },
   {
-    // 朽ち果てぬ年輪：うずまきが続き、時間がたつほど輪が増える
-    type: 'spell', name: '木符「朽ち果てぬ年輪」', hp: 1800, time: 50,
+    // ボスを中心に、柱（縦のレーザー）と梁（横のレーザー）が組み上がり、画面が格子に区切られる。格子の中を、小弾が跳ね返りながら飛び交う。
+    // 格子が組み上がる前に出る予告線を見て、広いマスに入る。Hard/Lunatic は格子が細かく、途中で組み替えが入る
+    type: 'spell', name: '柱符「大黒柱の屋台骨」', hp: 1500, time: 45,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 120, 40);
-      let a = 0;
-      for (let f = 0; ; f++) {
-        const arms = dv(4, 5, 6, 7);
-        if (f % dv(8, 6, 5, 4) === 0) {
-          for (let k = 0; k < arms; k++) {
-            fire({ x: b.x, y: b.y, angle: a + (k * TAU) / arms, speed: 1.9, type: 'rice', color: 'orange', silent: true });
-            if (DIFF >= 1) fire({ x: b.x, y: b.y, angle: -a * 0.8 + (k * TAU) / arms, speed: 1.5, type: 'small', color: 'yellow', silent: true });
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      for (let loop = 0; ; loop++) {
+        const cw = dv(128, 112, 96, 88), ch = dv(130, 116, 104, 96);
+        const ox = rand(0, cw), oy = 90 + rand(0, ch);
+        const xs = [], ys = [];
+        for (let x = ox; x < FIELD_W; x += cw) xs.push(x);
+        for (let y = oy; y < FIELD_H; y += ch) ys.push(y);
+        const hold = DIFF >= 2 ? 200 : 300;
+        for (const x of xs) fireLaser({ x, y: -10, angle: Math.PI / 2, length: FIELD_H + 20, width: 12, warn: 70, dur: hold, color: 'brown' });
+        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 12, warn: 70, dur: hold, color: 'brown' });
+        yield 76;
+        // 格子の中を跳ね返る小弾
+        const cellOf = v => {
+          const bx = [0, ...xs, FIELD_W], by = [0, ...ys, FIELD_H];
+          let x0 = 0, x1 = FIELD_W, y0 = 0, y1 = FIELD_H;
+          for (let i = 0; i < bx.length - 1; i++) if (v[0] >= bx[i] && v[0] < bx[i + 1]) { x0 = bx[i]; x1 = bx[i + 1]; }
+          for (let i = 0; i < by.length - 1; i++) if (v[1] >= by[i] && v[1] < by[i + 1]) { y0 = by[i]; y1 = by[i + 1]; }
+          return [x0 + 6, x1 - 6, y0 + 6, y1 - 6];
+        };
+        for (let f = 0; f < hold - 10; f++) {
+          if (f % dv(30, 24, 18, 14) === 0) {
+            const x = rand(10, FIELD_W - 10), y = rand(100, FIELD_H - 20);
+            if (dist(x, y, G.player.x, G.player.y) > 70) {
+              const [x0, x1, y0, y1] = cellOf([x, y]);
+              fire({
+                x, y, angle: rand(TAU), speed: dv(1.2, 1.4, 1.7, 1.9), type: 'ball', color: 'yellow', delay: 20, silent: true, life: hold - f,
+                script: function* (bl) {
+                  for (;;) {
+                    if (bl.x < x0 || bl.x > x1) { bl.angle = Math.PI - bl.angle; bl.x = clamp(bl.x, x0, x1); }
+                    if (bl.y < y0 || bl.y > y1) { bl.angle = -bl.angle; bl.y = clamp(bl.y, y0, y1); }
+                    yield;
+                  }
+                },
+              });
+            }
           }
-          a += 0.11;
+          if (f % 50 === 0) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.5, angle: b.aim(), speed: 2, type: 'rice', color: 'orange' });
+          // Hard/Lunatic：途中で組み替え（予告線から始め直す）
+          if (DIFF >= 2 && f === Math.floor(hold / 2)) break;
+          yield;
         }
-        const ringEvery = Math.max(dv(70, 60, 50, 40) - Math.floor(f / 300) * 6, 26);
-        if (f % ringEvery === 0) fireRing({ x: b.x, y: b.y, n: dv(12, 16, 22, 28), angle: rand(TAU), speed: 1.3, type: 'ball', color: 'red' });
-        if (f % 20 === 0) Sound.se('tan');
+        // 残っている柱と梁を消してから、次の格子を組む
+        for (const l of G.lasers) if (l.frame < l.warn + l.dur) l.dur = Math.max(1, l.frame - l.warn);
+        yield 30;
+      }
+    },
+  },
+  {
+    // 通常2：柱を中心に、木組みの格子状に弾を広げる
+    type: 'non', hp: 1100, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 110, 40);
+      for (let loop = 0; ; loop++) {
+        const rot = (loop % 2) * (Math.PI / 4) + rand(-0.1, 0.1);
+        const k = dv(2, 3, 3, 4);
+        for (let d = 0; d < 4; d++) {
+          const a = rot + (d * Math.PI) / 2;
+          for (let j = -k; j <= k; j++) {
+            fire({ x: b.x + Math.cos(a + Math.PI / 2) * j * 18, y: b.y + Math.sin(a + Math.PI / 2) * j * 18, angle: a, speed: dv(1.3, 1.5, 1.7, 1.9), type: 'rice', color: d % 2 ? 'brown' : 'orange', silent: true });
+          }
+        }
+        Sound.se('tan');
+        yield dv(40, 34, 28, 24);
+        if (loop % 4 === 3) b.wander(50, 50);
+      }
+    },
+  },
+  {
+    // 画面の上から下へ、弾でできた壁が何枚も迫ってくる。壁にはそれぞれ一か所だけ「玄関」（通り抜けられる隙間）がある。
+    // 玄関以外の場所を撃って壁を抜こうとすると、壁から弾が撃ち返される。Hard/Lunatic は壁が速く玄関が狭い。Lunatic は玄関の位置が途中で一度ずれる
+    type: 'spell', name: '戸符「玄関から入れ」', hp: 1500, time: 45,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 40, 40);
+      const walls = [];
+      let lastGap = FIELD_W / 2;
+      for (let f = 0; ; f++) {
+        if (f % dv(140, 120, 100, 90) === 0) {
+          const gw = dv(74, 66, 58, 52);
+          const gx = clamp(lastGap + rand(-130, 130), gw / 2 + 8, FIELD_W - gw / 2 - 8);
+          lastGap = gx;
+          const w = { y: 10, gx, gw, bullets: [], shifted: false, cd: 0 };
+          for (let x = 7; x < FIELD_W; x += 14) {
+            if (Math.abs(x - gx) < gw / 2) continue;
+            w.bullets.push(fire({ x, y: w.y, speed: 0, type: 'card', angle: 0, color: 'brown', silent: true, delay: 16, data: x, noRotate: true }));
+          }
+          walls.push(w);
+          Sound.se('kira');
+        }
+        for (const w of walls) {
+          w.y += dv(0.9, 1.0, 1.2, 1.35);
+          // Lunatic：玄関の位置が途中で一度ずれる
+          let shift = 0;
+          if (DIFF >= 3 && w.y > 150 && !w.shifted) { w.shifted = true; w.target = clamp(w.gx + randSign() * 70, w.gw / 2 + 8, FIELD_W - w.gw / 2 - 8); }
+          if (w.target !== undefined && Math.abs(w.target - w.gx) > 0.5) shift = Math.sign(w.target - w.gx) * 1.2;
+          w.gx += shift;
+          for (const bl of w.bullets) {
+            if (!bl.alive) continue;
+            bl.y = w.y;
+            if (shift) bl.x += shift; // 壁ごと少し動いて玄関をずらす
+          }
+          // 玄関以外を撃っていると、壁から撃ち返される
+          if (w.cd > 0) w.cd--;
+          const p = G.player;
+          if (w.y < p.y - 20 && Input.down('shot') && Math.abs(p.x - w.gx) > w.gw / 2 && w.cd === 0 && w.bullets.some(bl => bl.alive)) {
+            w.cd = dv(18, 14, 10, 8);
+            fire({ x: p.x, y: w.y + 6, angle: Math.PI / 2 + rand(-0.15, 0.15), speed: 2.6, type: 'small', color: 'red', silent: true });
+          }
+        }
+        for (let i = walls.length - 1; i >= 0; i--) if (walls[i].y > FIELD_H + 20) { for (const bl of walls[i].bullets) bl.alive = false; walls.splice(i, 1); }
         yield;
       }
     },
   },
+  {
+    // 通常3：部屋の形の囲い弾をいくつか置き、囲いの中から弾を撃つ
+    type: 'non', hp: 1200, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 70, 40);
+      for (let loop = 0; ; loop++) {
+        const rooms = [];
+        for (let i = 0; i < dv(2, 2, 3, 3); i++) {
+          const cx = rand(60, FIELD_W - 60), cy = rand(130, 260);
+          rooms.push([cx, cy]);
+          roomOutline(cx, cy, 70, 52, 'brown', 200);
+        }
+        yield 30;
+        for (let k = 0; k < 4; k++) {
+          for (const [cx, cy] of rooms) fireFan({ x: cx, y: cy, n: dv(3, 3, 5, 5), spread: 0.6, angle: aimAt(cx, cy), speed: dv(1.6, 1.8, 2.1, 2.3), type: 'small', color: 'yellow', silent: true });
+          Sound.se('tan');
+          yield dv(36, 30, 26, 22);
+        }
+        yield 30;
+      }
+    },
+  },
+  {
+    // 部屋の形をした弾の囲いが、ボスのまわりから次々に「建て増し」されて画面を埋めていく。画面がいっぱいになりかけると、古い部屋から順に崩れて小弾になる。
+    // 建て増しの順番は決まっている。最後に建つ場所（いちばん遅く埋まる場所）で待つ。Hard/Lunatic は建て増しが速く、崩れたときの小弾が増える
+    type: 'spell', name: '建符「百間継ぎの建て増し」', hp: 1600, time: 50,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 50, 40);
+      const cols = 4, rows = 5, cw = FIELD_W / cols, ch = 84;
+      // ボスに近い部屋から、外へ外へと建て増す（決まった順番）
+      const slots = [];
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) slots.push([c, r]);
+      slots.sort((p, q) => (Math.abs(p[0] - 1.5) + p[1] * 1.3) - (Math.abs(q[0] - 1.5) + q[1] * 1.3));
+      const keep = dv(11, 12, 13, 14);
+      const built = [];
+      for (let i = 0; ; i++) {
+        const [c, r] = slots[i % slots.length];
+        const cx = (c + 0.5) * cw, cy = 40 + (r + 0.5) * ch;
+        built.push({ cx, cy, bullets: roomOutline(cx, cy, cw - 10, ch - 10, i % 2 ? 'brown' : 'orange', 0) });
+        Sound.se('kira');
+        if (built.length > keep) {
+          // いちばん古い部屋が崩れて小弾になる
+          const old = built.shift();
+          for (const bl of old.bullets) {
+            if (!bl.alive) continue;
+            bl.angle = angleTo(old.cx, old.cy, bl.x, bl.y) + rand(-0.4, 0.4);
+            bl.speed = 0.4; bl.accel = 0.03; bl.maxSpeed = dv(1.3, 1.5, 1.8, 2.1);
+            bl.setType('small');
+          }
+          if (DIFF >= 2) fireRing({ x: old.cx, y: old.cy, n: 8, angle: rand(TAU), speed: 1.4, type: 'small', color: 'yellow', silent: true });
+        }
+        yield dv(44, 38, 30, 26);
+      }
+    },
+  },
+  {
+    // 上棟式の餅撒きのように、白い大玉の餅弾が山なりの軌道で四方にばら撒かれる。餅は落ちると小さく割れて広がる。
+    // 山なりなので、落ちる位置を見て入れ替わるように避ける。餅弾を撃ち落とすと得点アイテムが出る（資料では家運システムの福アイテム）
+    type: 'spell', name: '棟符「棟上げの餅撒き」', hp: 1500, time: 45, minDiff: 2,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      for (let loop = 0; ; loop++) {
+        for (let i = 0; i < dv(4, 5, 6, 7); i++) {
+          const vx = rand(-2.6, 2.6), floor = rand(240, FIELD_H - 20);
+          let vy = rand(-4.2, -2.6);
+          spawnEnemy({
+            x: b.x, y: b.y, kind: 'mochi', color: i % 3 ? 'white' : 'pink', hp: 8, r: 12, score: 3000, drops: { point: 3 },
+            script: function* (e) {
+              for (;;) {
+                e.x += vx; e.y += vy; vy += 0.06;
+                if (e.x < 10 || e.x > FIELD_W - 10) { e.x = clamp(e.x, 10, FIELD_W - 10); }
+                if (vy > 0 && e.y >= floor) break;
+                yield;
+              }
+              // 落ちて割れる
+              fireRing({ x: e.x, y: e.y, n: dv(5, 6, 8, 9), angle: rand(TAU), speed: 1.5, type: 'small', color: 'white', silent: true });
+              Sound.se('tan');
+              e.alive = false;
+            },
+          });
+        }
+        yield dv(70, 60, 50, 44);
+        if (loop % 2) b.wander(60, 60);
+      }
+    },
+  },
+  {
+    // 通常4：軋ませながら、四方へ太い梁のレーザーを順に振る
+    type: 'non', hp: 1200, time: 30,
+    *script(b, g) {
+      yield* b.moveTo(FIELD_W / 2, 120, 40);
+      for (let loop = 0; ; loop++) {
+        const base = rand(TAU);
+        for (let d = 0; d < 4; d++) {
+          const a = base + (d * Math.PI) / 2;
+          fireLaser({ x: b.x, y: b.y, angle: a - 0.5, length: 640, width: 22, warn: 44, dur: 60, angVel: dv(0.012, 0.014, 0.016, 0.018), angVelWarn: 0, color: 'orange' });
+          g.shake = 10;
+          Sound.se('kira');
+          yield 26;
+          fireRing({ x: b.x, y: b.y, n: dv(8, 10, 12, 14), angle: rand(TAU), speed: 1.5, type: 'rice', color: 'brown', silent: true });
+        }
+        yield dv(60, 50, 40, 34);
+      }
+    },
+  },
+  {
+    // 画面全体が軋み、頭上に梁の形の弾が並ぶ。ボスが力を緩めるたびに、梁が一斉に落ちてくる。体力が減るほど梁の数が増え、落ちる間隔が短くなる。
+    // 梁は落ちる前に震える。震えている梁の真下から離れる。Hard/Lunatic は落ちた梁が床で跳ね、もう一度小弾を撒く
+    type: 'spell', name: '家符「家を支える者の意地」', hp: 1900, time: 55,
+    *script(b, g) {
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      for (let loop = 0; ; loop++) {
+        const lost = 1 - b.hp / b.maxHp;
+        const n = Math.round(dv(2, 3, 3, 4) + lost * dv(2, 3, 4, 4));
+        g.shake = 20;
+        Sound.se('charge');
+        const beams = [];
+        for (let i = 0; i < n; i++) {
+          const cx = rand(40, FIELD_W - 40), y = rand(26, 70);
+          const parts = [];
+          for (let k = -3; k <= 3; k++) parts.push(fire({ x: cx + k * 13, y, speed: 0, angle: 0, type: 'card', color: 'brown', silent: true, delay: 20, data: cx + k * 13, noRotate: true }));
+          beams.push(parts);
+        }
+        // 落ちる前に震える
+        for (let f = 0; f < 50; f++) {
+          for (const parts of beams) for (const bl of parts) if (bl.alive) bl.x = bl.data + Math.sin(f * 1.3) * 2;
+          yield;
+        }
+        for (const parts of beams) {
+          for (const bl of parts) {
+            if (!bl.alive) continue;
+            bl.ay = 0.09; bl.maxFall = dv(3.0, 3.4, 3.8, 4.2); bl.speed = 0;
+            if (DIFF >= 2) {
+              bl.script = (function* (bl) {
+                while (bl.y < FIELD_H - 10) yield;
+                // 床で跳ねて小弾を撒く
+                fire({ x: bl.x, y: FIELD_H - 12, angle: -Math.PI / 2 + rand(-0.7, 0.7), speed: rand(1.8, 2.6), ay: 0.04, maxFall: 2.2, type: 'small', color: 'orange', silent: true });
+                bl.alive = false;
+              })(bl);
+            }
+          }
+        }
+        Sound.se('tan');
+        fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.8, angle: b.aim(), speed: 2.2, type: 'rice', color: 'orange' });
+        yield Math.max(30, dv(90, 80, 70, 60) - lost * 30);
+      }
+    },
+  },
 ];
+
+// 部屋の形の囲い弾（cx, cy を中心に w×h の四角。life フレームで消える。0 なら消えない）
+function roomOutline(cx, cy, w, h, color, life) {
+  const out = [], step = 13;
+  const add = (x, y) => out.push(fire({ x, y, speed: 0, type: 'small', color, silent: true, delay: 20, life }));
+  for (let x = cx - w / 2; x <= cx + w / 2 + 0.1; x += w / Math.round(w / step)) { add(x, cy - h / 2); add(x, cy + h / 2); }
+  for (let y = cy - h / 2 + h / Math.round(h / step); y < cy + h / 2 - 0.1; y += h / Math.round(h / step)) { add(cx - w / 2, y); add(cx + w / 2, y); }
+  return out;
+}
 
 // ------------------------------------------------------------
 //  道中の敵（5面でも使う）

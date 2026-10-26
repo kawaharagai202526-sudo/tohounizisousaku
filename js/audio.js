@@ -316,6 +316,8 @@ const SE_DEFS = {
   laser: (S, t, d) => { S.osc('sawtooth', 150, 90, t, 0.6, 0.05, d); S.noise(t, 0.5, 0.05, d, 'lowpass', 1600); },
   freeze: (S, t, d) => { S.osc('sine', 2400, 3600, t, 0.45, 0.08, S.echoIn); S.osc('triangle', 4800, 0, t, 0.3, 0.04, d); },
   kira: (S, t, d) => S.osc('sine', 2600, 0, t, 0.15, 0.05, S.echoIn),
+  // 家がきしむ「ギシッ」（5面の家鳴）
+  gishi: (S, t, d) => { S.noise(t, 0.3, 0.14, d, 'bandpass', 900, 280, 7); S.osc('sawtooth', 76, 52, t, 0.32, 0.05, d); },
   spark: (S, t, d) => { S.noise(t, 0.3, 0.12, d, 'highpass', 2000); S.osc('sawtooth', 90, 60, t, 2.4, 0.08, d, 0.02); },
 };
 

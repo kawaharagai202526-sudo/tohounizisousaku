@@ -213,7 +213,8 @@ function drawBossHud(ctx, g) {
     ctx.textAlign = 'right';
     strokeText(ctx, String(sec).padStart(2, '0'), FIELD_W - 6, 18, sec <= 5 ? '#ff7070' : sec <= 10 ? '#ffd0a0' : '#ffffff', 'rgba(0,0,0,0.9)', 3);
   }
-  // 敵の位置
+  // 敵の位置（隠れ鬼で隠れているあいだは出さない）
+  if (b.disguise) return;
   ctx.font = `bold 9px ${FONT_EN}`;
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(255,60,90,0.85)';
@@ -296,6 +297,7 @@ function drawCutin(ctx, g) {
 const CHARA_CUTIN_COLOR = {
   nokiba: '200,110,50', ruri: '40,80,220', kuraishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
   midboss4: '170,40,70', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
+  konjinMid: '200,150,30', konjin: '200,150,30',
 };
 
 // 自機のボムのカットイン（左側。上から下へ）。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が降りてくる。

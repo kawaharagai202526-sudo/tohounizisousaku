@@ -113,10 +113,14 @@ test('全ステージを道中からボス撃破まで進められる', async ({
   // 道中は無敵で放置、ボスは攻撃ごとに体力を0にして先へ進める
   const r = await page.evaluate(() => {
     const out = [];
-    for (let st = 0; st < STAGES.length; st++) {
+    // 本編の面（プラクティス）とエキストラの面
+    const runs = [...STAGES.map((st, i) => ({ st, i, extra: false })), ...EXTRA_STAGES.map((st, i) => ({ st, i, extra: true }))];
+    for (const { st: stage, i: st, extra } of runs) {
       for (const [ch, bossOnly] of PLAYER_IDS.flatMap(id => [[id, false], [id, true]])) {
         Cheats.on.bossOnly = bossOnly;
-        Game.setScene(new GameScene({ difficulty: 1, character: ch, stage: st, practice: true }));
+        Game.setScene(extra
+          ? new GameScene({ difficulty: EXTRA_DIFF, character: ch, stage: st, extra: true })
+          : new GameScene({ difficulty: 1, character: ch, stage: st, practice: true }));
         const g = G;
         g.cheat = true;
         const seen = new Set();
@@ -131,18 +135,20 @@ test('全ステージを道中からボス撃破まで進められる', async ({
           Game.update();
           if (++f % 240 === 0) Game.draw();
         }
-        const expected = STAGES[st].bosses.filter(bs => !(bossOnly && bs.mid))
+        const expected = stage.bosses.filter(bs => !(bossOnly && bs.mid))
           .reduce((n, bs) => n + bs.phases.filter(ph => DIFF >= (ph.minDiff || 0)).length, 0);
-        out.push({ st: st + 1, ch, bossOnly, end: Game.scene.constructor.name, frames: f, phases: seen.size, expected });
+        out.push({ st: extra ? 'Extra' : `${st + 1}面`, ch, bossOnly, end: Game.scene.constructor.name, frames: f, phases: seen.size, expected, kyou: g.kyou });
       }
     }
     Cheats.on.bossOnly = false;
     return out;
   });
+  assert(r.some(x => x.st === 'Extra'), 'エキストラの面がない');
   for (const x of r) {
-    const label = `${x.st}面 ${x.ch}${x.bossOnly ? '（ボス戦のみ）' : ''}`;
+    const label = `${x.st} ${x.ch}${x.bossOnly ? '（ボス戦のみ）' : ''}`;
     assert(x.end === 'ResultScene', `${label}：最後まで進まなかった（${x.end}、${x.frames}フレーム）`);
     assert(x.phases === x.expected, `${label}：ボスの攻撃の数 ${x.phases}（予定 ${x.expected}）`);
+    assert(x.kyou === null, `${label}：面が終わっても凶方が残っている`);
   }
 });
 
@@ -331,6 +337,8 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
     const run = (max = 8000) => { const g = Game.scene; let f = 0; while (Game.scene === g && f < max) { Game.update(); f++; } Game.draw(); return scene(); };
     // テスト用の小さな面（道中はすぐ終わり、ボスは3秒の攻撃が1つだけ。ボスの見た目は1面のボスを借りる）
     const bossId = STAGES[0].bosses.filter(bs => !bs.mid).pop().id;
+    // 本物のエキストラの面は、しくみを確かめるあいだ外しておく（最後に戻す）
+    const realExtra = EXTRA_STAGES.splice(0);
     const mini = name => ({
       name, nameEn: name, bg: STAGES[0].bg, bgm: STAGES[0].bgm,
       bosses: [{ id: bossId, phases: [{ type: 'non', hp: 50, time: 3, *script() { for (;;) yield; } }] }],
@@ -420,6 +428,7 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
     out.bossTestExtra = startBossTest({ stage: 'extra' }) && G.extra && DIFF === EXTRA_DIFF;
     // 管理者ページの一覧もエキストラを含めて作れる
     out.all = allStages().map(x => x.short).join(',');
+    EXTRA_STAGES.splice(0, EXTRA_STAGES.length, ...realExtra);
     return out;
   });
   const want = {
@@ -436,6 +445,52 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
   const x = r.extraGame;
   assert(x.scene === 'GameScene' && x.extra && x.diff === 4 && x.label === 'Extra Stage' && x.power === 400 && x.hiKey.startsWith('hi_4_'), `エキストラの始まり方: ${JSON.stringify(x)}`);
   assert(r.all.endsWith(',5面,6面,Extra'), `面の一覧: ${r.all}`);
+});
+
+test('エキストラの方違え（凶方へ動くと祟りがたまる）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    // 金神の「方違え知らず」で、凶方へ動く／反対へ動く／動かない
+    const run = sign => {
+      startBossTest({ stage: 'extra', boss: 'konjin', phase: 4, only: true });
+      G.cheat = true;
+      T.step(120);
+      let maxM = 0, n = 0;
+      const seen = new Set(G.bullets.list);
+      for (let i = 0; i < 240; i++) {
+        const k = G.kyou, d = KYOU_DIRS[k.cur ?? 0], p = G.player;
+        const s = sign * (Math.floor(i / 60) % 2 ? -1 : 1); // 画面の中で行ったり来たり
+        p.x = clamp(p.x + d.x * 2.5 * s, 20, FIELD_W - 20);
+        p.y = clamp(p.y + d.y * 2.5 * s, 120, FIELD_H - 20);
+        Game.update();
+        maxM = Math.max(maxM, G.kyou.meter);
+        for (const bl of G.bullets.list) if (!seen.has(bl)) { seen.add(bl); n++; }
+      }
+      return { maxM, n };
+    };
+    const still = (() => {
+      startBossTest({ stage: 'extra', boss: 'konjin', phase: 4, only: true });
+      G.cheat = true;
+      T.step(360);
+      return G.kyou.meter;
+    })();
+    // 四方塞がり（耐久スペル）では、どこへ動いても祟りがたまる
+    const all = (() => {
+      const n = KONJIN_PHASES.findIndex(ph => (ph.name || '').includes('四方塞がり')) + 1;
+      startBossTest({ stage: 'extra', boss: 'konjin', phase: n, only: true });
+      G.cheat = true;
+      T.step(100);
+      let m = 0;
+      for (let i = 0; i < 160; i++) { G.player.x = 100 + (i % 80) * 2; Game.update(); m = Math.max(m, G.kyou.meter); }
+      return { cur: G.kyou.cur, m };
+    })();
+    // 金神のいる方角（'boss'）は、自機から見たボスの向き
+    const dirs = [dirIndexOf(-Math.PI / 2), dirIndexOf(0), dirIndexOf(Math.PI / 2), dirIndexOf(Math.PI), dirIndexOf(-Math.PI / 4)];
+    return { toward: run(1), still, all, dirs };
+  });
+  assert(r.toward.maxM > 0.4, `凶方へ動いても祟りがたまらない: ${JSON.stringify(r)}`);
+  assert(r.still === 0, `動かないのに祟りがたまった: ${JSON.stringify(r)}`);
+  assert(r.all.cur === -1 && r.all.m > 0.4, `四方塞がりで祟りがたまらない: ${JSON.stringify(r)}`);
+  assert(r.dirs.join() === '0,2,4,6,1', `方角の番号がおかしい: ${r.dirs}`);
 });
 
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
@@ -662,7 +717,8 @@ test('自動操縦で全ステージをクリアできる', async ({ page }) => 
     const r = await page.evaluate(([ch, diff]) => {
       Game.setScene(new GameScene({ difficulty: diff, character: ch, stage: 0, seed: 12345 }));
       let f = 0;
-      while (Game.scene instanceof GameScene && f < 100000) {
+      // 2.8.0 でボスの攻撃が長くなった（自動操縦では時間切れまでかかるスペルもある）ので、上限は 150000 フレーム
+      while (Game.scene instanceof GameScene && f < 150000) {
         const s = Game.scene;
         s.cheat = true;
         Input.debugHold.add('shot');

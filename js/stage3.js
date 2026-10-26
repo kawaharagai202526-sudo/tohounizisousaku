@@ -30,24 +30,32 @@ const NAMESAWA_MID_PHASES = [
     },
   },
   {
-    // 気づいたら部屋の中にいる弾：あちこちに現れてから、自機へゆっくり寄ってくる
-    type: 'spell', name: '隠符「勝手知ったる他人の家」', hp: 1000, time: 30,
+    // 中ボス（家主のふり）のスペル。2.8.0 で資料をもとに作りかえた。
+    // お茶をすすりながら、湯呑みの形の弾をゆっくり回転させて広げる。ときどき「茶柱が立つ」と、湯呑みから細い針弾がまっすぐ伸びる。
+    // 湯呑みの弾は遅い。茶柱の針弾だけ見ていればよい
+    type: 'spell', name: '茶符「主人顔の一服」', hp: 1000, time: 30,
     *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 90, 40);
+      yield* b.moveTo(FIELD_W / 2, 100, 40);
       for (let loop = 0; ; loop++) {
-        const n = dv(6, 8, 11, 14);
-        Sound.se('kira');
+        const n = dv(8, 10, 12, 14), off = rand(TAU), dir = loop % 2 ? 1 : -1;
         for (let i = 0; i < n; i++) {
-          let x, y, tries = 0;
-          do { x = rand(20, FIELD_W - 20); y = rand(30, FIELD_H - 120); tries++; } while (dist(x, y, G.player.x, G.player.y) < 110 && tries < 20);
+          const stalk = rng.next() < dv(0.15, 0.2, 0.28, 0.35);
           fire({
-            x, y, speed: 0, type: 'ball', color: 'purple', delay: 50, silent: true,
-            script: function* (bl) { yield 60; bl.angle = aimAt(bl.x, bl.y); bl.accel = 0.03; bl.maxSpeed = dv(1.2, 1.5, 1.8, 2.1); },
+            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: dv(0.8, 0.9, 1.0, 1.1), angVel: dir * 0.006, type: 'cup', color: 'green', silent: true,
+            script: stalk ? function* (bl) {
+              yield randInt(60, 140);
+              // 茶柱が立つ：一瞬光ってから、針がまっすぐ伸びる
+              bl.setColor('yellow');
+              yield 20;
+              const a = aimAt(bl.x, bl.y);
+              for (let k = 0; k < dv(1, 2, 3, 3); k++) fire({ x: bl.x, y: bl.y, angle: a, speed: 3.0 + k * 0.4, type: 'needle', color: 'yellow', silent: k > 0 });
+              bl.setColor('green');
+            } : null,
           });
         }
-        yield 50;
-        fireRing({ x: b.x, y: b.y, n: dv(10, 14, 18, 24), angle: rand(TAU), speed: 1.6, type: 'small', color: 'blue' });
-        yield dv(80, 66, 54, 44);
+        Sound.se('tan');
+        yield dv(70, 60, 50, 42);
+        if (loop % 3 === 2) b.wander(50, 40);
       }
     },
   },
@@ -57,131 +65,189 @@ const NAMESAWA_MID_PHASES = [
 //  ボス：滑沢 瓢（よその家にするりと上がりこむ。湯のみと瓢箪）
 // ------------------------------------------------------------
 const NAMESAWA_PHASES = [
+  // 2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作りかえた
+  //   弾の見た目：湯呑みの形の弾（cup）、茶柱のような細い針弾（needle）、表札の形の札弾（card）、妖怪の行列の大玉
+  //   いつの間にか現れる弾と、正体のすり替えがテーマ。見た目と動きが一致しない弾で惑わせる
+  //   流れ：通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3（Hard/Lunatic：→ スペル4）
   {
-    // すべる弾：輪がゆっくり止まりかけて、横へすべり出す
+    // 通常1：気付くと画面のあちこちに弾が「上がり込んで」いる。前触れなく現れた小弾が、ゆっくり動き出す
     type: 'non', hp: 1000, time: 30,
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        const n = dv(14, 18, 24, 30), off = rand(TAU), dir = loop % 2 ? 1 : -1;
-        for (let i = 0; i < n; i++) {
+        for (let i = 0; i < dv(6, 8, 11, 14); i++) {
+          let x, y, tries = 0;
+          do { x = rand(16, FIELD_W - 16); y = rand(20, FIELD_H - 100); tries++; } while (dist(x, y, G.player.x, G.player.y) < 90 && tries < 20);
           fire({
-            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 2.6, accel: -0.05, minSpeed: 0.4, type: 'rice', color: 'blue', silent: i > 0,
-            script: function* (bl) { yield 40; bl.angle += (dir * Math.PI) / 2; bl.accel = 0.03; bl.maxSpeed = dv(1.6, 2, 2.4, 2.8); },
+            x, y, speed: 0, type: 'small', color: 'purple', delay: 4, silent: true,
+            script: function* (bl) { yield 40; bl.angle = rand(TAU); bl.accel = 0.015; bl.maxSpeed = dv(0.9, 1.1, 1.3, 1.5); },
           });
         }
-        yield 50;
-        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'ball', color: 'white' });
-        b.wander(60, 60);
-        yield 40;
+        Sound.se('kira');
+        yield 30;
+        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'cup', color: 'blue' });
+        yield dv(70, 60, 48, 40);
+        if (loop % 2) b.wander(50, 60);
       }
     },
   },
   {
-    // ぬらりくらり：大玉が左右に揺れながら進み、つるのように小さな弾を残していく
-    type: 'spell', name: '瓢符「ぬらりくらりの瓢箪」', hp: 1300, time: 40,
+    // 弾が「いつの間にか」画面の中に現れる。最初は透けた状態（当たらない）で出現し、一拍おいて実体化してから動き出す。
+    // 透けているうちに配置を見て逃げ道を決める。Hard/Lunatic は透けている時間が短く、Lunatic では自機のすぐ近くにも現れる
+    type: 'spell', name: '瓢符「ぬらりくらりの上がり框」', hp: 1300, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
+      const ghost = dv(70, 60, 46, 38);
       for (let loop = 0; ; loop++) {
-        const n = dv(3, 4, 5, 6), base = b.aim();
+        const n = dv(10, 13, 16, 20);
         for (let i = 0; i < n; i++) {
-          const a0 = base + (i - (n - 1) / 2) * 0.5, ph = rand(TAU);
-          fire({
-            x: b.x, y: b.y, angle: a0, speed: dv(1.3, 1.5, 1.7, 1.9), type: 'large', color: 'purple', silent: i > 0,
-            script: function* (bl) {
-              let side = 1;
-              for (let k = 0; ; k++) {
-                bl.angle = a0 + Math.sin(k * 0.05 + ph) * 0.7;
-                if (k % dv(14, 12, 10, 8) === 0) {
-                  side = -side;
-                  fire({ x: bl.x, y: bl.y, angle: bl.angle + (side * Math.PI) / 2, speed: 0.7, type: 'small', color: 'pink', silent: true });
-                }
-                yield;
-              }
-            },
-          });
+          let x, y, tries = 0;
+          const near = DIFF >= 3 && i < 3;
+          do {
+            x = near ? G.player.x + rand(-70, 70) : rand(16, FIELD_W - 16);
+            y = near ? G.player.y + rand(-80, -30) : rand(20, FIELD_H - 60);
+            tries++;
+          } while (dist(x, y, G.player.x, G.player.y) < (near ? 46 : 80) && tries < 20);
+          const a = aimAt(x, y) + rand(-0.5, 0.5);
+          fire({ x: clamp(x, 10, FIELD_W - 10), y: clamp(y, 10, FIELD_H - 10), angle: a, speed: 0, type: 'ball', color: loop % 2 ? 'purple' : 'blue', delay: ghost, silent: true,
+            script: function* (bl) { yield ghost; bl.accel = 0.03; bl.maxSpeed = dv(1.2, 1.4, 1.7, 2.0); } });
         }
         Sound.se('kira');
-        yield dv(80, 66, 56, 46);
-        if (loop % 2) b.wander(60, 50);
+        yield dv(80, 70, 56, 48);
+        if (loop % 2) b.wander(50, 50);
       }
     },
   },
   {
-    // お茶のしぶき：上へはねた弾が、ぱらぱらと落ちてくる
+    // 通常2：左右へ素早く移動しながら、札弾をばら撒く
     type: 'non', hp: 1100, time: 30,
     *script(b) {
-      yield 30;
+      yield 20;
       for (let loop = 0; ; loop++) {
-        const n = dv(10, 14, 18, 24);
-        for (let i = 0; i < n; i++) {
-          fire({
-            x: b.x, y: b.y, angle: -Math.PI / 2 + rand(-1.1, 1.1), speed: rand(2, 3.2), accel: -0.05, minSpeed: 0, ay: 0.04, maxFall: dv(1.8, 2.1, 2.4, 2.7),
-            type: 'small', color: pick(['cyan', 'white']), silent: i > 0,
-          });
-        }
-        yield 30;
-        fireFan({ x: b.x, y: b.y, n: dv(5, 5, 7, 9), spread: 0.9, angle: b.aim(), speed: 2, type: 'rice', color: 'green' });
-        yield 30;
-        b.wander(50, 70);
-        yield 20;
-      }
-    },
-  },
-  {
-    // 一服：少し休んでから、すき間のある湯気の輪を何重にも。椿の花びらも舞い落ちる
-    type: 'spell', name: '茶符「上がり込みの一服」', hp: 1400, time: 45,
-    *script(b) {
-      yield* b.moveTo(FIELD_W / 2, 100, 40);
-      let off = 0;
-      for (let loop = 0; ; loop++) {
-        yield dv(40, 34, 28, 22);
-        for (let r = 0; r < dv(3, 4, 5, 6); r++) {
-          const n = dv(14, 18, 24, 30);
-          for (let i = 0; i < n; i++) {
-            if (i % 6 === 0) continue;
-            fire({ x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 1.5 + r * 0.15, type: 'ball', color: r % 2 ? 'white' : 'cyan', silent: true });
-          }
-          Sound.se('tan');
-          off += 0.12;
-          yield 10;
-        }
-        for (let i = 0; i < dv(6, 8, 10, 12); i++) {
-          const ph = rand(TAU);
-          fire({
-            x: rand(10, FIELD_W - 10), y: -8, angle: Math.PI / 2, speed: rand(1, 1.6), type: 'rice', color: 'red', silent: true,
-            script: function* (bl) { for (let k = 0; ; k++) { bl.angle = Math.PI / 2 + Math.sin(k * 0.06 + ph) * 0.6; yield; } },
-          });
-        }
-        yield 30;
-      }
-    },
-  },
-  {
-    // すれ違いざまに置いていった弾が、あとで一斉に自機へ向かう
-    type: 'spell', name: '暴露「すれ違いざまの暴露」', hp: 1300, time: 45,
-    *script(b) {
-      for (let loop = 0; ; loop++) {
-        const dir = loop % 2 ? -1 : 1;
-        yield* b.moveTo(dir > 0 ? 30 : FIELD_W - 30, rand(70, 150), 40);
-        const tag = {};
-        const dropped = [];
-        for (let f = 0; f < 50; f++) {
-          b.x += (dir * (FIELD_W - 60)) / 50;
-          if (f % dv(5, 4, 3, 3) === 0) dropped.push(fire({ x: b.x, y: b.y, speed: 0, type: 'kunai', color: 'purple', silent: true, delay: 10, data: tag }));
-          if (DIFF >= 2 && f % 10 === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2, speed: 2, type: 'small', color: 'blue', silent: true });
+        const tx = loop % 2 ? FIELD_W - 60 : 60;
+        b.move(tx, rand(70, 120), 36, Ease.inOutQuad);
+        for (let f = 0; f < 40; f++) {
+          if (f % dv(5, 4, 3, 3) === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.2, 1.2), speed: rand(1.4, 2.4), type: 'card', color: pick(['red', 'blue']), silent: true });
           yield;
         }
-        yield 20;
-        Sound.se('kira');
-        for (const bl of dropped) {
-          // 弾は使い回されるので、まだこの弾のままか（data）を確かめる
-          if (!bl.alive || bl.data !== tag) continue;
-          bl.angle = aimAt(bl.x, bl.y);
-          bl.accel = 0.04;
-          bl.maxSpeed = dv(2, 2.4, 2.8, 3.2);
+        Sound.se('tan');
+        fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2.2, type: 'card', color: 'white' });
+        yield dv(30, 24, 18, 14);
+      }
+    },
+  },
+  {
+    // 表札の形の札弾が、赤と青の二種類飛んでくる（赤はまっすぐ、青は曲がる）。一定時間ごとに表札が「掛け替え」られ、赤と青の動き方が入れ替わる。
+    // 掛け替えの合図（札が一瞬裏返る）を見て位置を取る。Hard/Lunatic は間隔が短く、Lunatic では裏返るふりだけして入れ替わらないことがある
+    type: 'spell', name: '札符「表札の掛け替え」', hp: 1300, time: 45,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      let swapped = false;
+      const cards = [];
+      // 曲がる札は、しばらく曲がってから まっすぐに戻る（画面に残り続けないように）
+      const behave = (bl, now) => {
+        const curve = (bl.data === 'red') === swapped;
+        bl.angVel = curve ? (bl.x < G.player.x ? 0.016 : -0.016) * (bl.angle > Math.PI / 2 ? -1 : 1) : 0;
+        bl.curveUntil = now + 45;
+      };
+      for (let f = 0; ; f++) {
+        for (const bl of cards) if (bl.alive && bl.angVel && f > bl.curveUntil) bl.angVel = 0;
+        if (f % dv(14, 11, 9, 7) === 0) {
+          // 赤と青を1枚ずつ
+          for (const red of [true, false]) {
+            const bl = fire({ x: b.x, y: b.y, angle: b.aim() + rand(-1.0, 1.0), speed: dv(1.5, 1.7, 1.9, 2.1), type: 'card', color: red ? 'red' : 'blue', data: red ? 'red' : 'blue', silent: true });
+            behave(bl, f);
+            cards.push(bl);
+          }
+          if (f % 28 === 0) Sound.se('tan');
         }
-        yield dv(70, 60, 50, 40);
+        const period = dv(240, 210, 170, 140);
+        if (f % period === period - 30) {
+          // 合図：札が一瞬裏返る
+          for (const bl of cards) if (bl.alive) bl.setColor('white');
+        }
+        if (f % period === period - 20) {
+          const fake = DIFF >= 3 && rng.next() < 0.3;
+          if (!fake) swapped = !swapped;
+          for (const bl of cards) {
+            if (!bl.alive) continue;
+            bl.setColor(bl.data === 'red' ? 'red' : 'blue');
+            behave(bl, f);
+          }
+          Sound.se('kira');
+        }
+        if (f % 300 === 299) { for (let i = cards.length - 1; i >= 0; i--) if (!cards[i].alive) cards.splice(i, 1); b.wander(50, 50); }
+        yield;
+      }
+    },
+  },
+  {
+    // 通常3：妖怪の影を左右に連れて、三方向から交差する弾を撃つ
+    type: 'non', hp: 1100, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 80, 40);
+      for (let loop = 0; ; loop++) {
+        const shadows = [[60, 150], [FIELD_W - 60, 150]];
+        for (const [sx, sy] of shadows) fire({ x: sx, y: sy, speed: 0, type: 'large', color: 'dark', delay: 30, life: 120, silent: true });
+        yield 30;
+        for (let k = 0; k < dv(4, 5, 6, 7); k++) {
+          const tx = G.player.x, ty = G.player.y;
+          for (const [sx, sy] of [[b.x, b.y], ...shadows]) {
+            const a = angleTo(sx, sy, tx, ty);
+            for (const s of [-1, 1]) fire({ x: sx, y: sy, angle: a + s * dv(0.35, 0.3, 0.26, 0.22), speed: 2.0, type: 'rice', color: 'purple', silent: true });
+          }
+          Sound.se('tan');
+          yield dv(18, 15, 12, 10);
+        }
+        yield dv(60, 50, 40, 34);
+      }
+    },
+  },
+  {
+    // ボスが画面の端から端へ逃げ回り、逃げた跡に弾の列が残る。跡の弾は少し遅れて、自機の方へ流れてくる。
+    // ボスの逃げる先を先回りしようとせず、跡の弾が流れてくる向きに合わせて動く。Hard/Lunatic は逃げる速さと残る弾の数が増える
+    type: 'spell', name: '逃符「勝手口からお暇」', hp: 1300, time: 45,
+    *script(b) {
+      for (let loop = 0; ; loop++) {
+        const tx = loop % 2 ? rand(30, 90) : rand(FIELD_W - 90, FIELD_W - 30), ty = rand(40, 200);
+        const sx = b.x, sy = b.y, frames = dv(70, 60, 50, 42);
+        for (let i = 1; i <= frames; i++) {
+          const t = Ease.inOutQuad(i / frames);
+          b.x = lerp(sx, tx, t); b.y = lerp(sy, ty, t);
+          if (i % dv(6, 5, 4, 3) === 0) {
+            fire({
+              x: b.x, y: b.y, speed: 0, type: 'ball', color: 'blue', silent: true, delay: 10,
+              script: function* (bl) { yield dv(70, 60, 50, 44); bl.angle = aimAt(bl.x, bl.y) + rand(-0.2, 0.2); bl.accel = 0.025; bl.maxSpeed = dv(1.3, 1.5, 1.8, 2.1); },
+            });
+          }
+          yield;
+        }
+        Sound.se('kira');
+        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 2.2, type: 'cup', color: 'green' });
+        yield dv(30, 24, 18, 14);
+      }
+    },
+  },
+  {
+    // ボスの背後に妖怪の行列が現れ、大玉の列になって画面を横切っていく。列と列の間を、ボスの撃つ小弾が埋める。
+    // 行列の大玉は決まった道筋を通る。行列の切れ目を待って抜ける
+    type: 'spell', name: '総大将「百鬼夜行の先頭」', hp: 1400, time: 45, minDiff: 2,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 60, 40);
+      const lanes = [130, 210, 290, 370];
+      for (let loop = 0; ; loop++) {
+        const lane = lanes[loop % lanes.length] + rand(-15, 15), dir = loop % 2 ? 1 : -1;
+        const count = dv(6, 7, 8, 10), gapAt = randInt(2, count - 2);
+        for (let i = 0; i < count; i++) {
+          if (i === gapAt) continue; // 行列の切れ目
+          const x0 = dir > 0 ? -30 - i * 44 : FIELD_W + 30 + i * 44;
+          fire({ x: x0, y: lane, angle: dir > 0 ? 0 : Math.PI, speed: dv(1.4, 1.5, 1.7, 1.9), type: 'large', color: i % 3 === 0 ? 'red' : 'purple', silent: true, margin: 520 });
+        }
+        Sound.se('kira');
+        for (let f = 0; f < 70; f++) {
+          if (f % dv(14, 12, 10, 8) === 0) fire({ x: b.x, y: b.y, angle: b.aim() + rand(-0.6, 0.6), speed: 1.8, type: 'small', color: 'white', silent: true });
+          yield;
+        }
       }
     },
   },

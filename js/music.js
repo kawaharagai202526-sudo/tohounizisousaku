@@ -10,7 +10,7 @@
 //  byDiff: 難易度でちがう曲にする（{ 3: '曲ID' } なら Lunatic のときその曲。songForDiff）
 //  4面ボス・5面ボス・6面ボスの曲は、ユーザーがくれた音（いくつかの曲をつないだもの）から
 //  tools/song-from-audio で旋律とコードを取り出し、調とテンポのつなぎ目をそろえてループするようにしたアレンジ（2.4.0）。
-//  ほかの曲はオリジナル
+//  ほかの曲はオリジナル（エキストラの2曲は 2.8.0 で作った仮のもの）
 // ============================================================
 
 const SONGS = {
@@ -597,9 +597,65 @@ const SONGS = {
     audio: 'boss6lunatic',
     bpm: 120, vol: 0.92, // vol：ほかの曲と音の大きさをそろえる
   },
+
+  stageEx: {
+    title: '方位の果てを巡る',
+    comment: 'エキストラステージのテーマ（曲名は仮）。\n崩れた屋敷の瓦礫を越えると、金色の方位盤がゆっくり回る異界。\nどの方角へ進んでも、誰かに見られているような曲です。',
+    bpm: 152,
+    lead: 'lead', leadVol: 0.13,
+    double: { inst: 'bell', vol: 0.05, shift: 12 },
+    chords: ['Dm', 'Bb', 'C', 'A', 'Dm', 'Bb', 'Gm', 'A', 'F', 'C', 'Dm', 'Am', 'Bb', 'C', 'A', 'A7'],
+    melody: `
+      o5 d8 f8 a8 d8 e8 f8 g8 a8 |
+      o5 b-4. a8 g8 f8 d4 |
+      o5 e8 f8 g8 e8 c4 g4 |
+      o5 c+4 e4 a4 g4 |
+      o5 d8 f8 a8 o6 d8 c8 o5 a8 f8 a8 |
+      o5 b-4. o6 c8 d4 o5 b-4 |
+      o5 g8 a8 b-8 g8 o6 d4 c8 o5 b-8 |
+      o5 a2 c+4 e4 |
+      o5 f4 a8 o6 c8 f4 e8 d8 |
+      o6 e4 c8 o5 g8 o6 c4 o5 b-8 a8 |
+      o5 a4. f8 d4 f4 |
+      o5 e2 a4 o6 c4 |
+      o6 d4. c8 o5 b-4 a4 |
+      o5 g4. f8 e4 g4 |
+      o5 a8 b8 o6 c+8 d8 e4 c+4 |
+      o5 a2 g4 e4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.045, bass: 'oct8', pad: true },
+    drums: 'drive',
+  },
+
+  bossEx: {
+    title: '金色の祟り神',
+    comment: 'エキストラボス・金神のテーマ（曲名は仮）。\n年ごとに方角を巡り、行く手を塞ぐ者に祟る方位神。\n怒りっぽくて、でもどこか律儀な神様の曲です。',
+    bpm: 168,
+    lead: 'trumpet', leadVol: 0.15,
+    double: { inst: 'lead', vol: 0.05, shift: -12 },
+    chords: ['Em', 'C', 'Am', 'B7', 'Em', 'C', 'D', 'B', 'C', 'D', 'G', 'Em', 'Am', 'B7', 'Em', 'B7'],
+    melody: `
+      o5 e8 b8 g8 e8 o6 e4 d8 o5 b8 |
+      o6 c4 o5 b8 a8 g4 e4 |
+      o5 a8 o6 c8 e8 c8 d4 c8 o5 b8 |
+      o5 b2 d+4 f+4 |
+      o5 e8 g8 b8 o6 e8 g4 f+8 e8 |
+      o6 e4. d8 c4 o5 g4 |
+      o5 a8 b8 o6 c8 d8 f+4 e8 d8 |
+      o6 d+2. o5 b4 |
+      o6 e4 g8 e8 c4 e4 |
+      o6 f+4 a8 f+8 d4 f+4 |
+      o6 g4. f+8 e4 d4 |
+      o6 e4 o5 b4 g4 e4 |
+      o5 a4 o6 c8 e8 a4 g8 f+8 |
+      o6 f+4 d+8 o5 b8 o6 d+4 f+4 |
+      o6 e8 f+8 g8 a8 b4 g4 |
+      o6 f+4 e4 d+4 o5 b4 |`,
+    backing: { arp: '16updown', arpInst: 'piano', arpVol: 0.05, bass: 'drive', pad: true },
+    drums: 'rock',
+  },
 };
 
-const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5', 'stage6', 'boss6', 'boss6lunatic'];
+const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5', 'stage6', 'boss6', 'boss6lunatic', 'stageEx', 'bossEx'];
 
 // 難易度で曲を変える（SONGS の byDiff: { 難易度: 曲ID }）。ゲーム中だけ使う（ミュージックルームでは、それぞれの曲がそのまま鳴る）
 function songForDiff(id, diff = DIFF) {

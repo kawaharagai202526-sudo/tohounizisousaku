@@ -7,7 +7,7 @@
 const STAGES = [];
 // 本編の面の数。STAGES にまだ書いていない面は「準備中」になり、いまある最後の面をクリアするとエンディングになる
 const MAIN_STAGE_COUNT = 6;
-// エキストラステージ。本編の面と同じ形で EXTRA_STAGES.push({ ... }) と書く（まだ作っていない）。
+// エキストラステージ。本編の面と同じ形で EXTRA_STAGES.push({ ... }) と書く（js/extra.js。2.8.0 で金神の面を作った）。
 // 難易度は Extra（EXTRA_DIFF）で、コンティニューはできない
 const EXTRA_STAGES = [];
 // エキストラステージが遊べるようになる条件。本編の最後の面（MAIN_STAGE_COUNT 面）をクリアしたときに調べる
@@ -130,6 +130,7 @@ class GameScene {
     this.bossPhaseIdx = 0;
     this.dialogue = null;
     this.cutin = null;
+    this.kyou = null;                         // エキストラの凶方（js/extra.js の setKyou）
     this.spell = null;
     this.spellFailed = false;
     this.spellBonus = 0;
@@ -142,6 +143,7 @@ class GameScene {
     this.bombName = null;
     this.clearInfo = null;
     this.shake = 0;
+    this.tilt = 0;                            // 床が傾くスペルで背景を傾ける角度（ラジアン）
     this.flash = null;
     this.tasks = new TaskRunner();
   }
@@ -285,6 +287,7 @@ class GameScene {
     if (this.dialogue) this.dialogue.update();
     this.player.update(this);
     if (this.continueMenu) return;
+    if (this.kyou) updateKyou(this); // エキストラの方違え（js/extra.js）
 
     // 自機ショット
     const boss = this.boss;
@@ -641,6 +644,7 @@ class GameScene {
       this.spellBgKind = null;
     }
     boss.tasks.clear();
+    this.tilt = 0;
     boss.tasks.add(ph.script(boss, this));
     let result = 'timeout';
     for (;;) {
@@ -656,6 +660,11 @@ class GameScene {
     boss.tasks.clear();
     boss.moveTask = null;
     boss.untouchable = true;
+    boss.alpha = 1;
+    boss.disguise = false;
+    this.tilt = 0;
+    // 隠れ鬼の瓦礫（ダミー）は攻撃が終わったら消す
+    for (const e of this.enemies) if (e.kind === 'decoy') e.alive = false;
     this.clearLasers();
     this.bullets.cancelAll(true);
     const last = index === total - 1;
@@ -718,12 +727,22 @@ class GameScene {
     ctx.clip();
     const sh = this.shake > 0 ? Math.min(this.shake, 8) * 0.5 : 0;
     ctx.translate(FIELD_X + (sh ? frand(-sh, sh) : 0), FIELD_Y + (sh ? frand(-sh, sh) : 0));
-    this.bg.draw(ctx);
+    // 床が傾くスペル（G.tilt）では、背景を傾けて見せる
+    if (this.tilt) {
+      ctx.save();
+      ctx.translate(FIELD_W / 2, FIELD_H / 2);
+      ctx.rotate(this.tilt);
+      ctx.scale(1.18, 1.18);
+      ctx.translate(-FIELD_W / 2, -FIELD_H / 2);
+      this.bg.draw(ctx);
+      ctx.restore();
+    } else this.bg.draw(ctx);
     if (this.spellBgAlpha > 0 && this.lastSpellBg) {
       ctx.globalAlpha = this.spellBgAlpha;
       drawSpellBG(ctx, this.lastSpellBg, this.frame);
       ctx.globalAlpha = 1;
     }
+    if (this.kyou) drawKyouEdge(ctx, this);
     drawPlayerCutin(ctx, this);
     if (this.boss) this.boss.draw(ctx);
     for (const e of this.enemies) e.draw(ctx);
@@ -736,6 +755,7 @@ class GameScene {
     this.bullets.draw(ctx);
     this.player.drawHitbox(ctx);
     Fx.draw(ctx);
+    if (this.kyou) drawKyouDial(ctx, this);
     drawCutin(ctx, this);
     drawBossHud(ctx, this);
     drawSpellName(ctx, this);
