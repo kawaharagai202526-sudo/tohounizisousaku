@@ -15,6 +15,7 @@
   --art 440           原画の高さ（0 なら原画を作らない）
   --dot 78            ドット絵の高さ（0 ならドット絵を作らない）。ボスは 72〜82 くらい
   --dark 0.28         ドット絵で線画を残す強さ（小さいほど線が太く残る）
+  --line 85           線画とみなす色の暗さ（明るさ 0〜255 がこれより暗い色。線が灰色の絵は 140〜160 くらいに上げる）
   --colors 16         ドット絵の色数
   --keep-alpha        背景がすでに透明な PNG のとき（背景の切り抜きをしない）
   --preview 出力先     確認用に拡大した画像（暗い背景・緑の背景）も保存する
@@ -94,8 +95,8 @@ def resize(im, h):
     return im.convert('RGBa').resize((w, h), Image.LANCZOS).convert('RGBA')
 
 
-def pixelize(im, h, colors=16, outline=(20, 16, 36), k=6, dark_thresh=0.28):
-    """縮小 → 線画を残す → 減色 → 1px の縁取りで、簡略化したドット絵にする"""
+def pixelize(im, h, colors=16, outline=(20, 16, 36), k=6, dark_thresh=0.28, line_lum=85):
+    """縮小 → 線画を残す → 減色 → 1px の縁取りで、簡略化したドット絵にする（line_lum より暗い色を線画とみなす）"""
     w = round(im.width * h / im.height)
     big = np.array(im.convert('RGBa').resize((w * k, h * k), Image.LANCZOS).convert('RGBA')).astype(float)
     A = big[:, :, 3] / 255
@@ -109,7 +110,7 @@ def pixelize(im, h, colors=16, outline=(20, 16, 36), k=6, dark_thresh=0.28):
     mean = (rb * ab).sum(axis=(1, 3)) / np.maximum(wsum, 1e-6)
     alpha = wsum[..., 0] / (k * k)
     # 暗い線が多いマスは、平均ではなく一番暗い色にして線を残す
-    dark = ((rgb.mean(axis=2) < 85) & (A > 0.5)).astype(float)
+    dark = ((rgb.mean(axis=2) < line_lum) & (A > 0.5)).astype(float)
     darkfrac = blk(dark[..., None]).mean(axis=(1, 3))[..., 0]
     mn = np.where(ab > 0.5, rb, 255).min(axis=(1, 3))
     col = np.where(darkfrac[..., None] > dark_thresh, mn, mean)
@@ -148,6 +149,7 @@ def main():
     ap.add_argument('--art', type=int, default=440)
     ap.add_argument('--dot', type=int, default=78)
     ap.add_argument('--dark', type=float, default=0.28)
+    ap.add_argument('--line', type=int, default=85)
     ap.add_argument('--colors', type=int, default=16)
     ap.add_argument('--keep-alpha', action='store_true')
     ap.add_argument('--preview')
@@ -183,7 +185,7 @@ def main():
             os.makedirs(o.preview, exist_ok=True)
             save_preview(art, os.path.join(o.preview, o.name), 1)
     if o.dot:
-        dot = pixelize(full, o.dot, colors=o.colors, dark_thresh=o.dark)
+        dot = pixelize(full, o.dot, colors=o.colors, dark_thresh=o.dark, line_lum=o.line)
         path = os.path.join(o.out, f'{o.name}_dot.png')
         dot.save(path, optimize=True)
         print(f'ドット絵 {path}  {dot.width}x{dot.height}')

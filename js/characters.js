@@ -26,9 +26,9 @@ const CHARA_INFO = {
   yanari6: { name: '家鳴 鳴音', kana: 'やなり めいおん', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
   // 座敷わらしなので小さく表示する（ドット絵も高さ 60px で作ってある）
   zashiki: { name: '座敷 宿美', kana: 'ざしき すずみ', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot', portraitScale: 0.8 },
-  // エキストラ（2.8.0）。名前と二つ名は仮（資料では「Extraボス」「方位神（金神）」）。絵はキャンバスで描く（CHARA）
-  konjinMid: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860' },
-  konjin: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860' },
+  // エキストラ（2.8.0）。名前と二つ名は仮（資料では「Extraボス」「方位神（金神）」）。絵は 2.10.0 でユーザーがくれたイラスト
+  konjinMid: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
+  konjin: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
 };
 
 const CHARA = {
@@ -42,14 +42,7 @@ const CHARA = {
     back: 'long', dress: '#22202c', top: '#22202c', trim: '#ffffff', collar: '#ffffff', apron: '#ffffff',
     neck: '#ffffff', sleeve: 'puff', legs: '#ffffff', shoes: '#3a2a20', acc: 'witchHat', braid: true,
   },
-  // 金神（エキストラのボス）：金色の髪、深紅と黒の装束、頭の上に方位盤の飾り
-  konjin: {
-    skin: '#ffeede', hair: '#f6cc48', hairDark: '#d69c22', hairHi: '#fff6c0', eye: '#d02a22',
-    back: 'longStraight', dress: '#8c1622', top: '#8c1622', trim: '#f6d050', collar: '#1e1422', neck: '#f6d050',
-    sleeve: 'puff', sleeveColor: '#f4e2b8', legs: '#1e1422', shoes: '#1e1422', acc: 'compassCrown',
-  },
 };
-CHARA.konjinMid = CHARA.konjin;
 
 function ell(ctx, x, y, rx, ry, rot = 0) {
   ctx.beginPath();
@@ -395,17 +388,6 @@ function drawChibi(ctx, id, o = {}) {
     case 'witchHat': drawWitchHat(ctx); break;
     case 'redRibbon': drawSmallBow(ctx, -8.5, -27, '#d0202e', 0.75); break;
     case 'yellowBow': drawSmallBow(ctx, -11, -23, '#f2d23a', 0.8); break;
-    case 'compassCrown':
-      // 方位盤の飾り（八方の針）
-      ctx.save();
-      ctx.translate(0, -30);
-      ctx.fillStyle = '#ffd860';
-      starPath(ctx, 7, 2.6, 8);
-      ctx.fill();
-      ctx.fillStyle = '#c0281e';
-      ctx.beginPath(); ctx.arc(0, 0, 2.1, 0, TAU); ctx.fill();
-      ctx.restore();
-      break;
     case 'starRibbon':
       drawSmallBow(ctx, 0, -29, '#2a4cc4', 0.9);
       ctx.save(); ctx.translate(0, -29); ctx.fillStyle = '#ffe45a'; starPath(ctx, 2.8, 1.2); ctx.fill(); ctx.restore();

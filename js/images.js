@@ -31,6 +31,8 @@ const IMAGE_FILES = {
   yanariDot: 'img/yanari_dot.png',
   zashiki: 'img/zashiki.png',      // 6面ボス 座敷 宿美
   zashikiDot: 'img/zashiki_dot.png',
+  konjin: 'img/konjin.png',        // エキストラの中ボス・ボス 金神（2.10.0 でもらったイラスト）
+  konjinDot: 'img/konjin_dot.png',
 };
 // 使っていない絵（ファイルだけ残して読み込まない）：前のゲーム『東方星降夜』の img/boss3・midboss3（と _dot）、
 // 2.0.0 まで2面中ボスだった img/midboss2（と _dot）
