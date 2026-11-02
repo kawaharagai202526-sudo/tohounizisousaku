@@ -89,7 +89,7 @@
 
 ```
 # 2.10.0 で使ったもの（キャンバスにかかるボタンと絵が重ならないので、--crop だけ）
-python3 tools/make-sprite.py もらった画面写真.jpg konjin --crop 118,236,962,1296 --dot 80 --line 150   # エキストラ 金神（中ボスとボス）
+python3 tools/make-sprite.py もらった画面写真.jpg konjin --crop 118,236,962,1296 --dot 80 --line 150   # エキストラのボス 金神
 # 2.1.0〜2.2.0 で使ったもの（4面中ボスの絵は、2.1.0 では3面中ボス `midboss3b` だった）
 python3 tools/make-sprite.py 23.jpg zashiki --crop 0,0,1050,1337 --fade 30 --dot 60                         # 6面ボス（座敷わらしなので小さく）
 python3 tools/make-sprite.py 24.jpg midboss4 --crop 330,320,780,1410 --mask 645,1290,1067,1440 --dot 74   # 4面中ボス

@@ -108,6 +108,11 @@ class Enemy {
         ctx.drawImage(getBulletSprite('kobun', this.color), -15, -15, 30, 30);
         break;
       case 'decoy': drawRubblePile(ctx, 0); break;
+      case 'konjinShot':
+        // エキストラで、中ボスの栂尾を撃ち落とす金神の弾（2.11.0）
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(getBulletSprite('large', 'gold'), -23, -23, 46, 46);
+        break;
       case 'pillar': drawPillar(ctx, this.frame, this.side || 1); break;
       case 'paper': drawPaperScrap(ctx, this.frame, this.phase, this.angle); break;
       case 'hand':
@@ -351,7 +356,7 @@ class Boss {
       ctx.fillStyle = g;
       ctx.beginPath(); ctx.arc(0, 0, 40, 0, TAU); ctx.fill();
     }
-    ctx.rotate(this.tilt * 0.12);
+    ctx.rotate(this.tilt * 0.12 + (this.spin || 0)); // spin：倒されて回りながら落ちるとき（エキストラの中ボス）
     const dot = CHARA_INFO[this.id].dot;
     if (dot) {
       // ドット絵のボス（拡大してもぼやけないように補間を切る）

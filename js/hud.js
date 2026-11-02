@@ -297,7 +297,7 @@ function drawCutin(ctx, g) {
 const CHARA_CUTIN_COLOR = {
   nokiba: '200,110,50', ruri: '40,80,220', kuraishiro: '50,110,220', namesawaMask: '110,100,180', namesawa: '110,100,180',
   midboss4: '170,40,70', toganoo: '150,96,40', yanariMid: '160,60,210', yanari: '160,60,210', yanari6: '160,60,210', zashiki: '90,90,200',
-  konjinMid: '200,150,30', konjin: '200,150,30',
+  toganooEx: '150,96,40', konjin: '200,150,30',
 };
 
 // 自機のボムのカットイン（左側。上から下へ）。ボムの名前と同時に、自機の絵（PLAYER_TYPES の portrait）が降りてくる。

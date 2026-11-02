@@ -26,8 +26,9 @@ const CHARA_INFO = {
   yanari6: { name: '家鳴 鳴音', kana: 'やなり めいおん', title: '狂おしき住処のプロデューサー', color: '#e0a0ff', image: 'yanari', dot: 'yanariDot' },
   // 座敷わらしなので小さく表示する（ドット絵も高さ 60px で作ってある）
   zashiki: { name: '座敷 宿美', kana: 'ざしき すずみ', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot', portraitScale: 0.8 },
-  // エキストラ（2.8.0）。名前と二つ名は仮（資料では「Extraボス」「方位神（金神）」）。絵は 2.10.0 でユーザーがくれたイラスト
-  konjinMid: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
+  // エキストラ。中ボスは栂尾（4面のボス。2.11.0 でユーザーの指定）。
+  // ボスの金神（2.8.0）の名前と二つ名は仮（資料では「Extraボス」「方位神（金神）」）。絵は 2.10.0 でユーザーがくれたイラスト
+  toganooEx: { name: '栂尾 芯', kana: 'とがのお しん', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
   konjin: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
 };
 

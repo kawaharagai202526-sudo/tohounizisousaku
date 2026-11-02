@@ -480,11 +480,39 @@ test('霊夢の誘導弾が目標のまわりを回り続けない', async ({ pa
   assert(r.left === 0 && r.maxAge < 150, `誘導弾が回り続けている（いちばん長く残った弾 ${r.maxAge} フレーム、残り ${r.left} 発）`);
 });
 
+test('エキストラの中ボス（栂尾）は、体力が30%を切ると金神の弾で倒される', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    // 家符（中ボスの2つ目の攻撃）だけを試す。自機は無敵
+    startBossTest({ stage: 'extra', boss: 'toganooEx', phase: 2, only: true });
+    const g = G;
+    g.cheat = true;
+    T.step(160);
+    const b = g.boss, out = { name: b.phase && b.phase.name };
+    // 体力が 31% のあいだは、金神の弾は来ない
+    b.hp = b.maxHp * 0.31;
+    T.step(60);
+    out.beforeLow = { struck: !!b.struck, shots: g.enemies.filter(e => e.kind === 'konjinShot').length };
+    // 29% にすると、金神の弾が飛んできて倒される（自機には当たらず、自機の弾も効かない）
+    b.hp = b.maxHp * 0.29;
+    let sawShot = false, shotHits = true, f = 0;
+    while (g.bossPhases && f < 300) {
+      Game.update(); f++;
+      for (const e of g.enemies) if (e.kind === 'konjinShot') { sawShot = true; shotHits = shotHits && e.noBody && e.untouchable; }
+    }
+    out.after = { struck: !!b.struck, sawShot, safe: shotHits, ended: !g.bossPhases, frames: f, hp: b.hp };
+    return out;
+  });
+  assert(r.name === '家符「家を支える者の意地」', `中ボスの攻撃がちがう: ${JSON.stringify(r)}`);
+  assert(!r.beforeLow.struck && r.beforeLow.shots === 0, `体力が 30% より多いのに金神の弾が来た: ${JSON.stringify(r)}`);
+  assert(r.after.struck && r.after.sawShot && r.after.safe && r.after.ended && r.after.hp <= 0, `金神の弾で倒されない: ${JSON.stringify(r)}`);
+});
+
 test('エキストラの方違え（凶方へ動くと祟りがたまる）', async ({ page }) => {
   const r = await page.evaluate(() => {
     // 金神の「方違え知らず」で、凶方へ動く／反対へ動く／動かない
+    const katatagae = KONJIN_PHASES.findIndex(ph => ph.name === '祟符「方違え知らず」') + 1;
     const run = sign => {
-      startBossTest({ stage: 'extra', boss: 'konjin', phase: 4, only: true });
+      startBossTest({ stage: 'extra', boss: 'konjin', phase: katatagae, only: true });
       G.cheat = true;
       T.step(120);
       let maxM = 0, n = 0;
@@ -501,7 +529,7 @@ test('エキストラの方違え（凶方へ動くと祟りがたまる）', as
       return { maxM, n };
     };
     const still = (() => {
-      startBossTest({ stage: 'extra', boss: 'konjin', phase: 4, only: true });
+      startBossTest({ stage: 'extra', boss: 'konjin', phase: katatagae, only: true });
       G.cheat = true;
       T.step(360);
       return G.kyou.meter;

@@ -1,8 +1,9 @@
 'use strict';
 // ============================================================
-//  エキストラステージ：方位の果て ― 中ボス・ボス：金神（方位神）
-//  2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作った（名前・二つ名・会話・曲は Claude が考えた仮のもの）
-//  前半：崩れた屋敷の瓦礫の上で中ボス（金神）→ 方位盤の異界へ（背景 CompassRealmBG の event('compass')）→ 道中 → 本戦
+//  エキストラステージ：方位の果て ― 中ボス：栂尾 芯（4面のボス）／ボス：金神（方位神）
+//  2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」をもとに作った（名前・二つ名・曲は Claude が考えた仮のもの）
+//  流れ（2.11.0 でユーザーの指定）：崩れた屋敷の瓦礫の上の道中 → 中ボス 栂尾（体力が 30% を切ると、画面の上から金神の弾が一発飛んできて倒される）
+//    → 金神が現れて会話 → ボス戦。ボス戦は瓦礫の上で始まり、途中で方位盤の異界へ移る（背景 CompassRealmBG の event('compass')）。会話はユーザーが書いたもの
 //  方違えのしくみ（凶方）：画面の左下の方位盤に、凶方（ふつうは金神のいる方角）が光る。
 //    凶方へ向かって動くほど「祟り」がたまり、凶方の画面の端から祟りの弾が飛んでくる。凶方はスペルカードごとに移り変わる
 //  弾の見た目：金色の札弾（card）、方位盤の光線（レーザー）、十二支の印の大玉（zodiac0〜11）、瓦礫の弾（rubble）、金色の針弾（needle）
@@ -157,9 +158,9 @@ function drawKyouDial(ctx, g) {
 //  frames：続ける長さ  k：弾の量の倍率（七つ目の波で重ねるときは小さくする）  setK：凶方を決めるか
 // ------------------------------------------------------------
 
-// 本戦の攻撃の始め：方位盤の異界にいることにして、凶方を決め、位置につく
+// 本戦の攻撃の始め：方位盤の異界へ移り（瓦礫の空から、少しずつ変わる）、凶方を決め、位置につく
 function* konjinIn(b, g, kyou, x = FIELD_W / 2, y = 90, o) {
-  if (g.bg.event) g.bg.event('compassNow');
+  if (g.bg.event) g.bg.event('compass');
   b.zodiacLit = null;
   b.face = 'normal';
   setKyou(g, kyou, o);
@@ -317,9 +318,10 @@ function* konjinHari(b, g, frames, k = 1) {
 }
 
 // ------------------------------------------------------------
-//  中ボス：金神（崩れた屋敷の瓦礫の上。名前は出さない）
+//  ボス：金神の前半（崩れた屋敷の瓦礫の上）
+//  資料では中ボスの攻撃（中ボス2枚）。2.11.0 で中ボスが栂尾になったので、ボス戦の始めに移した
 // ------------------------------------------------------------
-const KONJIN_MID_PHASES = [
+const KONJIN_RUBBLE_PHASES = [
   {
     // 通常：瓦礫を弾にして投げつけ、金色の札をまく
     type: 'non', hp: 1100, time: 30,
@@ -413,10 +415,12 @@ const KONJIN_MID_PHASES = [
 ];
 
 // ------------------------------------------------------------
-//  ボス：金神（方位盤の異界）
-//  流れ：通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3 → 通常4 → スペル4 → スペル5 → スペル6 → スペル7 → 耐久スペル → ラストスペル
+//  ボス：金神
+//  流れ：（瓦礫の上）通常 → 瓦符 → 鬼門 →（方位盤の異界）通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3 → 通常4 → スペル4 →
+//        スペル5 → スペル6 → スペル7 → 耐久スペル → ラストスペル
 // ------------------------------------------------------------
 const KONJIN_PHASES = [
+  ...KONJIN_RUBBLE_PHASES,
   {
     // 通常1：方位盤の八方（ボスのまわりの八つの点）から、金色の札弾を順番に撃つ
     type: 'non', hp: 1300, time: 30,
@@ -657,6 +661,80 @@ const KONJIN_PHASES = [
 ];
 
 // ------------------------------------------------------------
+//  中ボス：栂尾 芯（4面のボス。2.11.0 でユーザーの指定。戦っているあいだ名前は出さない）
+//  攻撃は4面の終わりの2つ（通常4・家符「家を支える者の意地」）と同じ。
+//  家符の体力が 30% を切ると、画面の上（栂尾の後ろ）から金神の弾が一発飛んできて、栂尾が倒される
+// ------------------------------------------------------------
+const TOGANOO_EX_LOW = 0.3; // 金神の弾が飛んでくる体力の割合
+const TOGANOO_IE = TOGANOO_PHASES.find(ph => ph.name === '家符「家を支える者の意地」');
+const TOGANOO_EX_PHASES = [
+  TOGANOO_PHASES[TOGANOO_PHASES.indexOf(TOGANOO_IE) - 1], // 通常4
+  {
+    ...TOGANOO_IE,
+    *script(b, g) {
+      yield* untilLowHp(b, TOGANOO_IE.script(b, g), TOGANOO_EX_LOW);
+      yield* konjinStrike(b, g);
+    },
+  },
+];
+
+// 体力が ratio を切るまで、攻撃 gen を動かす（TaskRunner と同じ進み方。yield n で n フレーム待つ）
+function* untilLowHp(b, gen, ratio) {
+  let wait = 0;
+  while (b.hp > b.maxHp * ratio) {
+    if (wait > 0) { wait--; yield; continue; }
+    const r = gen.next();
+    if (r.done) { yield* waitUntil(() => b.hp <= b.maxHp * ratio); return; }
+    wait = (typeof r.value === 'number' ? Math.max(1, r.value) : 1) - 1;
+    yield;
+  }
+}
+
+// 金神の弾：画面の上（栂尾の後ろ）が光ってから、弾が一発だけ栂尾へ飛んでいき、当たると栂尾の体力が 0 になる。
+// 弾は自機には当たらず、自機の弾でも消えない。当たった瞬間に道中の曲を止める（金神が現れたあとの会話で、ボスの曲が始まる）
+function* konjinStrike(b, g) {
+  b.struck = true;
+  b.invincible = 9999; // もう自機の攻撃は効かない
+  const sx = clamp(b.x + 60, 20, FIELD_W - 20), sy = -30;
+  Fx.flash(sx, 4, 'rgba(255,210,90,0.9)', 36, 34, 0.6);
+  Sound.se('charge');
+  yield 34;
+  const shot = spawnEnemy({ x: sx, y: sy, kind: 'konjinShot', hp: 1, r: 10, score: 0, drops: {}, keep: true, noBody: true });
+  shot.untouchable = true;
+  Sound.se('laser');
+  for (let f = 0, sp = 3; f < 120 && dist(shot.x, shot.y, b.x, b.y) > 10; f++) {
+    sp = Math.min(11, sp + 0.35);
+    const a = angleTo(shot.x, shot.y, b.x, b.y), step = Math.min(sp, dist(shot.x, shot.y, b.x, b.y));
+    shot.x += Math.cos(a) * step;
+    shot.y += Math.sin(a) * step;
+    shot.angle = a;
+    Fx.spark(shot.x, shot.y, 'rgba(255,220,120,0.8)', 2, 1.4, 14);
+    yield;
+  }
+  shot.alive = false;
+  Fx.explosion(b.x, b.y, 'rgba(255,210,90,0.9)', 2.2);
+  g.flash = { color: '255,232,170', a: 0.75 };
+  g.shake = 26;
+  Sound.se('bossdie');
+  Sound.stopBgm(1.5);
+  b.hp = 0;
+}
+
+// 撃たれた栂尾が、くるくる回りながら下へ落ちていく
+function* knockDown(g, b) {
+  b.invincible = 9999;
+  for (let f = 0; f < 80; f++) {
+    b.spin = f * 0.09;
+    b.x += 0.5;
+    b.y += 0.4 + f * 0.09;
+    b.alpha = Math.max(0, 1 - f / 80);
+    yield;
+  }
+  b.alive = false;
+  if (g.boss === b) g.boss = null;
+}
+
+// ------------------------------------------------------------
 //  道中の敵
 // ------------------------------------------------------------
 
@@ -678,14 +756,6 @@ function hoiFairy(x, stopY = 100) {
   });
 }
 
-// 道中の凶方：八方を順に巡る（遊行）。次の凶方は方位盤で予告する。road.on が false になったら終わる
-function* roadKyou(g, road) {
-  for (let c = 0; road.on; c++) {
-    setKyou(g, (c * 3) % 8, { next: ((c + 1) * 3) % 8 });
-    for (let f = 0; f < 480 && road.on; f++) yield;
-  }
-}
-
 EXTRA_STAGES.push({
   name: '方位の果て',
   nameEn: 'Where All Directions End',
@@ -693,7 +763,7 @@ EXTRA_STAGES.push({
   bgm: 'stageEx',
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う）
   bosses: [
-    { id: 'konjinMid', phases: KONJIN_MID_PHASES, mid: true, def: { spellBg: 'konjin', circleColor: '255,210,110' } },
+    { id: 'toganooEx', phases: TOGANOO_EX_PHASES, mid: true, def: { spellBg: 'hashira', circleColor: '255,190,110' } },
     { id: 'konjin', phases: KONJIN_PHASES, bgm: 'bossEx', def: { spellBg: 'konjin', circleColor: '255,210,110', aura: 'rgba(255,200,80,0.35)', finalDrops: { power: 10, point: 30, bigpower: 1 } } },
   ],
   *script(g) {
@@ -710,23 +780,7 @@ EXTRA_STAGES.push({
     hoiFairy(FIELD_W / 2, 110);
     yield 200;
     yield* waitClear(600);
-
-    // 中ボス：金神（瓦礫の上。名前は出さない）。倒すと方位盤の異界へ
-    const mid = g.spawnStageBoss('konjinMid', { x: FIELD_W / 2, y: -50 });
-    yield* mid.moveTo(FIELD_W / 2, 100, 60);
-    yield* g.talk(STORY.extraMid[g.charId].before);
-    kyouHelp(g);
-    yield* g.fight(mid, KONJIN_MID_PHASES);
-    g.kyou = null;
-    if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 8, point: 12, bomb: 1 });
-    yield* g.talk(STORY.extraMid[g.charId].after);
-    yield* g.bossDown(mid, true);
-    if (g.bg.event) g.bg.event('compass');
-    yield 200;
-
-    // 後半（方位盤の異界）：凶方が八方を巡る
-    const road = { on: true };
-    g.tasks.add(roadKyou(g, road));
+    yield 60;
     for (let k = 0; k < 2; k++) { hoiFairy(k ? 290 : 94, 100); yield 90; }
     g.tasks.add(swirlWave(-1, 10));
     g.tasks.add(swirlWave(1, 10));
@@ -745,16 +799,31 @@ EXTRA_STAGES.push({
     for (let k = 0; k < 3; k++) { hoiFairy(rand(70, FIELD_W - 70), 80 + k * 25); yield 120; }
     fairyLine(7, 50);
     yield* waitClear(900);
-    road.on = false;
-    g.kyou = null;
-    yield 120;
+    yield 60;
+
+    // 中ボス：栂尾 芯（4面のボス。名前は出さない）。体力が 30% を切ると、画面の上から金神の弾が飛んできて倒される
+    // （時間切れまで 30% を切らなかったときも、最後に金神の弾が飛んでくる）
+    const mid = g.spawnStageBoss('toganooEx', { x: FIELD_W / 2, y: -50 });
+    yield* mid.moveTo(FIELD_W / 2, 100, 60);
+    yield* g.talk(STORY.extraMid[g.charId].before);
+    yield* g.fight(mid, TOGANOO_EX_PHASES);
+    const earned = !!mid.struck; // 自機の攻撃で体力を 30% まで減らした
+    if (!mid.struck) yield* konjinStrike(mid, g);
+    if (earned) dropItems(mid.x, mid.y, { power: 8, point: 12, bomb: 1 });
+    yield* knockDown(g, mid);
+    yield 30;
   },
-  // ボス戦（キー「V」のときはここから始まる）
+  // ボス戦（キー「V」のときはここから始まる）。金神は、栂尾を撃った弾と同じ画面の上から、派手に現れる
   *boss(g) {
-    if (g.bg.event) g.bg.event('compassNow');
     g.kyou = null;
+    Sound.stopBgm(1.0);
     const boss = g.spawnStageBoss('konjin', { x: FIELD_W / 2, y: -50 });
-    yield* boss.moveTo(FIELD_W / 2, 100, 70);
+    yield* boss.moveTo(FIELD_W / 2, 100, 50);
+    Fx.ring(boss.x, boss.y, 'rgba(255,210,90,0.9)', 10, 5, 40, 3);
+    Fx.flash(boss.x, boss.y, 'rgba(255,224,150,0.8)', 50, 30, 2);
+    g.shake = 16;
+    Sound.se('spark');
+    yield 40;
     yield* g.talk(STORY.extra[g.charId].before);
     kyouHelp(g);
     yield* g.fight(boss, KONJIN_PHASES);
