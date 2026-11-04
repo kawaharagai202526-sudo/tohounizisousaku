@@ -690,33 +690,59 @@ function* untilLowHp(b, gen, ratio) {
   }
 }
 
-// 金神の弾：画面の上（栂尾の後ろ）が光ってから、弾が一発だけ栂尾へ飛んでいき、当たると栂尾の体力が 0 になる。
-// 弾は自機には当たらず、自機の弾でも消えない。当たった瞬間に道中の曲を止める（金神が現れたあとの会話で、ボスの曲が始まる）
+// 金神の弾：栂尾を撃ち落とす一発。見落とさないように（2.11.1 でユーザーの指定「分かりにくい。わかりやすくする」）
+//   1. 自機は撃てなくなり（g.holdFire。金神のボス戦が始まるまで。ボムも）、画面の自機の弾と敵の弾を消す
+//   2. 栂尾が画面のまん中へ出てくる。画面の上（栂尾の後ろ）に金色の光が集まり、栂尾までの通り道を細い線で予告する
+//   3. 大きな金色の弾が、光の尾を引きながら栂尾へ飛ぶ
+//   4. 当たると画面が光って栂尾が白く光ったまま少し止まり、体力が 0 になる。当たった瞬間に道中の曲を止める
+// 弾は自機には当たらず、自機の弾でも消えない
 function* konjinStrike(b, g) {
   b.struck = true;
   b.invincible = 9999; // もう自機の攻撃は効かない
-  const sx = clamp(b.x + 60, 20, FIELD_W - 20), sy = -30;
-  Fx.flash(sx, 4, 'rgba(255,210,90,0.9)', 36, 34, 0.6);
+  b.timer = Math.max(b.timer, 600); // 演出のとちゅうで攻撃の時間切れにならないように
+  g.holdFire = true;
+  g.shots.length = 0;
+  g.bullets.cancelAll(true);
+  g.clearLasers();
+  b.moveTask = null;
+  yield* b.moveTo(FIELD_W / 2, 150, 36);
+  // 予告：画面の上に光が集まり、通り道に線が出る
+  const sx = b.x, top = 8;
   Sound.se('charge');
-  yield 34;
-  const shot = spawnEnemy({ x: sx, y: sy, kind: 'konjinShot', hp: 1, r: 10, score: 0, drops: {}, keep: true, noBody: true });
+  fireLaser({ x: sx, y: 0, angle: Math.PI / 2, length: b.y, width: 3, warn: 64, dur: 0, color: 'gold', silent: true });
+  for (let f = 0; f < 64; f++) {
+    if (f % 12 === 0) Fx.ring(sx, top, 'rgba(255,214,110,0.9)', 50, -0.9, 40, 2);
+    if (f % 4 === 0) Fx.flash(sx, top, 'rgba(255,220,130,0.8)', 14 + f * 0.4, 16);
+    yield;
+  }
+  // 弾：光の尾を引きながら、まっすぐ栂尾へ
+  const shot = spawnEnemy({ x: sx, y: -30, kind: 'konjinShot', hp: 1, r: 10, score: 0, drops: {}, keep: true, noBody: true });
   shot.untouchable = true;
   Sound.se('laser');
-  for (let f = 0, sp = 3; f < 120 && dist(shot.x, shot.y, b.x, b.y) > 10; f++) {
-    sp = Math.min(11, sp + 0.35);
-    const a = angleTo(shot.x, shot.y, b.x, b.y), step = Math.min(sp, dist(shot.x, shot.y, b.x, b.y));
+  for (let f = 0; f < 120 && dist(shot.x, shot.y, b.x, b.y) > 8; f++) {
+    const a = angleTo(shot.x, shot.y, b.x, b.y), step = Math.min(4.5, dist(shot.x, shot.y, b.x, b.y));
     shot.x += Math.cos(a) * step;
     shot.y += Math.sin(a) * step;
     shot.angle = a;
-    Fx.spark(shot.x, shot.y, 'rgba(255,220,120,0.8)', 2, 1.4, 14);
+    Fx.flash(shot.x, shot.y, 'rgba(255,205,90,0.5)', 20, 14);
+    Fx.spark(shot.x, shot.y, 'rgba(255,225,130,0.85)', 2, 1.6, 16);
     yield;
   }
   shot.alive = false;
-  Fx.explosion(b.x, b.y, 'rgba(255,210,90,0.9)', 2.2);
-  g.flash = { color: '255,232,170', a: 0.75 };
-  g.shake = 26;
+  // 命中：画面が光り、栂尾が白く光ったまま少し止まる
+  Fx.explosion(b.x, b.y, 'rgba(255,210,90,0.9)', 2.4);
+  Fx.ring(b.x, b.y, 'rgba(255,240,200,0.9)', 10, 6, 30, 4);
+  g.flash = { color: '255,232,170', a: 0.85 };
+  g.shake = 30;
   Sound.se('bossdie');
   Sound.stopBgm(1.5);
+  for (let f = 0; f < 24; f++) {
+    b.flash = 2;
+    b.spin = Math.sin(f * 1.7) * 0.12;
+    yield;
+  }
+  b.spin = 0;
+  b.strikeDone = true;
   b.hp = 0;
 }
 
@@ -808,7 +834,7 @@ EXTRA_STAGES.push({
     yield* g.talk(STORY.extraMid[g.charId].before);
     yield* g.fight(mid, TOGANOO_EX_PHASES);
     const earned = !!mid.struck; // 自機の攻撃で体力を 30% まで減らした
-    if (!mid.struck) yield* konjinStrike(mid, g);
+    if (!mid.strikeDone) yield* konjinStrike(mid, g); // 時間切れなどで、まだ金神の弾が当たっていないとき
     if (earned) dropItems(mid.x, mid.y, { power: 8, point: 12, bomb: 1 });
     yield* knockDown(g, mid);
     yield 30;
@@ -826,6 +852,7 @@ EXTRA_STAGES.push({
     yield 40;
     yield* g.talk(STORY.extra[g.charId].before);
     kyouHelp(g);
+    g.holdFire = false; // 栂尾が撃たれたところから止めていた自機の弾を、ここから撃てるように戻す
     yield* g.fight(boss, KONJIN_PHASES);
     g.kyou = null;
     yield* g.bossDown(boss);

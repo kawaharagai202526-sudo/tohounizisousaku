@@ -108,11 +108,18 @@ class Enemy {
         ctx.drawImage(getBulletSprite('kobun', this.color), -15, -15, 30, 30);
         break;
       case 'decoy': drawRubblePile(ctx, 0); break;
-      case 'konjinShot':
-        // エキストラで、中ボスの栂尾を撃ち落とす金神の弾（2.11.0）
+      case 'konjinShot': {
+        // エキストラで、中ボスの栂尾を撃ち落とす金神の弾（2.11.0。2.11.1 で見やすく大きくした）
         ctx.globalCompositeOperation = 'lighter';
-        ctx.drawImage(getBulletSprite('large', 'gold'), -23, -23, 46, 46);
+        const glow = ctx.createRadialGradient(0, 0, 4, 0, 0, 46);
+        glow.addColorStop(0, 'rgba(255,244,190,0.95)');
+        glow.addColorStop(0.4, 'rgba(255,205,90,0.5)');
+        glow.addColorStop(1, 'rgba(255,180,40,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(0, 0, 46, 0, TAU); ctx.fill();
+        ctx.drawImage(getBulletSprite('large', 'gold'), -32, -32, 64, 64);
         break;
+      }
       case 'pillar': drawPillar(ctx, this.frame, this.side || 1); break;
       case 'paper': drawPaperScrap(ctx, this.frame, this.phase, this.angle); break;
       case 'hand':

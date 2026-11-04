@@ -131,6 +131,7 @@ class GameScene {
     this.dialogue = null;
     this.cutin = null;
     this.kyou = null;                         // エキストラの凶方（js/extra.js の setKyou）
+    this.holdFire = false;                    // 演出のあいだ自機の弾を止める（canShoot）
     this.spell = null;
     this.spellFailed = false;
     this.spellBonus = 0;
@@ -347,7 +348,8 @@ class GameScene {
     if (this.score > this.hiScore) this.hiScore = this.score;
   }
 
-  canShoot() { return !this.dialogue; }
+  // 撃てるか（ボムも）。会話のあいだと、演出のために止めているあいだ（holdFire。エキストラで金神の弾が栂尾を撃ち落とすところ）は撃てない
+  canShoot() { return !this.dialogue && !this.holdFire; }
 
   checkPlayerCollision() {
     const p = this.player;

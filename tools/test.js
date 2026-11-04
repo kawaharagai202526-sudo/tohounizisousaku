@@ -137,7 +137,7 @@ test('全ステージを道中からボス撃破まで進められる', async ({
         }
         const expected = stage.bosses.filter(bs => !(bossOnly && bs.mid))
           .reduce((n, bs) => n + bs.phases.filter(ph => DIFF >= (ph.minDiff || 0)).length, 0);
-        out.push({ st: extra ? 'Extra' : `${st + 1}面`, ch, bossOnly, end: Game.scene.constructor.name, frames: f, phases: seen.size, expected, kyou: g.kyou });
+        out.push({ st: extra ? 'Extra' : `${st + 1}面`, ch, bossOnly, end: Game.scene.constructor.name, frames: f, phases: seen.size, expected, kyou: g.kyou, holdFire: g.holdFire });
       }
     }
     Cheats.on.bossOnly = false;
@@ -149,6 +149,7 @@ test('全ステージを道中からボス撃破まで進められる', async ({
     assert(x.end === 'ResultScene', `${label}：最後まで進まなかった（${x.end}、${x.frames}フレーム）`);
     assert(x.phases === x.expected, `${label}：ボスの攻撃の数 ${x.phases}（予定 ${x.expected}）`);
     assert(x.kyou === null, `${label}：面が終わっても凶方が残っている`);
+    assert(x.holdFire === false, `${label}：自機の弾を止めたまま終わった`);
   }
 });
 
@@ -492,19 +493,29 @@ test('エキストラの中ボス（栂尾）は、体力が30%を切ると金�
     b.hp = b.maxHp * 0.31;
     T.step(60);
     out.beforeLow = { struck: !!b.struck, shots: g.enemies.filter(e => e.kind === 'konjinShot').length };
-    // 29% にすると、金神の弾が飛んできて倒される（自機には当たらず、自機の弾も効かない）
+    // 29% にすると、金神の弾が飛んできて倒される（自機には当たらず、自機の弾も効かない）。
+    // そのあいだ自機は撃てず（撃つキーを押していても）、画面の敵の弾も消える
     b.hp = b.maxHp * 0.29;
-    let sawShot = false, shotHits = true, f = 0;
-    while (g.bossPhases && f < 300) {
+    let sawShot = false, shotHits = true, f = 0, playerShots = 0, enemyBullets = 0, holding = true;
+    Input.debugHold.add('shot');
+    while (g.bossPhases && f < 400) {
       Game.update(); f++;
+      if (f >= 2) {
+        playerShots += g.shots.length;
+        enemyBullets += g.bullets.list.filter(bl => bl.alive).length;
+        holding = holding && g.holdFire && !g.canShoot();
+      }
       for (const e of g.enemies) if (e.kind === 'konjinShot') { sawShot = true; shotHits = shotHits && e.noBody && e.untouchable; }
     }
-    out.after = { struck: !!b.struck, sawShot, safe: shotHits, ended: !g.bossPhases, frames: f, hp: b.hp };
+    Input.debugHold.delete('shot');
+    out.after = { struck: !!b.struck, sawShot, safe: shotHits, ended: !g.bossPhases, frames: f, hp: b.hp, playerShots, enemyBullets, holding };
     return out;
   });
   assert(r.name === '家符「家を支える者の意地」', `中ボスの攻撃がちがう: ${JSON.stringify(r)}`);
   assert(!r.beforeLow.struck && r.beforeLow.shots === 0, `体力が 30% より多いのに金神の弾が来た: ${JSON.stringify(r)}`);
   assert(r.after.struck && r.after.sawShot && r.after.safe && r.after.ended && r.after.hp <= 0, `金神の弾で倒されない: ${JSON.stringify(r)}`);
+  assert(r.after.holding && r.after.playerShots === 0, `金神の弾が飛んでいるあいだに自機が撃てる: ${JSON.stringify(r)}`);
+  assert(r.after.enemyBullets === 0, `金神の弾が飛んでいるあいだに敵の弾が残っている: ${JSON.stringify(r)}`);
 });
 
 test('エキストラの方違え（凶方へ動くと祟りがたまる）', async ({ page }) => {
