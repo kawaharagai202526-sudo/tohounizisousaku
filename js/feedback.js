@@ -12,8 +12,10 @@
 //    公開リンクで見ている人は送れない（claude.ai のしくみ）。
 //  それ以外（ダウンロードした1ファイル版を開いたときなど）は送り先がないので送れない。書いた文はこのブラウザに残し、コピーできるようにする。
 //
-//  Google フォーム（2.12.1 でユーザーの指定「GOOGLEホームを作る」）：FEEDBACK_FORM_URL にフォームのリンクを入れると、
-//  「送信」でそのフォームを開き、書いた文を答えの欄に入れておく（送るのはフォームの「送信」。だれでも送れる）。
+//  Google フォーム（2.12.1 でユーザーの指定「GOOGLEホームを作る」。2.12.2 でユーザーが作ったフォームのリンクを入れた）：
+//  FEEDBACK_FORM_URL にフォームのリンクがあると、「送信」でそのフォームを開く（送るのはフォームの「送信」。だれでも送れる）。
+//    「事前入力したURL」（答えの欄 entry.数字 がある）なら、書いた文を欄に入れた状態で開く。
+//    ふつうの共有リンク（欄の番号がない）なら、書いた文をコピーしてから開き、欄に貼りつけてもらう。
 //  このときは共有ページのデータベースには送らない（届く場所を1つにする）。届いた文は、フォームの編集画面の「回答」で読む。
 // ============================================================
 
@@ -21,10 +23,12 @@ const FEEDBACK_MAX_CHARS = 1000; // 1回に送れる文字数
 const FEEDBACK_KEEP = 50;        // 1人の文書に残す件数（1000文字×50件でも、1文書の上限 256 KiB に収まる）
 const FEEDBACK_TIMEOUT_MS = 20000; // 送り先が答えないときに、あきらめるまでの時間
 
-// Google フォームの「事前入力したURL」。作り方：段落の質問を1つだけ作り、右上の︙ →「事前入力したURLを取得」→
+// Google フォームのリンク。いちばんよいのは「事前入力したURL」：段落の質問を1つだけ作り、右上の︙ →「事前入力したURLを取得」→
 // 欄に何か書いて「リンクを取得」→「リンクをコピー」したものを、そのまま入れる（欄に書いた文は、遊んだ人の文に入れかわる）。
-// 空のあいだは、claude.ai の共有ページのデータベースに送る
-const FEEDBACK_FORM_URL = '';
+// ふつうの共有リンク（…/viewform?usp=publish-editor など）でも動く（そのときは文をコピーして貼りつけてもらう）。
+// 空にすると、claude.ai の共有ページのデータベースに送る
+// 2.12.2：ユーザーが作ったフォーム（「作った」。もらったのは共有リンクなので、欄の番号はない）
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfDBNbPbbizDXSobJ0g4-6htzpTe1XkT0u8hS-oSG8SIoxtrg/viewform?usp=publish-editor';
 const FEEDBACK_FORM_MAX_URL = 7000; // フォームを開くリンクの長さの上限（長すぎると開けないので、文は入るところまで入れる）
 
 // 時間のかかる呼び出しを、ms で打ち切る（打ち切ったら code 'timeout' で断る）
@@ -114,19 +118,25 @@ const Feedback = {
     return out.sort((a, b) => (b.at > a.at ? 1 : b.at < a.at ? -1 : 0));
   },
 
-  // Google フォームのリンクの、答えを入れる欄（entry.数字）までの部分。リンクがないか、形がちがうときは null
-  formBase() {
-    const m = String(this.formUrl || '').trim().match(/^(https:\/\/docs\.google\.com\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[\w-]+\/viewform)\?(.*)$/);
+  // Google フォームのリンクを読む：{ page（フォームのページ）, entry（答えの欄 'entry.数字'。ないときは null） }。
+  // リンクがないか、Google フォームのリンクでないときは null
+  formInfo() {
+    const url = String(this.formUrl || '').trim();
+    if (/^https:\/\/forms\.gle\/[\w-]+$/.test(url)) return { page: url, entry: null }; // 短いリンク
+    const m = url.match(/^(https:\/\/docs\.google\.com\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[\w-]+\/viewform)(?:\?(.*))?$/);
     if (!m) return null;
-    const entry = m[2].split('&').map(p => p.split('=')[0]).find(k => /^entry\.\d+$/.test(k));
-    return entry ? `${m[1]}?usp=pp_url&${entry}=` : null;
+    const entry = (m[2] || '').split('&').map(p => p.split('=')[0]).find(k => /^entry\.\d+$/.test(k));
+    return { page: m[1], entry: entry || null };
   },
-  get hasForm() { return !!this.formBase(); },
+  get hasForm() { return !!this.formInfo(); },
+  get formPrefill() { const f = this.formInfo(); return !!(f && f.entry); }, // 書いた文を欄に入れた状態で開けるか
 
-  // 書いた文を入れた Google フォームのリンク：{ url, cut }（cut：長すぎて途中までしか入らなかった）。フォームがないときは null
+  // 開く Google フォームのリンク：{ url, prefilled（文を欄に入れたか）, cut（長すぎて途中までしか入らなかった） }。フォームがないときは null
   formLink(text) {
-    const base = this.formBase();
-    if (!base) return null;
+    const f = this.formInfo();
+    if (!f) return null;
+    if (!f.entry) return { url: f.page, prefilled: false, cut: false };
+    const base = `${f.page}?usp=pp_url&${f.entry}=`;
     // 1文字ずつに分ける（絵文字を途中で切らないように）。対になっていないサロゲートは encodeURIComponent が受けつけないので置きかえる
     const chars = [...String(text || '').trim()].map(c => (c.length === 1 && c >= '\uD800' && c <= '\uDFFF' ? '\uFFFD' : c)).slice(0, FEEDBACK_MAX_CHARS);
     const enc = n => encodeURIComponent(chars.slice(0, n).join(''));
@@ -139,7 +149,7 @@ const Feedback = {
       }
       n = lo;
     }
-    return { url: base + enc(n), cut: n < chars.length };
+    return { url: base + enc(n), prefilled: true, cut: n < chars.length };
   },
 
   // 書きかけの文（このブラウザにだけ残す）

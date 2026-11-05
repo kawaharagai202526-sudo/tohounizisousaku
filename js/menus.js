@@ -463,12 +463,15 @@ const FEEDBACK_MSG = {
   selected: '文を選んだので、Ctrl+C（スマホは長押し）でコピーしてください',
   // Google フォームで受け取るとき（js/feedback.js の FEEDBACK_FORM_URL）
   form: '書いたら「送信」を押してください。Google フォームが開くので、そこでもう一度「送信」を押すと開発者に届きます',
+  formPlain: '書いたら「送信」を押してください。文をコピーして Google フォームを開くので、フォームの欄に貼りつけて「送信」を押すと開発者に届きます',
   formOpened: 'Google フォームを開きました。書いた文が入っているので、フォームの「送信」を押してください',
+  formPaste: 'Google フォームを開きました。書いた文はコピーしてあるので、フォームの欄に貼りつけて「送信」を押してください',
+  formPasteNoCopy: 'Google フォームを開きました。「コピー」で文を写し、フォームの欄に貼りつけて「送信」を押してください',
   formCut: '文が長いので、フォームには途中まで入れました。全文をコピーしたので、フォームの欄に貼りつけなおしてから「送信」を押してください',
   formCutNoCopy: '文が長いので、フォームには途中まで入れました。「コピー」で全文を写し、フォームの欄に貼りつけなおしてから「送信」を押してください',
 };
-const FEEDBACK_GOOD = new Set(['ok', 'copied', 'formOpened']);
-const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error', 'formCut', 'formCutNoCopy']);
+const FEEDBACK_GOOD = new Set(['ok', 'copied', 'formOpened', 'formPaste']);
+const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error', 'formCut', 'formCutNoCopy', 'formPasteNoCopy']);
 
 class FeedbackScene {
   constructor() {
@@ -538,18 +541,22 @@ class FeedbackScene {
   }
   async send() {
     if (this.sending || !this.root) return;
-    // Google フォームがあるときは、フォームを開いて文を入れておく（送るのはフォームの「送信」。文は消さずに残す）
+    // Google フォームがあるときは、フォームを開く（送るのはフォームの「送信」。文は消さずに残す）
     if (Feedback.hasForm) {
       const text = this.box.value;
       if (!text.trim()) { this.result = 'empty'; Sound.se('cancel'); return; }
       const link = Feedback.formLink(text);
+      // 文を欄に入れられない（共有リンク）か、長すぎて途中までしか入らないときは、全文をコピーしてから開く。
+      // コピーはフォームを開く前に、すぐに行う（開いたあとは、このページが手前でなくなってコピーできないことがある）
+      const needCopy = !link.prefilled || link.cut;
+      let copied = needCopy && this.copyNow();
       window.open(link.url, '_blank', 'noopener');
       Sound.se('ok');
-      this.result = 'formOpened';
-      if (link.cut) {
-        // 長すぎて途中までしか入らなかったので、全文をコピーしておく
-        try { await navigator.clipboard.writeText(text); this.result = 'formCut'; } catch (e) { this.result = 'formCutNoCopy'; }
+      if (!needCopy) { this.result = 'formOpened'; return; }
+      if (!copied) {
+        try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { /* コピーできなかった */ }
       }
+      this.result = link.prefilled ? (copied ? 'formCut' : 'formCutNoCopy') : (copied ? 'formPaste' : 'formPasteNoCopy');
       return;
     }
     this.sending = true;
@@ -567,9 +574,24 @@ class FeedbackScene {
     } else Sound.se('cancel');
     this.result = r.ok ? 'ok' : r.reason;
   }
+  // 入力欄の文を、すぐに（押したその場で）コピーする。できたら true。
+  // Clipboard API は、claude.ai の共有ページの中などでは使えないことがあるので、文を選んでブラウザのコピーの命令を使う
+  copyNow() {
+    const box = this.box;
+    if (!box || !box.value) return false;
+    try {
+      box.focus({ preventScroll: true });
+      box.select();
+      box.setSelectionRange(0, box.value.length);
+      const ok = document.execCommand('copy');
+      box.setSelectionRange(box.value.length, box.value.length);
+      return !!ok;
+    } catch (e) { return false; }
+  }
   async copy() {
     const text = this.box.value;
     if (!text.trim()) { this.result = 'empty'; return; }
+    if (this.copyNow()) { this.result = 'copied'; return; }
     try {
       await navigator.clipboard.writeText(text);
       this.result = 'copied';
@@ -601,7 +623,7 @@ class FeedbackScene {
     ctx.fillStyle = 'rgba(220,210,255,0.7)';
     ctx.fillText(`${this.box ? this.box.value.length : 0} / ${FEEDBACK_MAX_CHARS}`, B.x + B.w, B.y + B.h + 9);
     // 知らせ
-    const key = this.result || (Feedback.hasForm ? 'form' : Feedback.state);
+    const key = this.result || (Feedback.hasForm ? (Feedback.formPrefill ? 'form' : 'formPlain') : Feedback.state);
     ctx.textAlign = 'center';
     ctx.font = `13px ${FONT_JP}`;
     ctx.fillStyle = FEEDBACK_GOOD.has(key) ? '#a8ffc0' : FEEDBACK_WARN.has(key) ? '#ffd0a0' : '#ece6ff';
