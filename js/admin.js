@@ -2,7 +2,7 @@
 // ============================================================
 //  管理者ページ（画面左上の隠しボタンから開く）
 //  PIN入力（2段階）→ キー入力（1文字で特別な機能を切り替え。js/cheats.js）
-//  → 管理者ページ（データベース／キャラクター／プログラム／未実装）
+//  → 管理者ページ（データベース／キャラクター／プログラム／フィードバック）
 //  ※ PINはこのプログラムの中に書いてあるので、ページのソースを読めば分かる。
 //    本当に守りたいものを置く場所ではない。
 // ============================================================
@@ -207,10 +207,8 @@ const Admin = {
       domButton('admin-btn', 'データベース', () => this.showDatabase()),
       domButton('admin-btn', 'キャラクター一覧', () => this.showCharacters()),
       domButton('admin-btn', 'プログラム', () => this.showProgram()),
+      domButton('admin-btn', 'フィードバック', () => this.showFeedback()),
     );
-    const todo = domButton('admin-btn', '（未実装）');
-    todo.disabled = true;
-    menu.append(todo);
     p.append(menu);
   },
 
@@ -308,6 +306,46 @@ const Admin = {
       ['弾の速さ', ...BULLET_SPEED_SCALE],
       ['全方位弾の数', ...RING_DENSITY_SCALE],
     ]);
+  },
+
+  // ---------------- フィードバック ----------------
+  // タイトルの「フィードバック」から届いた文（js/feedback.js）。
+  // 読めるのは claude.ai の共有ページを開いている、持ち主と編集者だけ（共有ページのデータベースにある）
+  async showFeedback() {
+    const body = this.subPage('フィードバック');
+    const msg = domEl('p', 'admin-empty', '読みこんでいます…');
+    body.append(msg);
+    let list;
+    try { list = await Feedback.list(); } catch (e) { list = undefined; }
+    if (!body.isConnected) return; // 読みこんでいるあいだに、ほかのページへ移った
+    if (list === null) {
+      msg.textContent = '届いたフィードバックは、claude.ai の共有ページで開いたときだけ読めます（ダウンロードした1ファイル版などには届きません）';
+      return;
+    }
+    if (list === undefined) {
+      msg.textContent = '読みこめませんでした。少し待ってから開き直してください';
+      return;
+    }
+    if (!list.length) {
+      msg.textContent = 'まだ届いていません（届いた文を読めるのは、共有ページの持ち主と編集者だけです）';
+      return;
+    }
+    const people = new Set(list.map(e => e.from)).size;
+    msg.textContent = `${list.length} 件・${people} 人から（新しい順。送った人は番号で分けています）`;
+    const when = at => {
+      const d = new Date(at);
+      return isNaN(d) ? at || '日時不明' : d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    };
+    const ol = domEl('ol', 'admin-feedback');
+    for (const e of list) {
+      const li = domEl('li', 'admin-fbitem');
+      li.append(
+        domEl('div', 'admin-sub', `${when(e.at)}　送った人 ${e.from}　版 ${e.version || '？'}`),
+        domEl('p', 'admin-fbtext', e.text),
+      );
+      ol.append(li);
+    }
+    body.append(ol);
   },
 
   // ---------------- キャラクター一覧 ----------------

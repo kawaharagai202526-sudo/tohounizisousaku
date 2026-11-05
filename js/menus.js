@@ -87,6 +87,7 @@ const TITLE_ITEMS = [
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
   { id: 'option', label: 'オプション' },
+  { id: 'feedback', label: 'フィードバック' }, // 開発者へのアドバイス・感想（2.12.0）
 ];
 
 class TitleScene {
@@ -114,6 +115,7 @@ class TitleScene {
         case 'music': Game.setScene(new MusicRoomScene()); break;
         case 'manual': Game.setScene(new ManualScene()); break;
         case 'option': Game.setScene(new OptionScene()); break;
+        case 'feedback': Game.setScene(new FeedbackScene()); break;
       }
     }
   }
@@ -145,7 +147,7 @@ class TitleScene {
     ctx.font = `italic 600 24px ${FONT_EN}`;
     strokeText(ctx, GAME_INFO.subtitle, 420, 184, '#ecd9a0', 'rgba(30,20,50,0.8)', 4);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 240, 34);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 232, 30);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -432,6 +434,164 @@ class MusicRoomScene {
     ctx.fillStyle = 'rgba(220,210,255,0.8)';
     ctx.fillText(Input.isTouch ? 'タップで再生' : 'Z：再生　X：戻る', SCREEN_W / 2, 462);
     drawBackButton(ctx);
+  }
+}
+
+// ------------------------------------------------------------
+//  フィードバック（2.12.0 でユーザーの指定）：開発者へのアドバイス・感想を書いて送る
+//  入力欄は HTML の textarea（日本語入力のため）を、キャンバスに描いた箱の位置に重ねて出す。送り先は js/feedback.js の Feedback
+// ------------------------------------------------------------
+const FEEDBACK_BOX = { x: 80, y: 134, w: 480, h: 196 };
+const FEEDBACK_BUTTONS = [
+  { id: 'send', label: '送信', x: 80 },
+  { id: 'copy', label: 'コピー', x: 250 },
+  { id: 'back', label: '戻る', x: 420 },
+];
+const FEEDBACK_BUTTON_Y = 350, FEEDBACK_BUTTON_W = 140, FEEDBACK_BUTTON_H = 34;
+// 画面の下に出す知らせ（Feedback.state か、送った・コピーしたあとの結果）
+const FEEDBACK_MSG = {
+  unknown: '送り先を確かめています…',
+  yes: '書いたら「送信」を押してください（届いた文は、開発者だけが読みます）',
+  nohost: 'この版（ダウンロードした1ファイル版など）からは送れません。書いた文はこのブラウザに残ります。「コピー」で写して、開発者に伝えてください',
+  denied: 'この共有ページでは、あなたは送ることができません（送れるのは、作った人が書きこみを許した人だけです）。「コピー」で写して、開発者に伝えてください',
+  empty: '先に文を書いてください',
+  sending: '送っています…',
+  ok: '送信しました。ありがとうございます！',
+  full: '受け取る場所がいっぱいで、送れませんでした。開発者に伝えてください',
+  error: '送れませんでした。少し待ってから、もう一度「送信」を押してください',
+  copied: 'コピーしました',
+  selected: '文を選んだので、Ctrl+C（スマホは長押し）でコピーしてください',
+};
+const FEEDBACK_GOOD = new Set(['ok', 'copied']);
+const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error']);
+
+class FeedbackScene {
+  constructor() {
+    this.frame = 0;
+    this.result = null; // 送った・コピーしたあとの知らせ（FEEDBACK_MSG のキー）
+    this.sending = false;
+  }
+  enter() {
+    const root = domEl('div');
+    root.id = 'feedbackUI';
+    const box = domEl('textarea');
+    box.maxLength = FEEDBACK_MAX_CHARS;
+    box.placeholder = 'ここに書いてください';
+    box.setAttribute('aria-label', '開発者へのアドバイス・感想');
+    box.value = Feedback.draft;
+    box.addEventListener('input', () => {
+      Feedback.draft = box.value;
+      if (!this.sending) this.result = null;
+    });
+    root.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); this.back(); }
+      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target === box) { e.preventDefault(); this.send(); }
+    });
+    root.append(box);
+    this.buttons = {};
+    for (const b of FEEDBACK_BUTTONS) {
+      const el = domButton('feedback-btn', b.label, () => this[b.id]());
+      this.buttons[b.id] = el;
+      root.append(el);
+    }
+    document.body.appendChild(root);
+    this.root = root;
+    this.box = box;
+    this.layout();
+    if (!Input.isTouch) setTimeout(() => { if (this.root) box.focus(); }, 0);
+  }
+  exit() {
+    if (!this.root) return;
+    const hadFocus = this.root.contains(document.activeElement);
+    this.root.remove();
+    this.root = null;
+    if (hadFocus) Game.canvas.focus({ preventScroll: true });
+  }
+  // キャンバスの表示の大きさに合わせて、入力欄とボタンを重ねる
+  layout() {
+    const r = Game.canvas.getBoundingClientRect();
+    const k = r.width / SCREEN_W;
+    const place = (el, x, y, w, h) => Object.assign(el.style, { left: `${x * k}px`, top: `${y * k}px`, width: `${w * k}px`, height: `${h * k}px` });
+    Object.assign(this.root.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, fontSize: `${15 * k}px` });
+    const B = FEEDBACK_BOX;
+    place(this.box, B.x, B.y, B.w, B.h);
+    for (const b of FEEDBACK_BUTTONS) place(this.buttons[b.id], b.x, FEEDBACK_BUTTON_Y, FEEDBACK_BUTTON_W, FEEDBACK_BUTTON_H);
+  }
+  update() {
+    this.frame++;
+    menuBG().update();
+    if (this.root) this.layout();
+    if (this.frame <= 10) return;
+    // 入力欄の外で押したキー：X・Esc で戻る、Z で入力欄へ（入力欄の中では Esc で戻る）
+    if (backPressed() || Input.pressed('pause')) this.back();
+    else if (Input.pressed('shot') && this.box) this.box.focus();
+  }
+  back() {
+    if (Game.scene !== this) return;
+    Sound.se('cancel');
+    Game.setScene(new TitleScene('feedback'));
+  }
+  async send() {
+    if (this.sending || !this.root) return;
+    this.sending = true;
+    this.result = 'sending';
+    this.buttons.send.disabled = true;
+    this.box.readOnly = true; // 送っているあいだは書きかえない（送り終えたら空にするため）
+    const r = await Feedback.send(this.box.value);
+    this.sending = false;
+    this.buttons.send.disabled = false;
+    this.box.readOnly = false;
+    if (r.ok) {
+      Feedback.draft = '';
+      this.box.value = '';
+      Sound.se('ok');
+    } else Sound.se('cancel');
+    this.result = r.ok ? 'ok' : r.reason;
+  }
+  async copy() {
+    const text = this.box.value;
+    if (!text.trim()) { this.result = 'empty'; return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      this.result = 'copied';
+    } catch (e) {
+      // コピーを許されていないときは、文を選んでおく
+      this.box.focus();
+      this.box.select();
+      this.result = 'selected';
+    }
+  }
+  draw(ctx) {
+    menuBG().draw(ctx);
+    ctx.fillStyle = 'rgba(6,4,20,0.72)';
+    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+    drawHeading(ctx, 'フィードバック', 'Feedback');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `700 17px ${FONT_JP}`;
+    strokeText(ctx, '開発者へのアドバイス・感想', SCREEN_W / 2, 112, '#ffe8b0', 'rgba(20,10,40,0.9)', 3);
+    // 入力欄の箱（入力欄が出る前から見えるように、キャンバスにも描く）
+    const B = FEEDBACK_BOX;
+    ctx.fillStyle = 'rgba(10,6,30,0.6)';
+    ctx.fillRect(B.x, B.y, B.w, B.h);
+    ctx.strokeStyle = 'rgba(214,186,120,0.9)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(B.x - 0.5, B.y - 0.5, B.w + 1, B.h + 1);
+    ctx.textAlign = 'right';
+    ctx.font = `11px ${FONT_JP}`;
+    ctx.fillStyle = 'rgba(220,210,255,0.7)';
+    ctx.fillText(`${this.box ? this.box.value.length : 0} / ${FEEDBACK_MAX_CHARS}`, B.x + B.w, B.y + B.h + 9);
+    // 知らせ
+    const key = this.result || Feedback.state;
+    ctx.textAlign = 'center';
+    ctx.font = `13px ${FONT_JP}`;
+    ctx.fillStyle = FEEDBACK_GOOD.has(key) ? '#a8ffc0' : FEEDBACK_WARN.has(key) ? '#ffd0a0' : '#ece6ff';
+    wrapText(ctx, FEEDBACK_MSG[key] || '', 500).forEach((ln, i) => ctx.fillText(ln, SCREEN_W / 2, 408 + i * 20));
+    if (!Input.isTouch) {
+      ctx.font = `12px ${FONT_JP}`;
+      ctx.fillStyle = 'rgba(220,210,255,0.7)';
+      ctx.fillText('Esc：戻る　Ctrl+Enter：送信', SCREEN_W / 2, 466);
+    }
   }
 }
 

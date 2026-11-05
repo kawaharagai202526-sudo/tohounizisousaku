@@ -20,6 +20,9 @@ const PRACTICE_POWER = [100, 250, 400, 400, 400, 400]; // プラクティス開�
 const EXTRA_POWER = 400;                               // エキストラステージ開始時の霊力
 const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
 
+// ボスの体力の倍率（2.12.0 でユーザーの指定「全体の体力を１０％減らす（特にスペカ中）」。通常攻撃は 10%、スペルカードは 20% 減らした）
+const BOSS_HP_SCALE = { non: 0.9, spell: 0.8 };
+
 // スペルカード取得履歴
 const SpellHistory = {
   data: Store.get('spells', {}),
@@ -398,6 +401,7 @@ class GameScene {
 
   damageEnemy(e, dmg, isBomb = false, sound = true) {
     if (!e.alive || e.untouchable || e.invincible > 0) return;
+    if (!isBomb && Cheats.on.power2) dmg *= 2; // キー「K」
     if (e.isBoss) {
       if (isBomb && this.spell) dmg *= 0.3;
       e.hp -= dmg;
@@ -625,7 +629,7 @@ class GameScene {
 
   *runPhase(boss, ph, index, total) {
     const spell = ph.type === 'spell';
-    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.75, 0.9, 1.05, 1.15) * (this.stage.hpScale || 1));
+    boss.hp = boss.maxHp = Math.round((ph.hp ?? 1000) * dv(0.75, 0.9, 1.05, 1.15) * (this.stage.hpScale || 1) * BOSS_HP_SCALE[spell ? 'spell' : 'non']);
     boss.phase = ph;
     boss.timer = Math.round((ph.time ?? 30) * 60);
     const totalTime = boss.timer;

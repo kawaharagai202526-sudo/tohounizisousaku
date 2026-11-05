@@ -17,6 +17,7 @@ const CHEAT_KEYS = {
   C: { id: 'noLoss', label: '残機が減らない', desc: '被弾しても残機が減らない' },
   R: { id: 'autoBomb', label: 'ボム連発', desc: 'ボムを1秒おきに発動し続ける（ボムの数は減らない）' },
   E: { id: 'extraOpen', label: 'エキストラ解放', desc: 'はじめからエキストラステージを遊べる（エキストラの面があるとき。解放したことは保存しない）' },
+  K: { id: 'power2', label: '自機火力2倍', desc: '自機の攻撃（ショット・魔理沙の低速レーザーなど。ボムは除く）の威力が2倍になる' },
 };
 // この文字は、すべてのキーをまとめて ON にする（すべて ON のときは全部 OFF）
 const CHEAT_ALL_KEY = { letter: 'F', label: 'すべて', desc: 'すべてのキーを ON にする（すべて ON のときに入れると全部 OFF）' };

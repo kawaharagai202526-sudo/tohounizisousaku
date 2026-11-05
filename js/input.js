@@ -37,8 +37,13 @@ const Input = {
 
   init(canvas) {
     this.canvas = canvas;
+    // 文字の入力欄と、フィードバックの画面の部品で押したキーは、ゲームの操作に渡さない（Backspace や Z・X・M を打てるように）
+    const typing = e => {
+      const t = e.target;
+      return !!t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable || !!(t.closest && t.closest('#feedbackUI')));
+    };
     window.addEventListener('keydown', e => {
-      if (this.suspended) return; // 管理者ページなどで文字を入力している間はゲームに渡さない
+      if (this.suspended || typing(e)) return; // 管理者ページなどで文字を入力している間はゲームに渡さない
       this.firstInput();
       if (e.code === 'KeyM' && !e.repeat) { Sound.toggleMute(); return; }
       const a = KEYMAP[e.code];
@@ -49,6 +54,7 @@ const Input = {
     });
     window.addEventListener('keyup', e => {
       if (this.suspended) return;
+      if (typing(e)) { if (KEYMAP[e.code]) this.keys[e.code] = false; return; }
       if (KEYMAP[e.code]) { this.keys[e.code] = false; e.preventDefault(); }
     });
     window.addEventListener('blur', () => { this.keys = {}; this.virtual = {}; });

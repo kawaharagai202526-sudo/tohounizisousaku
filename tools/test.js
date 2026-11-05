@@ -81,7 +81,7 @@ test('起動してタイトルが出る', async ({ page }) => {
     return { scene: Game.scene.constructor.name, items: TITLE_ITEMS.map(i => i.id), version: GAME_VERSION, save: Store.get('saveVersion', 0), saveLatest: SAVE_VERSION };
   });
   assert(r.scene === 'TitleScene', `最初の画面がタイトルではない: ${r.scene}`);
-  assert(r.items.join() === 'start,extra,practice,music,manual,option', `タイトルの項目: ${r.items}`);
+  assert(r.items.join() === 'start,extra,practice,music,manual,option,feedback', `タイトルの項目: ${r.items}`);
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert(r.version === pkg.version, `GAME_VERSION（${r.version}）と package.json の version（${pkg.version}）がちがう`);
   assert(r.save === r.saveLatest, `保存データの形式が最新になっていない: ${r.save}`);
@@ -92,6 +92,7 @@ test('メニュー画面をひととおり表示できる', async ({ page }) => 
     const scenes = [
       () => new DifficultyScene('game'), () => new DifficultyScene('practice'), () => new CharacterScene('game', 1),
       () => new StageSelectScene(1, PLAYER_IDS[0]), () => new MusicRoomScene(), () => new ManualScene(), () => new OptionScene(),
+      () => new FeedbackScene(),
     ];
     for (const f of scenes) { Game.setScene(f()); T.step(30); }
     Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }));
@@ -565,6 +566,123 @@ test('エキストラの方違え（凶方へ動くと祟りがたまる）', as
   assert(r.dirs.join() === '0,2,4,6,1', `方角の番号がおかしい: ${r.dirs}`);
 });
 
+// フィードバックの画面を開いて、入力欄に文字を打つ
+async function openFeedback(page) {
+  await page.evaluate(() => { Game.setScene(new TitleScene('feedback')); T.step(20); Input.just.shot = true; T.step(2); });
+  await page.waitForSelector('#feedbackUI textarea');
+  await page.evaluate(() => T.step(1));
+}
+
+test('フィードバックの画面（入力欄・下書き・送れないときの知らせ）', async ({ page }) => {
+  await page.evaluate(() => Store.remove('feedbackDraft'));
+  await openFeedback(page);
+  const r0 = await page.evaluate(() => {
+    const c = Game.canvas.getBoundingClientRect(), b = document.querySelector('#feedbackUI textarea').getBoundingClientRect();
+    const k = c.width / SCREEN_W, B = FEEDBACK_BOX;
+    return {
+      scene: Game.scene.constructor.name, state: Feedback.state, buttons: [...document.querySelectorAll('.feedback-btn')].map(e => e.textContent),
+      gap: Math.max(Math.abs(b.left - (c.left + B.x * k)), Math.abs(b.top - (c.top + B.y * k)), Math.abs(b.width - B.w * k), Math.abs(b.height - B.h * k)),
+      focused: document.activeElement === document.querySelector('#feedbackUI textarea'),
+    };
+  });
+  assert(r0.scene === 'FeedbackScene', `タイトルからフィードバックの画面にならない: ${r0.scene}`);
+  assert(r0.state === 'nohost', `共有ページの外なのに送れることになっている: ${r0.state}`);
+  assert(r0.buttons.join() === '送信,コピー,戻る', `ボタン: ${r0.buttons}`);
+  assert(r0.gap < 2, `入力欄がキャンバスの箱の位置に重なっていない（${r0.gap}px ずれ）`);
+  assert(r0.focused, '入力欄に文字を打てる状態になっていない');
+  // ゲームの操作に使うキー（Z・X・M・矢印・Backspace）も文字として打てて、画面は変わらない
+  await page.keyboard.type('zxm 感想です');
+  await page.keyboard.press('Backspace');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Enter');
+  const r1 = await page.evaluate(() => { T.step(5); return { scene: Game.scene.constructor.name, value: document.querySelector('#feedbackUI textarea').value, draft: Feedback.draft, muted: Sound.muted }; });
+  assert(r1.scene === 'FeedbackScene', `文字を打っただけで画面が変わった: ${r1.scene}`);
+  assert(r1.value === 'zxm 感想\nで' && r1.draft === r1.value, `打った文字: ${JSON.stringify(r1)}`);
+  assert(r1.muted === false, '入力欄で M を打ったら音が消えた');
+  // 送信 → この版からは送れない、という知らせ（書いた文は残る）
+  await page.click('.feedback-btn:nth-of-type(1)');
+  const r2 = await page.evaluate(() => { T.step(2); return { result: Game.scene.result, value: document.querySelector('#feedbackUI textarea').value }; });
+  assert(r2.result === 'nohost' && r2.value === r1.value, `送れないときの知らせ: ${JSON.stringify(r2)}`);
+  // Esc で戻り、開き直すと下書きが残っている
+  await page.focus('#feedbackUI textarea');
+  await page.keyboard.press('Escape');
+  const r3 = await page.evaluate(() => { T.step(2); return { scene: Game.scene.constructor.name, ui: !!document.getElementById('feedbackUI') }; });
+  assert(r3.scene === 'TitleScene' && !r3.ui, `Esc で戻らない: ${JSON.stringify(r3)}`);
+  await openFeedback(page);
+  const again = await page.$eval('#feedbackUI textarea', e => e.value);
+  assert(again === r1.value, `下書きが残っていない: ${JSON.stringify(again)}`);
+  // 入力欄の外（キャンバス）では、X で戻る
+  await page.evaluate(() => { Game.canvas.focus(); T.step(12); });
+  await page.keyboard.press('KeyX');
+  const r4 = await page.evaluate(() => { T.step(2); return Game.scene.constructor.name; });
+  assert(r4 === 'TitleScene', `入力欄の外で X を押しても戻らない: ${r4}`);
+});
+
+test('フィードバックを共有ページのデータベースに送り、管理者ページで読める（claude.ai のにせもので確かめる）', async ({ browser }) => {
+  // claude.ai の共有ページの window.claude.use('db' / 'user') のかわりに、メモリの中のにせものを置く
+  const { page, context, errors } = await openGame(browser, {}, '', ctx => ctx.addInitScript(() => {
+    const store = {};
+    window.__fake = { store, deny: false, uid: 'viewer-1' };
+    const snap = (path, body) => ({ id: path.split('/').pop(), exists: !!body, data: () => (body ? JSON.parse(JSON.stringify(body)) : undefined), metadata: { fromCache: false, hasPendingWrites: false } });
+    const db = Object.freeze({
+      doc: path => ({
+        id: path.split('/').pop(), path,
+        get: async () => snap(path, store[path]),
+        set: async data => {
+          if (window.__fake.deny) throw { code: 'invalid_argument', message: 'denied' };
+          store[path] = JSON.parse(JSON.stringify(data));
+        },
+      }),
+      collection: path => ({
+        get: async () => {
+          const docs = Object.keys(store).filter(k => k.startsWith(path + '/') && k.split('/').length === path.split('/').length + 1).sort().map(k => snap(k, store[k]));
+          return { docs, size: docs.length, empty: !docs.length };
+        },
+      }),
+    });
+    const user = Object.freeze({ id: async () => window.__fake.uid, can: async () => true });
+    window.claude = Object.freeze({ use: async name => (name === 'db' ? db : name === 'user' ? user : null) });
+  }));
+  try {
+    await page.waitForFunction(() => Feedback.ready, null, { polling: 50, timeout: 5000 });
+    assert(await page.evaluate(() => Feedback.state) === 'yes', '共有ページなのに送れることになっていない');
+    await page.evaluate(() => Store.remove('feedbackDraft'));
+    await openFeedback(page);
+    const send = async text => {
+      await page.fill('#feedbackUI textarea', text);
+      await page.click('.feedback-btn:nth-of-type(1)');
+      await page.waitForFunction(() => Game.scene.result && Game.scene.result !== 'sending', null, { polling: 50, timeout: 5000 });
+      return page.evaluate(() => ({ result: Game.scene.result, value: document.querySelector('#feedbackUI textarea').value, draft: Feedback.draft, doc: window.__fake.store['feedback/viewer-1'] }));
+    };
+    let r = await send('1面がむずかしい');
+    assert(r.result === 'ok' && r.value === '' && r.draft === '', `送れない: ${JSON.stringify(r)}`);
+    assert(r.doc.entries.length === 1 && r.doc.entries[0].text === '1面がむずかしい' && r.doc.entries[0].version === await page.evaluate(() => GAME_VERSION), `届いた文: ${JSON.stringify(r.doc)}`);
+    r = await send('  ');
+    assert(r.result === 'empty', `空の文を送れた: ${r.result}`);
+    r = await send('曲がよかった');
+    assert(r.result === 'ok' && r.doc.entries.length === 2, `2つ目を送れない: ${JSON.stringify(r)}`);
+    // 長すぎる文は 1000 文字までにする
+    await page.evaluate(() => { window.__fake.uid = 'viewer-2'; Feedback.uid = 'viewer-2'; });
+    const sent = await page.evaluate(async () => { const r = await Feedback.send('あ'.repeat(1500)); return { r, len: window.__fake.store['feedback/viewer-2'].entries[0].text.length, max: FEEDBACK_MAX_CHARS }; });
+    assert(sent.r.ok && sent.max === 1000 && sent.len === sent.max, `長い文: ${JSON.stringify(sent)}`);
+    // 書きこめない人（invalid_argument で断られる）は、送れないという知らせ
+    await page.evaluate(() => { window.__fake.deny = true; });
+    r = await send('これは届かない');
+    assert(r.result === 'denied' && r.value === 'これは届かない', `書きこめないときの知らせ: ${JSON.stringify(r)}`);
+    assert(await page.evaluate(() => Feedback.state) === 'denied', '断られたあとも送れることになっている');
+    // 管理者ページで読む（新しい順・送った人は番号）
+    const list = await page.evaluate(async () => (await Feedback.list()).map(e => `${e.from}:${e.text.slice(0, 6)}`));
+    assert(list.join() === '2:ああああああ,1:曲がよかった,1:1面がむずか', `一覧: ${list}`);
+    await page.evaluate(() => { Admin.root.hidden = false; Input.suspended = true; Admin.showFeedback(); });
+    await page.waitForSelector('.admin-fbitem');
+    const shown = await page.$$eval('.admin-fbitem .admin-fbtext', es => es.map(e => e.textContent));
+    assert(shown.length === 3 && shown[1] === '曲がよかった', `管理者ページの一覧: ${shown}`);
+    assert((await page.textContent('.admin-body')).includes('3 件・2 人から'), '管理者ページに件数が出ていない');
+    await page.evaluate(() => Admin.close());
+    assert(!errors.length, errors.join('\n'));
+  } finally { await context.close(); }
+}, { noPage: true });
+
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');
@@ -599,7 +717,7 @@ test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => 
   // メニュー
   await page.click('.admin-btn-top');
   const menu = await page.$$eval('.admin-menu button', bs => bs.map(b => b.textContent));
-  assert(menu.join() === 'データベース,キャラクター一覧,プログラム,（未実装）', `メニュー: ${menu}`);
+  assert(menu.join() === 'データベース,キャラクター一覧,プログラム,フィードバック', `メニュー: ${menu}`);
   // データベース
   await page.click('.admin-menu button:nth-child(1)');
   const db = await page.evaluate(() => ({ text: document.querySelector('.admin-body').textContent, keys: Object.keys(CHEAT_KEYS).length }));
@@ -624,6 +742,12 @@ test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => 
   const files = await page.$$eval('.admin-file', bs => bs.length);
   const scripts = await page.evaluate(() => document.querySelectorAll('script[src], script[data-file]').length);
   assert(files === scripts, `プログラムのファイル数 ${files}（スクリプト ${scripts}）`);
+  // フィードバック（claude.ai の共有ページの外なので、読めないという知らせ）
+  await page.click('.admin-back');
+  await page.click('.admin-menu button:nth-child(4)');
+  await page.waitForFunction(() => document.querySelector('.admin-body .admin-empty').textContent !== '読みこんでいます…', null, { polling: 50, timeout: 5000 });
+  const fb = await page.textContent('.admin-body');
+  assert(fb.includes('共有ページで開いたときだけ'), `フィードバックのページ: ${fb}`);
   await page.click('.admin-back');
   await page.keyboard.press('Escape');
   assert(await page.evaluate(() => document.getElementById('adminOverlay').hidden && !Input.suspended), 'Escで管理者ページが閉じない');
@@ -671,13 +795,41 @@ test('前のゲーム（東方星降夜）の記録は消さず、設定だけ�
   try {
     const r = await page.evaluate(() => ({
       prefix: Store.prefix, bgm: Store.get('bgmVol', null), lives: Settings.lives,
-      hi: Store.get('hi_1_reimu', 0), extra: Store.get('extraUnlocked', false), version: Store.get('saveVersion', 0),
+      hi: Store.get('hi_1_reimu', 0), extra: Store.get('extraUnlocked', false), version: Store.get('saveVersion', 0), latest: SAVE_VERSION,
       oldHi: localStorage.getItem('hoshifuru.hi_1_reimu'), oldVol: localStorage.getItem('hoshifuru.bgmVol'),
     }));
-    assert(r.prefix === 'zashiki.' && r.version === 3, `保存の頭か形式がおかしい: ${JSON.stringify(r)}`);
+    assert(r.prefix === 'zashiki.' && r.version === r.latest, `保存の頭か形式がおかしい: ${JSON.stringify(r)}`);
     assert(r.bgm === 0.3 && r.lives === 5, `設定が写っていない: ${JSON.stringify(r)}`);
     assert(r.hi === 0 && r.extra === false, `前のゲームの記録が写っている: ${JSON.stringify(r)}`);
     assert(r.oldHi === '5000' && r.oldVol === '0.3', `前のゲームの記録が消えた: ${JSON.stringify(r)}`);
+    assert(!errors.length, errors.join('\n'));
+  } finally { await context.close(); }
+}, { noPage: true });
+
+test('スペルカードの名前を変えても、取得履歴は新しい名前に写る（保存データの形式 4）', async ({ browser }) => {
+  // 2.12.0 で名前を変えた3枚。'難易度:自機:スペル名' の名前だけが変わり、ほかの履歴はそのまま
+  const { page, context, errors } = await openGame(browser, {}, '', ctx => ctx.addInitScript(() => {
+    if (localStorage.getItem('zashiki.saveVersion') === null) {
+      localStorage.setItem('zashiki.saveVersion', '3');
+      localStorage.setItem('zashiki.spells', JSON.stringify({
+        '3:reimu:ラストスペル「座敷童子のいる家」': { got: 2, tried: 5 },
+        '4:marisa:耐久スペル「四方塞がり」': { got: 1, tried: 1 },
+        '4:reimu:ラストスペル「金神七殺」': { got: 0, tried: 3 },
+        '1:reimu:瓦符「鬼瓦の睨み」': { got: 1, tried: 3 },
+      }));
+    }
+  }));
+  try {
+    const r = await page.evaluate(() => ({ spells: Store.get('spells', {}), version: Store.get('saveVersion', 0), latest: SAVE_VERSION }));
+    const want = {
+      '3:reimu:家符「座敷童子のいる家」': { got: 2, tried: 5 },
+      '4:marisa:末符「四方塞がり」': { got: 1, tried: 1 },
+      '4:reimu:神罰「七殺」': { got: 0, tried: 3 },
+      '1:reimu:瓦符「鬼瓦の睨み」': { got: 1, tried: 3 },
+    };
+    assert(JSON.stringify(Object.keys(r.spells).sort()) === JSON.stringify(Object.keys(want).sort()), `履歴の名前が写っていない: ${JSON.stringify(r)}`);
+    for (const [k, v] of Object.entries(want)) assert(r.spells[k].got === v.got && r.spells[k].tried === v.tried, `履歴の数がちがう: ${k} ${JSON.stringify(r.spells[k])}`);
+    assert(r.version === r.latest, `保存データの形式が最新になっていない: ${JSON.stringify(r)}`);
     assert(!errors.length, errors.join('\n'));
   } finally { await context.close(); }
 }, { noPage: true });
@@ -717,6 +869,19 @@ test('キーの効果', async ({ page }) => {
     Input.debugHold.add('left'); T.step(1); Input.debugHold.delete('left');
     res.si = [g.frame - f0, Math.round(x0 - g.player.x)];
     Cheats.set('speed', false); Cheats.set('playerSpeed', false);
+    // K：自機の攻撃の威力が2倍（ボムは変わらない）
+    const dealt = () => {
+      g = start();
+      const e = spawnEnemy({ x: 100, y: 100, hp: 1000, keep: true, drops: {}, script: function* () { for (;;) yield; } });
+      g.damageEnemy(e, 5);
+      g.damageEnemy(e, 5, true);
+      return 1000 - e.hp;
+    };
+    const k0 = dealt();
+    Cheats.toggle('K');
+    const k1 = dealt();
+    Cheats.toggle('K');
+    res.k = [k0, k1];
     // V：ゲーム中に入れるとボス戦へ
     g = start();
     T.step(600);
@@ -752,6 +917,7 @@ test('キーの効果', async ({ page }) => {
   assert(r.r.every(Boolean), `R: ${r.r}`);
   assert(r.si[0] === 2 && r.si[1] === 18, `S・I: ${r.si}`);
   assert(r.v === r.vExpected, `V: ${r.v}（予定 ${r.vExpected}）`);
+  assert(r.k[0] === 10 && r.k[1] === 15, `K: 威力が2倍にならない（ショット5＋ボム5の合計 ${r.k}。予定 10 → 15）`);
   assert(r.d1 && r.d2, 'D: 画面の色が変わらない、または元に戻らない');
   assert(r.f1 && r.f2, 'F: すべてON / OFF にならない');
   assert(!r.e0 && r.e1 && !r.e2 && !r.eSaved, `E: ${[r.e0, r.e1, r.e2, r.eSaved]}`);

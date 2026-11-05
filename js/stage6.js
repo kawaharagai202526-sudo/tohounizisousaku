@@ -97,25 +97,54 @@ function kobanRing(b, n, speed, color = 'gold') {
 // ------------------------------------------------------------
 //  中ボス：家鳴 鳴音（ぼろぼろの5面ボス。座敷様を守るため、最後の力で立ちふさがる。名前は出さない）
 // ------------------------------------------------------------
-// ぼろぼろの体で撃つ、弱々しい扇状の弾。一度倒しても、一度だけ立ち上がって同じ弾幕を撃ち直してくる
-const yanari6Guard = (again) => function* (b) {
-  if (again) {
-    // 立ち上がる
-    for (let i = 0; i < 40; i++) { b.alpha = 0.4 + 0.6 * (i % 8 < 4 ? 1 : 0.3); yield; }
-    b.alpha = 1;
-    Sound.se('charge');
-  }
-  yield* b.moveTo(FIELD_W / 2, 90, 30);
-  for (let loop = 0; ; loop++) {
-    const a = b.aim() + rand(-0.15, 0.15);
-    fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11) + (again ? 2 : 0), spread: 1.3, angle: a, speed: dv(1.4, 1.6, 1.8, 2.0) * rand(0.9, 1.05), type: 'rice', color: again ? 'pink' : 'purple' });
-    yield dv(36, 30, 26, 22) + randInt(0, 10);
-    if (loop % 4 === 3) b.wander(40, 40);
-  }
-};
+// 2.12.0 でユーザーの指定（「６面道中の守符を前回のものに変更する」）により、2.7.0 までの攻撃に戻した
+// （2.8.0〜2.11.x は、一度だけ立ち上がる守符「指一本触れさせない」だった）
 const YANARI6_PHASES = [
-  { type: 'spell', name: '守符「指一本触れさせない」', hp: 1000, time: 30, script: yanari6Guard(false) },
-  { type: 'spell', name: '守符「指一本触れさせない」', hp: 800, time: 25, script: yanari6Guard(true) },
+  {
+    type: 'non', hp: 1100, time: 25,
+    *script(b) {
+      yield 30;
+      for (let beat = 0; ; beat++) {
+        if (beat % 2 === 0) fireRing({ x: b.x, y: b.y, n: dv(14, 18, 24, 30), angle: rand(TAU), speed: dv(1.6, 1.9, 2.2, 2.5), type: 'ball', color: beat % 4 ? 'purple' : 'pink' });
+        else {
+          const n = dv(8, 10, 12, 16), off = rand(TAU);
+          for (let i = 0; i < n; i++) fire({ x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 2.0, type: 'rice', color: 'white', silent: true, script: creakScript(beat % 4 === 1 ? 0.3 : -0.3, 4) });
+        }
+        if (beat % 8 === 7) b.wander(50, 60);
+        yield 26;
+      }
+    },
+  },
+  {
+    // かたむきながら、きしむ弾の輪
+    type: 'spell', name: '鳴符「最後の家鳴り」', hp: 1200, time: 30,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 90, 40);
+      const tilt = () => Math.sin(G.frame * 0.015) * dv(0.7, 0.9, 1.1, 1.3);
+      for (let loop = 0; ; loop++) {
+        const n = dv(12, 16, 20, 26), off = rand(TAU), turn = (loop % 2 ? 1 : -1) * 0.3;
+        for (let i = 0; i < n; i++) {
+          fire({
+            x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 2.0, type: 'rice', color: loop % 2 ? 'pink' : 'purple', silent: true,
+            script: function* (bl) {
+              // 進む → 止まる → 向きを変える、を4回。そのあいだも屋敷のかたむきで横に流される
+              for (let k = 0; k < 4; k++) {
+                for (let f = 0; f < 22; f++) { bl.evx = tilt(); yield; }
+                const sp = bl.speed;
+                bl.speed = 0;
+                for (let f = 0; f < 14; f++) { bl.evx = tilt(); yield; }
+                bl.angle += turn;
+                bl.speed = Math.max(sp, dv(1.6, 1.9, 2.2, 2.5));
+              }
+              for (;;) { bl.evx = tilt(); yield; }
+            },
+          });
+        }
+        Sound.se('tan');
+        yield dv(46, 38, 30, 25);
+      }
+    },
+  },
 ];
 
 // ------------------------------------------------------------
@@ -318,7 +347,7 @@ const ZASHIKI_PHASES = [
   {
     // ラストスペル。屋敷の崩壊が最高潮に達し、それまでのスペルの要素（手鞠、足音、惹きつけ、小判）が順番に重なっていく。
     // 住み着いた家を栄えさせる座敷わらしの総決算。撃破すると、屋敷が完全に崩れ落ち、部屋が光になって人里へ帰っていく
-    type: 'spell', name: 'ラストスペル「座敷童子のいる家」', hp: 2600, time: 70,
+    type: 'spell', name: '家符「座敷童子のいる家」', hp: 2600, time: 70, // 最後のスペル（2.12.0 でユーザーの指定で名前を変えた。前は ラストスペル「座敷童子のいる家」）
     *script(b, g) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       g.shake = 30;

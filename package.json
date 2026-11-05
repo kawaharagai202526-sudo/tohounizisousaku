@@ -1,8 +1,8 @@
 {
   "name": "zashiki",
-  "version": "2.11.1",
+  "version": "2.12.0",
   "private": true,
-  "description": "東方Projectの二次創作弾幕シューティング「東方座敷幕 〜 Mansion of Borrowed Rooms.」",
+  "description": "東方Projectの二次創作弾幕シューティング「東方奥座敷 〜 Mansion of Borrowed Rooms.」",
   "scripts": {
     "build": "node tools/build-single.js",
     "test": "node tools/test.js",
