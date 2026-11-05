@@ -89,7 +89,7 @@
 
 ```
 # 2.10.0 で使ったもの（キャンバスにかかるボタンと絵が重ならないので、--crop だけ）
-python3 tools/make-sprite.py もらった画面写真.jpg konjin --crop 118,236,962,1296 --dot 80 --line 150   # エキストラのボス 八重神 世羅（ID konjin）
+python3 tools/make-sprite.py もらった画面写真.jpg konjin --crop 118,236,962,1296 --dot 80 --line 150   # エキストラのボス 八重 神世羅（ID konjin）
 # 2.1.0〜2.2.0 で使ったもの（4面中ボスの絵は、2.1.0 では3面中ボス `midboss3b` だった）
 python3 tools/make-sprite.py 23.jpg zashiki --crop 0,0,1050,1337 --fade 30 --dot 60                         # 6面ボス（座敷わらしなので小さく）
 python3 tools/make-sprite.py 24.jpg midboss4 --crop 330,320,780,1410 --mask 645,1290,1067,1440 --dot 74   # 4面中ボス
@@ -155,7 +155,7 @@ index.html?stage=2&phase=1&only=1
 
 ## 面の数とエキストラステージ
 
-本編は全6面＋エキストラステージ。本編の6面はそろっている（2.1.0）。エキストラの面は 2.8.0 で作った（js/extra.js。ボスは八重神 世羅。ID は `konjin`）。
+本編は全6面＋エキストラステージ。本編の6面はそろっている（2.1.0）。エキストラの面は 2.8.0 で作った（js/extra.js。ボスは八重 神世羅。ID は `konjin`）。
 
 | もの | 場所 | ひとこと |
 | --- | --- | --- |

@@ -249,13 +249,13 @@ test('ユーザーが書いた会話・エキストラのボスの名前と背�
   const r = await page.evaluate(() => {
     const texts = arr => arr.filter(Array.isArray).map(l => `${l[0]}:${l[2]}`);
     return {
-      name: CHARA_INFO.konjin.name,
+      name: CHARA_INFO.konjin.name, kana: CHARA_INFO.konjin.kana,
       exReimu: texts(STORY.extra.reimu.after), exMarisa: texts(STORY.extra.marisa.after),
       s2: texts(STORY.stage2.marisa.after), s3: texts(STORY.stage3.reimu.before), s4: texts(STORY.stage4.reimu.before),
       bg: (() => { const b = new CompassRealmBG(); return b.rubble instanceof DuskRubbleBG; })(),
     };
   });
-  assert(r.name === '八重神 世羅', `エキストラのボスの名前: ${r.name}`);
+  assert(r.name === '八重 神世羅' && r.kana === 'やえ かよら', `エキストラのボスの名前と読み: ${r.name}（${r.kana}）`);
   assert(r.exReimu.join('|') === [
     'konjin:人間のくせに、なかなかやるではないか……', 'reimu:気は済んだ？', 'konjin:済むものか。だが、筋を通すなら話は聞いてやる',
     'reimu:……方位除けの祈祷でいい？', 'konjin:供え物も付けろ', 'reimu:うちの神社に、そんな余裕ないわよ',
