@@ -1249,9 +1249,218 @@ class RubbleSkyBG {
 }
 
 // ------------------------------------------------------------
+//  エキストラの道中：積みあがった瓦礫と人里の家々、差しこむ西日（2.13.0 でユーザーの指定）
+//  夕方の人里を上から見下ろす。崩れた屋敷の瓦礫が、家々のあいだや道の上に山のように積みあがっている。
+//  画面の上が北なので（方違えの方位盤と同じ）、西日は左から差しこみ、影は右（東）へ長くのびる
+// ------------------------------------------------------------
+// 白っぽいふすまは弾（金色の札など）とまぎれやすいので、少なくする
+const DUSK_RUBBLE_KINDS = ['tiles', 'tiles', 'tiles', 'beam', 'beam', 'beam', 'pillar', 'pillar', 'tatami', 'tatami', 'tiles', 'beam', 'pillar', 'fusuma'];
+
+// 西日に照らされた家の屋根（右へのびる長い影と、日の当たる左のふち）
+function drawDuskRoof(x, rx, ry, rw, rh, kind, seed, tone) {
+  const L = 30, dy = L * 0.2;
+  x.fillStyle = 'rgba(16,6,2,0.55)';
+  x.beginPath();
+  x.moveTo(rx + rw, ry + 2);
+  x.lineTo(rx + rw + L, ry + 2 + dy);
+  x.lineTo(rx + rw + L, ry + rh + 2 + dy);
+  x.lineTo(rx + 10, ry + rh + 2 + dy);
+  x.lineTo(rx, ry + rh);
+  x.closePath();
+  x.fill();
+  drawRoof(x, rx, ry, rw, rh, kind, new RNG(seed), tone);
+  x.fillStyle = 'rgba(255,170,90,0.45)';
+  x.fillRect(rx, ry, 3, rh);
+  x.fillStyle = 'rgba(255,170,90,0.18)';
+  x.fillRect(rx, ry, rw, 2);
+}
+
+// 積みあがった瓦礫の山（外側から内側へ重ねて描くので、まん中ほど高く見える）
+function drawRubbleHeap(x, cx, cy, R, seed) {
+  const r = new RNG(seed);
+  // 右（東）へのびる長い影
+  x.fillStyle = 'rgba(16,6,2,0.55)';
+  x.beginPath(); x.ellipse(cx + R * 0.95, cy + R * 0.2, R * 1.45, R * 0.7, 0.15, 0, TAU); x.fill();
+  // 土台（土ぼこりと木くずの山）
+  x.fillStyle = '#3a2a1c';
+  jaggedBlob(x, cx, cy, R, r, 0.82); x.fill();
+  x.fillStyle = '#4e3a26';
+  jaggedBlob(x, cx - R * 0.12, cy - R * 0.06, R * 0.72, r, 0.82); x.fill();
+  for (let i = 0; i < R * 1.5; i++) {
+    const a = r.next() * TAU, d = Math.sqrt(r.next()) * R * 0.9;
+    x.fillStyle = r.next() < 0.5 ? 'rgba(120,96,70,0.5)' : 'rgba(20,12,6,0.5)';
+    x.fillRect(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.82, 2 + r.next() * 2, 1.5);
+  }
+  // がれき
+  const pieces = [];
+  const n = Math.round(R / 2);
+  for (let i = 0; i < n; i++) {
+    const d = Math.sqrt(r.next()) * R * 0.82, a = r.next() * TAU;
+    pieces.push({
+      x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d * 0.8, d, rot: r.next() * TAU,
+      k: 0.42 + (1 - d / R) * 0.42 + r.next() * 0.12, kind: DUSK_RUBBLE_KINDS[Math.floor(r.next() * DUSK_RUBBLE_KINDS.length)], seed: Math.floor(r.next() * 1e6),
+    });
+  }
+  pieces.sort((p, q) => q.d - p.d);
+  for (const pc of pieces) drawRubble(x, pc);
+  // 山のふくらみ：日の当たる左上ほど明るく、すそと右（東）がわほど暗い
+  const vol = x.createRadialGradient(cx - R * 0.3, cy - R * 0.25, R * 0.1, cx, cy, R * 1.05);
+  vol.addColorStop(0, 'rgba(20,8,2,0.05)');
+  vol.addColorStop(0.6, 'rgba(20,8,2,0.3)');
+  vol.addColorStop(1, 'rgba(20,8,2,0.6)');
+  x.fillStyle = vol;
+  jaggedBlob(x, cx, cy, R * 1.02, new RNG(seed + 2), 0.82);
+  x.fill();
+  // 西日が当たる左（西）がわ
+  const g = x.createLinearGradient(cx - R, 0, cx + R * 0.4, 0);
+  g.addColorStop(0, 'rgba(255,150,70,0.3)');
+  g.addColorStop(1, 'rgba(255,150,70,0)');
+  x.fillStyle = g;
+  jaggedBlob(x, cx, cy, R * 0.95, new RNG(seed + 1), 0.82);
+  x.fill();
+}
+
+class DuskRubbleBG {
+  constructor() {
+    this.t = 0;
+    this.scroll = 0;
+    this.tile = this.makeTile();
+    this.dust = makeFogTile(FIELD_W, 448, 9, 0.07, 91, '255,190,130');
+    // 差しこむ光の帯（左から右へ、少し下へ傾いて広がる）
+    this.shafts = [
+      { y: 40, w: 50, spread: 36, a: 0.1, p: 0.3, sp: 0.011 },
+      { y: 150, w: 76, spread: 54, a: 0.13, p: 2.1, sp: 0.008 },
+      { y: 262, w: 44, spread: 32, a: 0.09, p: 4.0, sp: 0.013 },
+      { y: 360, w: 66, spread: 46, a: 0.11, p: 5.2, sp: 0.009 },
+    ];
+    // 光の中を舞うほこり
+    this.motes = [];
+    for (let i = 0; i < 36; i++) this.motes.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), v: frand(0.15, 0.45), s: frand(0.8, 1.8) });
+  }
+  // 道のまん中（縦にくり返す絵の高さ h で、ひとまわりする）
+  static roadX(y, h) { return FIELD_W * 0.44 + Math.sin((y / h) * TAU) * 34 + Math.sin((y / h) * TAU * 2 + 1) * 10; }
+  makeTile() {
+    const w = FIELD_W, h = 1440;
+    const c = makeCanvas(w, h);
+    const x = c.getContext('2d');
+    const r = new RNG(2130);
+    // 地面
+    x.fillStyle = '#2e2218';
+    x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1400; i++) {
+      x.fillStyle = r.next() < 0.5 ? 'rgba(80,60,40,0.35)' : 'rgba(12,8,4,0.35)';
+      x.fillRect(r.next() * w, r.next() * h, 2 + r.next() * 3, 2);
+    }
+    // 土の道（轍のあと）
+    for (let y = 0; y < h; y += 2) {
+      const sx = DuskRubbleBG.roadX(y, h);
+      x.fillStyle = '#4c3b28';
+      x.fillRect(sx - 30, y, 60, 2);
+      x.fillStyle = 'rgba(0,0,0,0.3)';
+      x.fillRect(sx - 32, y, 3, 2);
+      x.fillRect(sx + 29, y, 3, 2);
+      x.fillStyle = 'rgba(28,20,12,0.4)';
+      x.fillRect(sx - 14, y, 2, 2);
+      x.fillRect(sx + 12, y, 2, 2);
+    }
+    // 道の両側の家。いくつかは降ってきた瓦礫でつぶれて、瓦礫の山になっている
+    const rows = 15, rowH = h / rows;
+    const heaps = [];
+    for (let i = 0; i < rows; i++) {
+      const ry = i * rowH + 8 + r.next() * 5;
+      const rh = rowH - 26 + r.next() * 5;
+      const sx = DuskRubbleBG.roadX(ry + rh / 2, h);
+      const sides = [[-12, sx - 40 - r.next() * 8], [sx + 40 + r.next() * 8, w + 12]];
+      sides.forEach(([x0, x1], j) => {
+        const width = x1 - x0;
+        const split = width > 110 && r.next() < 0.6 ? [0.38 + r.next() * 0.24] : [];
+        const cuts = [0, ...split, 1];
+        for (let k = 0; k < cuts.length - 1; k++) {
+          const rx = x0 + width * cuts[k] + (k ? 5 : 0), rw = width * (cuts[k + 1] - cuts[k]) - (k ? 5 : 0);
+          const kind = r.next() < 0.3 ? 'kaya' : 'kawara', seed = 300 + i * 10 + j * 3 + k, tone = r.next();
+          const crushed = r.next() < 0.4;
+          for (const oy of [-h, 0, h]) drawDuskRoof(x, rx, ry + oy, rw, rh, kind, seed, crushed ? 0 : tone);
+          if (crushed) heaps.push({ cx: rx + rw / 2 + (r.next() - 0.5) * 16, cy: ry + rh / 2, R: Math.min(rw * 0.55, rh * 0.75) + 16 + r.next() * 12, seed: seed * 7 });
+        }
+      });
+      // 道の上にも、ときどき瓦礫の山
+      if (r.next() < 0.3) {
+        const cy = i * rowH + rowH * (0.3 + r.next() * 0.4);
+        heaps.push({ cx: DuskRubbleBG.roadX(cy, h) + (r.next() - 0.5) * 24, cy, R: 22 + r.next() * 12, seed: 900 + i * 13 });
+      }
+    }
+    // 家をいくつも押しつぶして、道までふさいでいる大きな瓦礫の山
+    for (const [fy, fx, R] of [[0.2, 0.3, 84], [0.55, 0.62, 92], [0.84, 0.22, 78]]) heaps.push({ cx: w * fx, cy: h * fy, R, seed: Math.round(5000 + fy * 1000) });
+    for (const hp of heaps) for (const oy of [-h, 0, h]) drawRubbleHeap(x, hp.cx, hp.cy + oy, hp.R, hp.seed);
+    // 夕方の色にする
+    x.globalCompositeOperation = 'multiply';
+    x.fillStyle = '#e8b48c';
+    x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  update() {
+    this.t++;
+    this.scroll += 0.7;
+    for (const m of this.motes) {
+      m.p += 0.03;
+      m.x += m.v;
+      m.y += 0.35 + Math.sin(m.p) * 0.2;
+      if (m.x > FIELD_W + 6) m.x = -6;
+      if (m.y > FIELD_H + 6) { m.y = -6; m.x = frand(FIELD_W); }
+    }
+  }
+  draw(ctx) {
+    drawScrollingTile(ctx, this.tile, this.scroll);
+    // 左（西）はあたたかく、右（東）は夕闇
+    const g = ctx.createLinearGradient(0, 0, FIELD_W, 0);
+    g.addColorStop(0, 'rgba(255,150,70,0.2)');
+    g.addColorStop(0.45, 'rgba(255,120,60,0.04)');
+    g.addColorStop(1, 'rgba(40,12,50,0.4)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    ctx.globalCompositeOperation = 'lighter';
+    // 左の端の向こうにしずむ夕日の光
+    const sun = ctx.createRadialGradient(-70, 130, 0, -70, 130, 400);
+    sun.addColorStop(0, 'rgba(255,160,70,0.34)');
+    sun.addColorStop(0.5, 'rgba(255,120,50,0.1)');
+    sun.addColorStop(1, 'rgba(255,100,40,0)');
+    ctx.fillStyle = sun;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    // 差しこむ光の帯
+    for (const sh of this.shafts) {
+      const a = sh.a * (0.7 + 0.3 * Math.sin(this.t * sh.sp + sh.p));
+      const y = sh.y + Math.sin(this.t * 0.004 + sh.p) * 8;
+      const lg = ctx.createLinearGradient(0, 0, FIELD_W, 0);
+      lg.addColorStop(0, `rgba(255,180,90,${a})`);
+      lg.addColorStop(0.75, `rgba(255,150,70,${a * 0.3})`);
+      lg.addColorStop(1, 'rgba(255,130,60,0)');
+      ctx.fillStyle = lg;
+      ctx.beginPath();
+      ctx.moveTo(0, y - sh.w / 2);
+      ctx.lineTo(FIELD_W, y - sh.w / 2 + FIELD_W * 0.16);
+      ctx.lineTo(FIELD_W, y + sh.w / 2 + FIELD_W * 0.16 + sh.spread);
+      ctx.lineTo(0, y + sh.w / 2);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // 光の中を舞うほこり
+    for (const m of this.motes) {
+      ctx.fillStyle = `rgba(255,210,140,${0.18 + 0.18 * Math.sin(this.t * 0.06 + m.p * 3)})`;
+      ctx.fillRect(m.x, m.y, m.s, m.s);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    drawScrollingTile(ctx, this.dust, this.scroll * 1.3, 0.8);
+    // 弾が見やすいように、少し暗くする
+    ctx.fillStyle = 'rgba(10,4,16,0.3)';
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+  }
+}
+
+// ------------------------------------------------------------
 //  エキストラ：方位の果て（2.8.0）
-//  はじめは崩れた屋敷の瓦礫の空（6面と同じ RubbleSkyBG）。event('compass') で、金色の方位盤がゆっくり回る異界に変わる
-//  （ボス戦の途中、金神の本戦が始まるとき。2.10.x までは中ボスのあと）
+//  はじめは積みあがった瓦礫と人里の家々、差しこむ西日（DuskRubbleBG。2.13.0 でユーザーの指定。2.12.x までは6面と同じ瓦礫の空）。
+//  event('compass') で、金色の方位盤がゆっくり回る異界に変わる（ボス戦の途中、本戦が始まるとき。2.10.x までは中ボスのあと）
 // ------------------------------------------------------------
 
 // 方位盤（同心円・八方の線・十二支の文字・八卦の印）。lit：光らせる十二支の番号
@@ -1297,9 +1506,9 @@ function drawCompassDisc(ctx, cx, cy, r, rot, alpha, lit = null) {
 
 class CompassRealmBG {
   constructor() {
-    this.rubble = new RubbleSkyBG();
+    this.rubble = new DuskRubbleBG(); // 方位盤の異界に移るまでの背景
     this.t = 0;
-    this.shift = 0; // 0：瓦礫の空 → 1：方位盤の異界
+    this.shift = 0; // 0：西日の人里と瓦礫 → 1：方位盤の異界
     this.fog = makeFogTile(FIELD_W, 448, 10, 0.07, 81, '255,200,120');
     this.cards = [];
     for (let i = 0; i < 18; i++) this.cards.push({ x: frand(FIELD_W), y: frand(FIELD_H), v: frand(0.6, 1.6), r: frand(TAU), vr: frand(-0.02, 0.02), s: frand(0.6, 1.1) });

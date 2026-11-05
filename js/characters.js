@@ -27,9 +27,10 @@ const CHARA_INFO = {
   // 座敷わらしなので小さく表示する（ドット絵も高さ 60px で作ってある）
   zashiki: { name: '座敷 宿美', kana: 'ざしき すずみ', title: '住処を追われた愛しき災難', color: '#b8c0ff', image: 'zashiki', dot: 'zashikiDot', portraitScale: 0.8 },
   // エキストラ。中ボスは栂尾（4面のボス。2.11.0 でユーザーの指定）。
-  // ボスの金神（2.8.0）の名前と二つ名は仮（資料では「Extraボス」「方位神（金神）」）。絵は 2.10.0 でユーザーがくれたイラスト
+  // ボスは金神（方位神）の八重神 世羅。名前は 2.13.0 でユーザーの指定（前は「金神」）。読み仮名「やえがみ せら」は Claude の読み（ユーザーに確かめていない）。
+  // 二つ名は 2.8.0 で Claude が考えた仮のもの（資料では「Extraボス」「方位神（金神）」）。絵は 2.10.0 でユーザーがくれたイラスト。ID は konjin のまま
   toganooEx: { name: '栂尾 芯', kana: 'とがのお しん', title: '朽ち果てぬ家の意地', color: '#e0b080', image: 'toganoo', dot: 'toganooDot' },
-  konjin: { name: '金神', kana: 'こんじん', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
+  konjin: { name: '八重神 世羅', kana: 'やえがみ せら', title: '遊行する祟り神', color: '#ffd860', image: 'konjin', dot: 'konjinDot' },
 };
 
 const CHARA = {

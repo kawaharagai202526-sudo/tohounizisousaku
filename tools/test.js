@@ -245,6 +245,34 @@ test('ストーリー・曲・キャラクターのデータがそろってい�
   assert(!problems.length, `データの問題:\n    ${problems.join('\n    ')}`);
 });
 
+test('ユーザーが書いた会話・エキストラのボスの名前と背景（2.13.0）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const texts = arr => arr.filter(Array.isArray).map(l => `${l[0]}:${l[2]}`);
+    return {
+      name: CHARA_INFO.konjin.name,
+      exReimu: texts(STORY.extra.reimu.after), exMarisa: texts(STORY.extra.marisa.after),
+      s2: texts(STORY.stage2.marisa.after), s3: texts(STORY.stage3.reimu.before), s4: texts(STORY.stage4.reimu.before),
+      bg: (() => { const b = new CompassRealmBG(); return b.rubble instanceof DuskRubbleBG; })(),
+    };
+  });
+  assert(r.name === '八重神 世羅', `エキストラのボスの名前: ${r.name}`);
+  assert(r.exReimu.join('|') === [
+    'konjin:人間のくせに、なかなかやるではないか……', 'reimu:気は済んだ？', 'konjin:済むものか。だが、筋を通すなら話は聞いてやる',
+    'reimu:……方位除けの祈祷でいい？', 'konjin:供え物も付けろ', 'reimu:うちの神社に、そんな余裕ないわよ',
+  ].join('|'), `エキストラの戦ったあと（霊夢）: ${r.exReimu}`);
+  assert(r.exMarisa.join('|') === [
+    'marisa:熱は収まったか？', 'konjin:祟るだけで許してやる', 'marisa:冗談だろ', 'konjin:冗談だ、今回は神として許そう', 'konjin:だが次はないぞ',
+  ].join('|'), `エキストラの戦ったあと（魔理沙）: ${r.exMarisa}`);
+  assert(r.s2.includes('kuraishiro:そんなのどうでもいいわ、虫さえいれば私は幸せよ') && !r.s2.some(t => t.includes('全部食べちゃう')), `2面: ${r.s2}`);
+  assert(r.s3.includes('reimu:そんなの見えないし、ますます怪しいわ') && !r.s3.includes('reimu:そんなの見えないわ。ますます怪しいわ'), `3面: ${r.s3}`);
+  const i = r.s4.indexOf('toganoo:客人かい？誰かを呼んだ覚えはないんだけど');
+  assert(i >= 0 && r.s4.slice(i, i + 4).join('|') === [
+    'toganoo:客人かい？誰かを呼んだ覚えはないんだけど', 'reimu:この屋敷、やけに人里と似た雰囲気ね',
+    'toganoo:当たり前よ、この屋敷はこの辺の古びた家を再生させてつくったものだからな', 'reimu:人の部屋を引っこ抜いて何のためにこんな屋敷を建てたのよ',
+  ].join('|'), `4面: ${r.s4}`);
+  assert(r.bg, 'エキストラの方位盤の異界より前の背景が、西日の人里と瓦礫（DuskRubbleBG）ではない');
+});
+
 test('音声ファイルの曲をデコードしてループで鳴らせる', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const out = [];
