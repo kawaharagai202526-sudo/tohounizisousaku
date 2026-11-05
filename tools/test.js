@@ -94,6 +94,7 @@ test('メニュー画面をひととおり表示できる', async ({ page }) => 
       () => new StageSelectScene(1, PLAYER_IDS[0]), () => new MusicRoomScene(), () => new ManualScene(), () => new OptionScene(),
       () => new FeedbackScene(),
     ];
+    window.open = () => null; // フィードバックの画面は Google フォームを開くので、テストでは開かない
     for (const f of scenes) { Game.setScene(f()); T.step(30); }
     Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS.at(-1), stage: 0 }));
     T.step(30);
@@ -566,189 +567,64 @@ test('エキストラの方違え（凶方へ動くと祟りがたまる）', as
   assert(r.dirs.join() === '0,2,4,6,1', `方角の番号がおかしい: ${r.dirs}`);
 });
 
-// フィードバックの画面を開いて、入力欄に文字を打つ
-async function openFeedback(page) {
-  await page.evaluate(() => { Game.setScene(new TitleScene('feedback')); T.step(20); Input.just.shot = true; T.step(2); });
-  await page.waitForSelector('#feedbackUI textarea');
-  await page.evaluate(() => T.step(1));
-}
-
-test('フィードバックの画面（入力欄・下書き・送れないときの知らせ）', async ({ page }) => {
-  // Google フォームのリンクがないとき（共有ページのデータベースに送るしくみ）を確かめる
-  await page.evaluate(() => { Store.remove('feedbackDraft'); Feedback.formUrl = ''; });
-  await openFeedback(page);
-  const r0 = await page.evaluate(() => {
-    const c = Game.canvas.getBoundingClientRect(), b = document.querySelector('#feedbackUI textarea').getBoundingClientRect();
-    const k = c.width / SCREEN_W, B = FEEDBACK_BOX;
-    return {
-      scene: Game.scene.constructor.name, state: Feedback.state, buttons: [...document.querySelectorAll('.feedback-btn')].map(e => e.textContent),
-      gap: Math.max(Math.abs(b.left - (c.left + B.x * k)), Math.abs(b.top - (c.top + B.y * k)), Math.abs(b.width - B.w * k), Math.abs(b.height - B.h * k)),
-      focused: document.activeElement === document.querySelector('#feedbackUI textarea'),
-    };
-  });
-  assert(r0.scene === 'FeedbackScene', `タイトルからフィードバックの画面にならない: ${r0.scene}`);
-  assert(r0.state === 'nohost', `共有ページの外なのに送れることになっている: ${r0.state}`);
-  assert(r0.buttons.join() === '送信,コピー,戻る', `ボタン: ${r0.buttons}`);
-  assert(r0.gap < 2, `入力欄がキャンバスの箱の位置に重なっていない（${r0.gap}px ずれ）`);
-  assert(r0.focused, '入力欄に文字を打てる状態になっていない');
-  // ゲームの操作に使うキー（Z・X・M・矢印・Backspace）も文字として打てて、画面は変わらない
-  await page.keyboard.type('zxm 感想です');
-  await page.keyboard.press('Backspace');
-  await page.keyboard.press('ArrowLeft');
-  await page.keyboard.press('Enter');
-  const r1 = await page.evaluate(() => { T.step(5); return { scene: Game.scene.constructor.name, value: document.querySelector('#feedbackUI textarea').value, draft: Feedback.draft, muted: Sound.muted }; });
-  assert(r1.scene === 'FeedbackScene', `文字を打っただけで画面が変わった: ${r1.scene}`);
-  assert(r1.value === 'zxm 感想\nで' && r1.draft === r1.value, `打った文字: ${JSON.stringify(r1)}`);
-  assert(r1.muted === false, '入力欄で M を打ったら音が消えた');
-  // 送信 → この版からは送れない、という知らせ（書いた文は残る）
-  await page.click('.feedback-btn:nth-of-type(1)');
-  const r2 = await page.evaluate(() => { T.step(2); return { result: Game.scene.result, value: document.querySelector('#feedbackUI textarea').value }; });
-  assert(r2.result === 'nohost' && r2.value === r1.value, `送れないときの知らせ: ${JSON.stringify(r2)}`);
-  // Esc で戻り、開き直すと下書きが残っている
-  await page.focus('#feedbackUI textarea');
-  await page.keyboard.press('Escape');
-  const r3 = await page.evaluate(() => { T.step(2); return { scene: Game.scene.constructor.name, ui: !!document.getElementById('feedbackUI') }; });
-  assert(r3.scene === 'TitleScene' && !r3.ui, `Esc で戻らない: ${JSON.stringify(r3)}`);
-  await openFeedback(page);
-  const again = await page.$eval('#feedbackUI textarea', e => e.value);
-  assert(again === r1.value, `下書きが残っていない: ${JSON.stringify(again)}`);
-  // 入力欄の外（キャンバス）では、X で戻る
-  await page.evaluate(() => { Game.canvas.focus(); T.step(12); });
-  await page.keyboard.press('KeyX');
-  const r4 = await page.evaluate(() => { T.step(2); return Game.scene.constructor.name; });
-  assert(r4 === 'TitleScene', `入力欄の外で X を押しても戻らない: ${r4}`);
-});
-
-test('フィードバックを共有ページのデータベースに送り、管理者ページで読める（claude.ai のにせもので確かめる）', async ({ browser }) => {
-  // claude.ai の共有ページの window.claude.use('db' / 'user') のかわりに、メモリの中のにせものを置く
-  const { page, context, errors } = await openGame(browser, {}, '', ctx => ctx.addInitScript(() => {
-    const store = {};
-    window.__fake = { store, deny: false, uid: 'viewer-1' };
-    const snap = (path, body) => ({ id: path.split('/').pop(), exists: !!body, data: () => (body ? JSON.parse(JSON.stringify(body)) : undefined), metadata: { fromCache: false, hasPendingWrites: false } });
-    const db = Object.freeze({
-      doc: path => ({
-        id: path.split('/').pop(), path,
-        get: async () => snap(path, store[path]),
-        set: async data => {
-          if (window.__fake.deny) throw { code: 'invalid_argument', message: 'denied' };
-          store[path] = JSON.parse(JSON.stringify(data));
-        },
-      }),
-      collection: path => ({
-        get: async () => {
-          const docs = Object.keys(store).filter(k => k.startsWith(path + '/') && k.split('/').length === path.split('/').length + 1).sort().map(k => snap(k, store[k]));
-          return { docs, size: docs.length, empty: !docs.length };
-        },
-      }),
-    });
-    const user = Object.freeze({ id: async () => window.__fake.uid, can: async () => true });
-    window.claude = Object.freeze({ use: async name => (name === 'db' ? db : name === 'user' ? user : null) });
-  }));
-  try {
-    await page.waitForFunction(() => Feedback.ready, null, { polling: 50, timeout: 5000 });
-    assert(await page.evaluate(() => Feedback.state) === 'yes', '共有ページなのに送れることになっていない');
-    await page.evaluate(() => { Store.remove('feedbackDraft'); Feedback.formUrl = ''; }); // フォームがないときの送り先
-    await openFeedback(page);
-    const send = async text => {
-      await page.fill('#feedbackUI textarea', text);
-      await page.click('.feedback-btn:nth-of-type(1)');
-      await page.waitForFunction(() => Game.scene.result && Game.scene.result !== 'sending', null, { polling: 50, timeout: 5000 });
-      return page.evaluate(() => ({ result: Game.scene.result, value: document.querySelector('#feedbackUI textarea').value, draft: Feedback.draft, doc: window.__fake.store['feedback/viewer-1'] }));
-    };
-    let r = await send('1面がむずかしい');
-    assert(r.result === 'ok' && r.value === '' && r.draft === '', `送れない: ${JSON.stringify(r)}`);
-    assert(r.doc.entries.length === 1 && r.doc.entries[0].text === '1面がむずかしい' && r.doc.entries[0].version === await page.evaluate(() => GAME_VERSION), `届いた文: ${JSON.stringify(r.doc)}`);
-    r = await send('  ');
-    assert(r.result === 'empty', `空の文を送れた: ${r.result}`);
-    r = await send('曲がよかった');
-    assert(r.result === 'ok' && r.doc.entries.length === 2, `2つ目を送れない: ${JSON.stringify(r)}`);
-    // 長すぎる文は 1000 文字までにする
-    await page.evaluate(() => { window.__fake.uid = 'viewer-2'; Feedback.uid = 'viewer-2'; });
-    const sent = await page.evaluate(async () => { const r = await Feedback.send('あ'.repeat(1500)); return { r, len: window.__fake.store['feedback/viewer-2'].entries[0].text.length, max: FEEDBACK_MAX_CHARS }; });
-    assert(sent.r.ok && sent.max === 1000 && sent.len === sent.max, `長い文: ${JSON.stringify(sent)}`);
-    // 書きこめない人（invalid_argument で断られる）は、送れないという知らせ
-    await page.evaluate(() => { window.__fake.deny = true; });
-    r = await send('これは届かない');
-    assert(r.result === 'denied' && r.value === 'これは届かない', `書きこめないときの知らせ: ${JSON.stringify(r)}`);
-    assert(await page.evaluate(() => Feedback.state) === 'denied', '断られたあとも送れることになっている');
-    // 管理者ページで読む（新しい順・送った人は番号）
-    const list = await page.evaluate(async () => (await Feedback.list()).map(e => `${e.from}:${e.text.slice(0, 6)}`));
-    assert(list.join() === '2:ああああああ,1:曲がよかった,1:1面がむずか', `一覧: ${list}`);
-    await page.evaluate(() => { Admin.root.hidden = false; Input.suspended = true; Admin.showFeedback(); });
-    await page.waitForSelector('.admin-fbitem');
-    const shown = await page.$$eval('.admin-fbitem .admin-fbtext', es => es.map(e => e.textContent));
-    assert(shown.length === 3 && shown[1] === '曲がよかった', `管理者ページの一覧: ${shown}`);
-    assert((await page.textContent('.admin-body')).includes('3 件・2 人から'), '管理者ページに件数が出ていない');
-    await page.evaluate(() => Admin.close());
-    assert(!errors.length, errors.join('\n'));
-  } finally { await context.close(); }
-}, { noPage: true });
-
-test('Google フォームで送る（ユーザーのフォームのリンク・事前入力したURL）', async ({ page }) => {
-  // 開いたリンクは window.open を差しかえて受け取り、コピーした文は document.execCommand を差しかえて受け取る
-  const shipped = 'https://docs.google.com/forms/d/e/1FAIpQLSfDBNbPbbizDXSobJ0g4-6htzpTe1XkT0u8hS-oSG8SIoxtrg/viewform';
-  const base = 'https://docs.google.com/forms/d/e/1FAIpQLSf-TEST_form/viewform';
-  const parts = await page.evaluate(b => {
+test('フィードバック（タイトルで選ぶと Google フォームを新しいタブで開く。入力欄はない）', async ({ page }) => {
+  // 開いたリンクは window.open を差しかえて受け取る（開けたときは、開いたページのかわりのものを返す）
+  const pick = () => page.evaluate(() => { Game.setScene(new TitleScene('feedback')); T.step(20); Input.just.shot = true; T.step(2); });
+  await page.evaluate(() => {
     window.__opened = [];
-    window.__copied = [];
-    window.open = (url, target, features) => { window.__opened.push({ url, target, features }); return null; };
-    document.execCommand = cmd => {
-      const t = document.activeElement;
-      if (cmd === 'copy' && t && t.tagName === 'TEXTAREA') window.__copied.push(t.value.substring(t.selectionStart, t.selectionEnd));
-      return cmd === 'copy';
-    };
-    const shippedLink = Feedback.formLink('テスト');
-    const check = u => { Feedback.formUrl = u; return Feedback.hasForm ? (Feedback.formPrefill ? 'prefill' : 'plain') : 'none'; };
-    const r = {
-      shipped: FEEDBACK_FORM_URL, shippedLink,
-      none: check(''), other: check('https://example.com/form?entry.1=a'), plain: check(b + '?usp=publish-editor'), bare: check(b),
-      short: check('https://forms.gle/AbC123xyz'), prefill: check(b + '?usp=pp_url&entry.1234567890=%E3%83%86%E3%82%B9%E3%83%88'),
-    };
-    Store.remove('feedbackDraft');
-    return r;
-  }, base);
-  // ユーザーが作ったフォーム（共有リンク）が入っていて、フォームのページをそのまま開く
-  assert(parts.shipped.startsWith(shipped) && parts.shippedLink && parts.shippedLink.url === shipped && !parts.shippedLink.prefilled, `入っているフォーム: ${JSON.stringify(parts)}`);
-  assert(parts.none === 'none' && parts.other === 'none' && parts.plain === 'plain' && parts.bare === 'plain' && parts.short === 'plain' && parts.prefill === 'prefill',
-    `フォームのリンクの見分け: ${JSON.stringify(parts)}`);
-
-  // 事前入力したURL：書いた文（改行・記号・絵文字を含む）を欄に入れて開く。文は消さずに残す
-  await openFeedback(page);
-  await page.click('.feedback-btn:nth-of-type(1)');
-  let r = await page.evaluate(() => ({ result: Game.scene.result, opened: window.__opened.length }));
-  assert(r.result === 'empty' && r.opened === 0, `空の文でフォームを開いた: ${JSON.stringify(r)}`);
-  const text = 'ボスが強い！\n6面 & Extra が好き 100% 🎮';
-  await page.fill('#feedbackUI textarea', text);
-  await page.click('.feedback-btn:nth-of-type(1)');
-  r = await page.evaluate(() => ({ result: Game.scene.result, opened: window.__opened.slice(), copied: window.__copied.length, value: document.querySelector('#feedbackUI textarea').value }));
-  assert(r.opened.length === 1 && r.opened[0].url === `${base}?usp=pp_url&entry.1234567890=${encodeURIComponent(text)}` && r.opened[0].target === '_blank', `開いたリンク: ${JSON.stringify(r.opened)}`);
-  assert(r.result === 'formOpened' && r.value === text && r.copied === 0, `フォームを開いたあと: ${JSON.stringify(r)}`);
-  // 長すぎる文は、リンクに入るところまで入れて、全文をコピーする
-  r = await page.evaluate(() => {
-    const long = '屋敷'.repeat(500);
-    const link = Feedback.formLink(long);
-    const value = decodeURIComponent(link.url.split('entry.1234567890=')[1]);
-    return { len: link.url.length, max: FEEDBACK_FORM_MAX_URL, cut: link.cut, prefix: long.startsWith(value), vlen: value.length, short: Feedback.formLink('短い文').cut };
+    window.__win = null;
+    window.__blocked = false;
+    window.open = (url, target) => { window.__opened.push({ url, target }); if (window.__blocked) return null; window.__win = { opener: 'game' }; return window.__win; };
   });
-  assert(r.cut && r.len <= r.max && r.prefix && r.vlen > 300 && r.short === false, `長い文: ${JSON.stringify(r)}`);
-  await page.fill('#feedbackUI textarea', '座敷'.repeat(500));
-  await page.click('.feedback-btn:nth-of-type(1)');
-  r = await page.evaluate(() => ({ result: Game.scene.result, copied: window.__copied.at(-1) }));
-  assert(r.result === 'formCut' && r.copied === '座敷'.repeat(500), `長い文のとき: ${JSON.stringify({ result: r.result, copied: (r.copied || '').length })}`);
-
-  // 共有リンク（欄の番号がない）：全文をコピーしてから、フォームのページを開く
-  await page.evaluate(() => { Feedback.formUrl = FEEDBACK_FORM_URL; window.__opened.length = 0; window.__copied.length = 0; });
-  const text2 = '曲がよかった\n次の面も楽しみ';
-  await page.fill('#feedbackUI textarea', text2);
-  await page.click('.feedback-btn:nth-of-type(1)');
-  r = await page.evaluate(() => ({ result: Game.scene.result, opened: window.__opened.map(o => o.url), copied: window.__copied.slice(), value: document.querySelector('#feedbackUI textarea').value }));
-  assert(r.opened.length === 1 && r.opened[0] === shipped, `共有リンクで開いたリンク: ${JSON.stringify(r.opened)}`);
-  assert(r.copied.length === 1 && r.copied[0] === text2 && r.result === 'formPaste' && r.value === text2, `共有リンクのとき: ${JSON.stringify(r)}`);
-  // コピーできなかったときは、「コピー」で写すように知らせる
-  await page.evaluate(() => { document.execCommand = () => false; Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('no')) }, configurable: true }); });
-  await page.click('.feedback-btn:nth-of-type(1)');
-  await page.waitForFunction(() => Game.scene.result !== 'formPaste', null, { polling: 50, timeout: 3000 });
-  assert(await page.evaluate(() => Game.scene.result) === 'formPasteNoCopy', 'コピーできなかったときの知らせがちがう');
+  await pick();
+  let r = await page.evaluate(() => ({
+    scene: Game.scene.constructor.name, opened: Game.scene.opened, calls: window.__opened.slice(), opener: window.__win && window.__win.opener,
+    form: FEEDBACK_FORM_URL, textarea: !!document.querySelector('#feedbackUI textarea'), buttons: [...document.querySelectorAll('#feedbackUI .feedback-btn')].map(e => e.textContent),
+  }));
+  assert(r.scene === 'FeedbackScene', `タイトルからフィードバックの画面にならない: ${r.scene}`);
+  assert(r.form.startsWith('https://docs.google.com/forms/d/e/1FAIpQLSfDBNbPbbizDXSobJ0g4-6htzpTe1XkT0u8hS-oSG8SIoxtrg/viewform'), `フォームのリンク: ${r.form}`);
+  assert(r.calls.length === 1 && r.calls[0].url === r.form && r.calls[0].target === '_blank' && r.opened === true, `選んだときにフォームを開いていない: ${JSON.stringify(r)}`);
+  assert(r.opener === null, '開いたページから、このページを触れるままになっている');
+  assert(!r.textarea && r.buttons.join() === 'フォームを開く,戻る', `入力欄が残っているか、ボタンがちがう: ${JSON.stringify(r)}`);
+  // ブラウザがポップアップを止めたとき：知らせを出し、「フォームを開く」ボタンで開きなおせる
+  await page.evaluate(() => { window.__blocked = true; T.step(12); });
+  await page.click('#feedbackUI .feedback-btn:nth-of-type(1)');
+  r = await page.evaluate(() => { T.step(1); return { opened: Game.scene.opened, calls: window.__opened.length }; });
+  assert(r.opened === false && r.calls === 2, `止められたとき: ${JSON.stringify(r)}`);
+  await page.evaluate(() => { window.__blocked = false; });
+  await page.click('#feedbackUI .feedback-btn:nth-of-type(1)');
+  r = await page.evaluate(() => { T.step(1); return { opened: Game.scene.opened, calls: window.__opened.length }; });
+  assert(r.opened === true && r.calls === 3, `ボタンで開きなおせない: ${JSON.stringify(r)}`);
+  // キャンバスでは Z でもう一度開き、X で戻る
+  await page.evaluate(() => Game.canvas.focus());
+  await page.keyboard.press('KeyZ');
+  r = await page.evaluate(() => { T.step(2); return window.__opened.length; });
+  assert(r === 4, `Z で開きなおせない: ${r}`);
+  await page.keyboard.press('KeyX');
+  r = await page.evaluate(() => { T.step(2); return { scene: Game.scene.constructor.name, ui: !!document.getElementById('feedbackUI') }; });
+  assert(r.scene === 'TitleScene' && !r.ui, `X で戻らない: ${JSON.stringify(r)}`);
+  // ボタンを選んでいるときは Esc で戻る
+  await pick();
+  await page.focus('#feedbackUI .feedback-btn:nth-of-type(2)');
+  await page.keyboard.press('Escape');
+  r = await page.evaluate(() => { T.step(2); return Game.scene.constructor.name; });
+  assert(r === 'TitleScene', `Esc で戻らない: ${r}`);
+  // フォームのリンクがないとき（または https でないとき）は、タイトルの「フィードバック」を選べない
+  r = await page.evaluate(() => {
+    const before = window.__opened.length;
+    const bad = u => { Feedback.formUrl = u; return Feedback.hasForm; };
+    const res = { empty: bad(''), js: bad('javascript:alert(1)'), http: bad('http://example.com/') };
+    Game.setScene(new TitleScene('feedback'));
+    T.step(20);
+    Input.just.shot = true;
+    T.step(2);
+    res.scene = Game.scene.constructor.name;
+    res.disabled = Game.scene.items[TITLE_ITEMS.findIndex(it => it.id === 'feedback')].disabled;
+    res.calls = window.__opened.length - before;
+    Feedback.formUrl = FEEDBACK_FORM_URL;
+    return res;
+  });
+  assert(!r.empty && !r.js && !r.http && r.scene === 'TitleScene' && r.disabled && r.calls === 0, `リンクがないとき: ${JSON.stringify(r)}`);
 });
 
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
@@ -810,12 +686,11 @@ test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => 
   const files = await page.$$eval('.admin-file', bs => bs.length);
   const scripts = await page.evaluate(() => document.querySelectorAll('script[src], script[data-file]').length);
   assert(files === scripts, `プログラムのファイル数 ${files}（スクリプト ${scripts}）`);
-  // フィードバック（claude.ai の共有ページの外なので、読めないという知らせ）
+  // フィードバック（Google フォームのリンクと、届いた文の読みかた）
   await page.click('.admin-back');
   await page.click('.admin-menu button:nth-child(4)');
-  await page.waitForFunction(() => document.querySelector('.admin-body .admin-empty').textContent !== '読みこんでいます…', null, { polling: 50, timeout: 5000 });
-  const fb = await page.textContent('.admin-body');
-  assert(fb.includes('共有ページで開いたときだけ'), `フィードバックのページ: ${fb}`);
+  const fb = await page.evaluate(() => ({ text: document.querySelector('.admin-body').textContent, href: (document.querySelector('.admin-body a.admin-link') || {}).href, form: FEEDBACK_FORM_URL }));
+  assert(fb.text.includes('Google フォーム') && fb.text.includes('「回答」') && fb.href === fb.form, `フィードバックのページ: ${JSON.stringify(fb)}`);
   await page.click('.admin-back');
   await page.keyboard.press('Escape');
   assert(await page.evaluate(() => document.getElementById('adminOverlay').hidden && !Input.suspended), 'Escで管理者ページが閉じない');

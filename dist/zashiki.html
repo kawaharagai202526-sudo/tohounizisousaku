@@ -83,28 +83,12 @@
     #hint { display: block; }
   }
 
-  /* ---------- フィードバックの入力欄（js/menus.js の FeedbackScene がキャンバスの上に重ねる） ---------- */
+  /* ---------- フィードバックの画面のボタン（js/menus.js の FeedbackScene がキャンバスの上に重ねる） ---------- */
   #feedbackUI {
     position: fixed;
     z-index: 20;
     pointer-events: none;
   }
-  #feedbackUI textarea {
-    position: absolute;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0.6em 0.8em;
-    font: inherit;
-    line-height: 1.6;
-    color: var(--ink);
-    background: rgba(10, 6, 30, 0.88);
-    border: 1px solid var(--gold);
-    border-radius: 0;
-    resize: none;
-    pointer-events: auto;
-  }
-  #feedbackUI textarea::placeholder { color: var(--ink-dim); }
-  #feedbackUI textarea:focus { outline: none; box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.6); }
   .feedback-btn {
     position: absolute;
     box-sizing: border-box;
@@ -120,7 +104,6 @@
     pointer-events: auto;
   }
   .feedback-btn:hover:not(:disabled), .feedback-btn:focus-visible { background: rgba(214, 186, 120, 0.22); border-color: var(--gold); outline: none; }
-  .feedback-btn:disabled { color: var(--ink-dim); opacity: 0.6; cursor: progress; }
 
   /* ---------- 管理者ページ ---------- */
   #adminHotspot {
@@ -303,9 +286,7 @@
   .admin-table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
   .admin-table th, .admin-table td { padding: 5px 10px; border: 1px solid rgba(214, 186, 120, 0.25); text-align: left; white-space: nowrap; }
   .admin-table th { background: rgba(214, 186, 120, 0.12); font-weight: 600; }
-  .admin-feedback { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
-  .admin-fbitem { padding: 8px 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(214, 186, 120, 0.25); }
-  .admin-fbtext { margin: 4px 0 0; font-size: 14px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .admin-link { color: var(--gold); overflow-wrap: anywhere; }
   .admin-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
   .admin-card {
     display: block;
@@ -464,7 +445,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.12.2';
+const GAME_VERSION = '2.12.3';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -11900,163 +11881,43 @@ function menuBG() { return sharedMenuBG || (sharedMenuBG = new MenuBG()); }
 <script data-file="js/feedback.js">
 'use strict';
 // ============================================================
-//  フィードバック（開発者へのアドバイス・感想）の送り先（2.12.0）
-//  タイトルの「フィードバック」の画面（js/menus.js の FeedbackScene）から送り、管理者ページの「フィードバック」で読む。
+//  フィードバック（開発者へのアドバイス・感想）の送り先：開発者の Google フォーム
+//  タイトルの「フィードバック」を選ぶと、このフォームを新しいタブで開く（js/menus.js の FeedbackScene）。
+//  届いた文は、フォームを作った Google アカウントで、フォームの編集画面の「回答」で読む。
 //
-//  claude.ai の共有ページで開いているときは、そのページのデータベース（db）に入れる：
-//    feedback/<見ている人のID> の文書の entries に足していく（1人1文書。新しいものから FEEDBACK_KEEP 件まで）。
-//    共有ページを公開するときに、capabilities で db の rules と user を宣言する（CLAUDE.md の「フィードバック」）：
-//      { path: 'feedback', read: 'admin', write: 'admin' }（持ち主と編集者は全部を読めて、消せる）
-//      { path: 'feedback/{self}', read: 'view', write: 'interact' }（本人は自分の文書だけを読み書きできる。ほかの人のものは見えない）
-//    送れるのは、共有ページに書きこめる人だけ（持ち主・編集者として招待した人・Team などで同じ組織の人）。
-//    公開リンクで見ている人は送れない（claude.ai のしくみ）。
-//  それ以外（ダウンロードした1ファイル版を開いたときなど）は送り先がないので送れない。書いた文はこのブラウザに残し、コピーできるようにする。
-//
-//  Google フォーム（2.12.1 でユーザーの指定「GOOGLEホームを作る」。2.12.2 でユーザーが作ったフォームのリンクを入れた）：
-//  FEEDBACK_FORM_URL にフォームのリンクがあると、「送信」でそのフォームを開く（送るのはフォームの「送信」。だれでも送れる）。
-//    「事前入力したURL」（答えの欄 entry.数字 がある）なら、書いた文を欄に入れた状態で開く。
-//    ふつうの共有リンク（欄の番号がない）なら、書いた文をコピーしてから開き、欄に貼りつけてもらう。
-//  このときは共有ページのデータベースには送らない（届く場所を1つにする）。届いた文は、フォームの編集画面の「回答」で読む。
+//  これまで：2.12.0 はゲームの中の入力欄から claude.ai の共有ページのデータベースに送り、
+//  2.12.1〜2.12.2 は入力欄に書いた文を、フォームに入れて（またはコピーして）開いていた。
+//  2.12.3 でユーザーの指定「フィードバックの箱を削除するかわり、ホームを自動で開くようにする」により、入力欄をなくし、
+//  すぐにフォームを開くようにした（「ホーム」はフォームのこと）
 // ============================================================
 
-const FEEDBACK_MAX_CHARS = 1000; // 1回に送れる文字数
-const FEEDBACK_KEEP = 50;        // 1人の文書に残す件数（1000文字×50件でも、1文書の上限 256 KiB に収まる）
-const FEEDBACK_TIMEOUT_MS = 20000; // 送り先が答えないときに、あきらめるまでの時間
-
-// Google フォームのリンク。いちばんよいのは「事前入力したURL」：段落の質問を1つだけ作り、右上の︙ →「事前入力したURLを取得」→
-// 欄に何か書いて「リンクを取得」→「リンクをコピー」したものを、そのまま入れる（欄に書いた文は、遊んだ人の文に入れかわる）。
-// ふつうの共有リンク（…/viewform?usp=publish-editor など）でも動く（そのときは文をコピーして貼りつけてもらう）。
-// 空にすると、claude.ai の共有ページのデータベースに送る
-// 2.12.2：ユーザーが作ったフォーム（「作った」。もらったのは共有リンクなので、欄の番号はない）
+// ユーザーが作った Google フォーム（2.12.2 でもらった共有リンク）。空にすると、タイトルの「フィードバック」は選べなくなる
 const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfDBNbPbbizDXSobJ0g4-6htzpTe1XkT0u8hS-oSG8SIoxtrg/viewform?usp=publish-editor';
-const FEEDBACK_FORM_MAX_URL = 7000; // フォームを開くリンクの長さの上限（長すぎると開けないので、文は入るところまで入れる）
-
-// 時間のかかる呼び出しを、ms で打ち切る（打ち切ったら code 'timeout' で断る）
-function withTimeout(promise, ms) {
-  let timer;
-  const limit = new Promise((_, reject) => { timer = setTimeout(() => reject({ code: 'timeout' }), ms); });
-  return Promise.race([promise, limit]).finally(() => clearTimeout(timer));
-}
 
 const Feedback = {
-  db: null,
-  uid: null,
-  canWrite: null,  // 共有ページに書きこめるか（true / false / null＝わからない）
-  host: false,     // claude.ai の共有ページの中で開いているか
-  ready: false,    // 送り先を確かめ終わったか
-  whenReady: Promise.resolve(), // 確かめ終わると解決する
-  formUrl: FEEDBACK_FORM_URL,   // Google フォームのリンク（テストで入れかえられるように、ここから読む）
+  formUrl: FEEDBACK_FORM_URL, // テストで入れかえられるように、ここから読む
 
-  // 起動したときに一度だけ。claude.use は、すぐには答えない（最大 10 秒）ので、待たずに先へ進む
-  init() {
-    const c = window.claude;
-    if (!c || typeof c.use !== 'function') { this.ready = true; return; }
-    this.host = true;
-    this.whenReady = (async () => {
-      try {
-        const [db, user] = await Promise.all([c.use('db'), c.use('user')]);
-        if (db && user) {
-          const uid = await user.id();
-          if (uid) {
-            this.db = db;
-            this.uid = uid;
-            this.canWrite = typeof user.can === 'function' ? await user.can('data.write') : null;
-          }
-        }
-      } catch (e) { this.db = null; }
-      this.ready = true;
-    })();
-  },
-
-  // いま送れるか：'yes' / 'unknown'（確かめている途中）/ 'nohost'（共有ページの外）/ 'denied'（共有ページだが書きこめない）
-  get state() {
-    if (!this.ready) return 'unknown';
-    if (!this.host) return 'nohost';
-    return this.db && this.uid && this.canWrite !== false ? 'yes' : 'denied';
-  },
-
-  // 送る。{ ok: true } か { ok: false, reason: 'empty' | 'nohost' | 'denied' | 'full' | 'error' }
-  async send(text) {
-    text = String(text || '').trim().slice(0, FEEDBACK_MAX_CHARS);
-    if (!text) return { ok: false, reason: 'empty' };
-    await this.whenReady; // 送り先を確かめている途中なら、終わるのを待つ
-    const st = this.state;
-    if (st === 'nohost' || st === 'denied') return { ok: false, reason: st };
-    if (st !== 'yes') return { ok: false, reason: 'error' };
-    const ref = this.db.doc('feedback/' + this.uid);
-    try {
-      await withTimeout((async () => {
-        const snap = await ref.get();
-        const body = snap.exists ? snap.data() : null;
-        const old = body && Array.isArray(body.entries) ? body.entries : [];
-        const now = new Date().toISOString();
-        const entries = [...old, { text, at: now, version: GAME_VERSION }].slice(-FEEDBACK_KEEP);
-        await ref.set({ entries, updatedAt: now });
-      })(), FEEDBACK_TIMEOUT_MS);
-      return { ok: true };
-    } catch (e) {
-      const code = e && e.code;
-      // 書きこめない人の書きこみは invalid_argument で断られる（claude.ai のしくみ）
-      if (code === 'invalid_argument') { this.canWrite = false; return { ok: false, reason: 'denied' }; }
-      return { ok: false, reason: code === 'quota_exceeded' ? 'full' : 'error' };
-    }
-  },
-
-  // 届いたフィードバック（読めるものだけ。新しい順）。共有ページの外では null。
-  // 送った人は名前を出さず、番号（1, 2, …）で分ける
-  async list() {
-    await this.whenReady;
-    if (!this.db) return null;
-    const snap = await withTimeout(this.db.collection('feedback').get(), FEEDBACK_TIMEOUT_MS);
-    const out = [];
-    snap.docs.forEach((d, i) => {
-      const body = d.data() || {};
-      for (const e of Array.isArray(body.entries) ? body.entries : []) {
-        out.push({ text: String((e && e.text) || ''), at: String((e && e.at) || ''), version: String((e && e.version) || ''), from: i + 1 });
-      }
-    });
-    return out.sort((a, b) => (b.at > a.at ? 1 : b.at < a.at ? -1 : 0));
-  },
-
-  // Google フォームのリンクを読む：{ page（フォームのページ）, entry（答えの欄 'entry.数字'。ないときは null） }。
-  // リンクがないか、Google フォームのリンクでないときは null
-  formInfo() {
+  // 開くリンク（https のリンクだけ）。ないときは null
+  get link() {
     const url = String(this.formUrl || '').trim();
-    if (/^https:\/\/forms\.gle\/[\w-]+$/.test(url)) return { page: url, entry: null }; // 短いリンク
-    const m = url.match(/^(https:\/\/docs\.google\.com\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[\w-]+\/viewform)(?:\?(.*))?$/);
-    if (!m) return null;
-    const entry = (m[2] || '').split('&').map(p => p.split('=')[0]).find(k => /^entry\.\d+$/.test(k));
-    return { page: m[1], entry: entry || null };
+    return /^https:\/\/[^\s]+$/.test(url) ? url : null;
   },
-  get hasForm() { return !!this.formInfo(); },
-  get formPrefill() { const f = this.formInfo(); return !!(f && f.entry); }, // 書いた文を欄に入れた状態で開けるか
+  get hasForm() { return !!this.link; },
 
-  // 開く Google フォームのリンク：{ url, prefilled（文を欄に入れたか）, cut（長すぎて途中までしか入らなかった） }。フォームがないときは null
-  formLink(text) {
-    const f = this.formInfo();
-    if (!f) return null;
-    if (!f.entry) return { url: f.page, prefilled: false, cut: false };
-    const base = `${f.page}?usp=pp_url&${f.entry}=`;
-    // 1文字ずつに分ける（絵文字を途中で切らないように）。対になっていないサロゲートは encodeURIComponent が受けつけないので置きかえる
-    const chars = [...String(text || '').trim()].map(c => (c.length === 1 && c >= '\uD800' && c <= '\uDFFF' ? '\uFFFD' : c)).slice(0, FEEDBACK_MAX_CHARS);
-    const enc = n => encodeURIComponent(chars.slice(0, n).join(''));
-    let n = chars.length;
-    if (base.length + enc(n).length > FEEDBACK_FORM_MAX_URL) {
-      let lo = 0, hi = n;
-      while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (base.length + enc(mid).length <= FEEDBACK_FORM_MAX_URL) lo = mid; else hi = mid - 1;
-      }
-      n = lo;
-    }
-    return { url: base + enc(n), prefilled: true, cut: n < chars.length };
+  // フォームを新しいタブで開く。開けたら true（ブラウザがポップアップを止めたときなどは false）
+  open() {
+    const url = this.link;
+    if (!url) return false;
+    let w = null;
+    try { w = window.open(url, '_blank'); } catch (e) { w = null; }
+    if (!w) return false;
+    try { w.opener = null; } catch (e) { /* 開いたページから、このページを触れないようにする（できなくても続ける） */ }
+    return true;
   },
-
-  // 書きかけの文（このブラウザにだけ残す）
-  get draft() { return Store.get('feedbackDraft', ''); },
-  set draft(v) { Store.set('feedbackDraft', v); },
 };
-Feedback.init();
+
+// 2.12.0〜2.12.2 の入力欄の書きかけ（もう使わない）
+Store.remove('feedbackDraft');
 
 </script>
 <script data-file="js/menus.js">
@@ -12149,7 +12010,7 @@ const TITLE_ITEMS = [
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
   { id: 'option', label: 'オプション' },
-  { id: 'feedback', label: 'フィードバック' }, // 開発者へのアドバイス・感想（2.12.0）
+  { id: 'feedback', label: 'フィードバック' }, // 開発者へのアドバイス・感想。Google フォームを開く（2.12.0。2.12.3 から入力欄なし）
 ];
 
 class TitleScene {
@@ -12159,7 +12020,7 @@ class TitleScene {
     this.frame = 0;
     this.rects = [];
   }
-  get items() { return TITLE_ITEMS.map(it => ({ label: it.label, disabled: it.id === 'extra' && !extraPlayable() })); }
+  get items() { return TITLE_ITEMS.map(it => ({ label: it.label, disabled: (it.id === 'extra' && !extraPlayable()) || (it.id === 'feedback' && !Feedback.hasForm) })); }
   enter() { Sound.playBgm('title'); }
   update() {
     this.frame++;
@@ -12500,75 +12361,40 @@ class MusicRoomScene {
 }
 
 // ------------------------------------------------------------
-//  フィードバック（2.12.0 でユーザーの指定）：開発者へのアドバイス・感想を書いて送る
-//  入力欄は HTML の textarea（日本語入力のため）を、キャンバスに描いた箱の位置に重ねて出す。送り先は js/feedback.js の Feedback
+//  フィードバック：開発者の Google フォーム（js/feedback.js）を新しいタブで開く
+//  2.12.3 でユーザーの指定「フィードバックの箱を削除するかわり、ホームを自動で開くようにする」により、入力欄をなくし、
+//  この画面に来たらすぐにフォームを開くようにした（「ホーム」はフォームのこと）。
+//  ブラウザがポップアップを止めたときのために、「フォームを開く」ボタン（HTML のボタン。押したその場で開く）を置く
 // ------------------------------------------------------------
-const FEEDBACK_BOX = { x: 80, y: 134, w: 480, h: 196 };
 const FEEDBACK_BUTTONS = [
-  { id: 'send', label: '送信', x: 80 },
-  { id: 'copy', label: 'コピー', x: 250 },
-  { id: 'back', label: '戻る', x: 420 },
+  { id: 'open', label: 'フォームを開く', x: 150 },
+  { id: 'back', label: '戻る', x: 350 },
 ];
-const FEEDBACK_BUTTON_Y = 350, FEEDBACK_BUTTON_W = 140, FEEDBACK_BUTTON_H = 34;
-// 画面の下に出す知らせ（Feedback.state か、送った・コピーしたあとの結果）
-const FEEDBACK_MSG = {
-  unknown: '送り先を確かめています…',
-  yes: '書いたら「送信」を押してください（届いた文は、開発者だけが読みます）',
-  nohost: 'この版（ダウンロードした1ファイル版など）からは送れません。書いた文はこのブラウザに残ります。「コピー」で写して、開発者に伝えてください',
-  denied: 'この共有ページでは、あなたは送ることができません（送れるのは、作った人が書きこみを許した人だけです）。「コピー」で写して、開発者に伝えてください',
-  empty: '先に文を書いてください',
-  sending: '送っています…',
-  ok: '送信しました。ありがとうございます！',
-  full: '受け取る場所がいっぱいで、送れませんでした。開発者に伝えてください',
-  error: '送れませんでした。少し待ってから、もう一度「送信」を押してください',
-  copied: 'コピーしました',
-  selected: '文を選んだので、Ctrl+C（スマホは長押し）でコピーしてください',
-  // Google フォームで受け取るとき（js/feedback.js の FEEDBACK_FORM_URL）
-  form: '書いたら「送信」を押してください。Google フォームが開くので、そこでもう一度「送信」を押すと開発者に届きます',
-  formPlain: '書いたら「送信」を押してください。文をコピーして Google フォームを開くので、フォームの欄に貼りつけて「送信」を押すと開発者に届きます',
-  formOpened: 'Google フォームを開きました。書いた文が入っているので、フォームの「送信」を押してください',
-  formPaste: 'Google フォームを開きました。書いた文はコピーしてあるので、フォームの欄に貼りつけて「送信」を押してください',
-  formPasteNoCopy: 'Google フォームを開きました。「コピー」で文を写し、フォームの欄に貼りつけて「送信」を押してください',
-  formCut: '文が長いので、フォームには途中まで入れました。全文をコピーしたので、フォームの欄に貼りつけなおしてから「送信」を押してください',
-  formCutNoCopy: '文が長いので、フォームには途中まで入れました。「コピー」で全文を写し、フォームの欄に貼りつけなおしてから「送信」を押してください',
-};
-const FEEDBACK_GOOD = new Set(['ok', 'copied', 'formOpened', 'formPaste']);
-const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error', 'formCut', 'formCutNoCopy', 'formPasteNoCopy']);
+const FEEDBACK_BUTTON_Y = 290, FEEDBACK_BUTTON_W = 140, FEEDBACK_BUTTON_H = 36;
 
 class FeedbackScene {
   constructor() {
     this.frame = 0;
-    this.result = null; // 送った・コピーしたあとの知らせ（FEEDBACK_MSG のキー）
-    this.sending = false;
+    this.opened = false; // フォームを開けたか
   }
   enter() {
     const root = domEl('div');
     root.id = 'feedbackUI';
-    const box = domEl('textarea');
-    box.maxLength = FEEDBACK_MAX_CHARS;
-    box.placeholder = 'ここに書いてください';
-    box.setAttribute('aria-label', '開発者へのアドバイス・感想');
-    box.value = Feedback.draft;
-    box.addEventListener('input', () => {
-      Feedback.draft = box.value;
-      if (!this.sending) this.result = null;
-    });
-    root.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { e.preventDefault(); this.back(); }
-      else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.target === box) { e.preventDefault(); this.send(); }
-    });
-    root.append(box);
     this.buttons = {};
     for (const b of FEEDBACK_BUTTONS) {
       const el = domButton('feedback-btn', b.label, () => this[b.id]());
       this.buttons[b.id] = el;
       root.append(el);
     }
+    // ボタンを選んでいるとき（Tab キー）の Esc（キャンバスでは X・Esc で戻る）
+    root.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); this.back(); }
+    });
     document.body.appendChild(root);
     this.root = root;
-    this.box = box;
     this.layout();
-    if (!Input.isTouch) setTimeout(() => { if (this.root) box.focus(); }, 0);
+    // タイトルで「フィードバック」を選んだ操作の続きとして、すぐにフォームを開く（選んだときの音はタイトルで鳴っている）
+    this.opened = Feedback.open();
   }
   exit() {
     if (!this.root) return;
@@ -12577,92 +12403,34 @@ class FeedbackScene {
     this.root = null;
     if (hadFocus) Game.canvas.focus({ preventScroll: true });
   }
-  // キャンバスの表示の大きさに合わせて、入力欄とボタンを重ねる
+  // キャンバスの表示の大きさに合わせて、ボタンを重ねる
   layout() {
     const r = Game.canvas.getBoundingClientRect();
     const k = r.width / SCREEN_W;
-    const place = (el, x, y, w, h) => Object.assign(el.style, { left: `${x * k}px`, top: `${y * k}px`, width: `${w * k}px`, height: `${h * k}px` });
     Object.assign(this.root.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, fontSize: `${15 * k}px` });
-    const B = FEEDBACK_BOX;
-    place(this.box, B.x, B.y, B.w, B.h);
-    for (const b of FEEDBACK_BUTTONS) place(this.buttons[b.id], b.x, FEEDBACK_BUTTON_Y, FEEDBACK_BUTTON_W, FEEDBACK_BUTTON_H);
+    for (const b of FEEDBACK_BUTTONS) {
+      Object.assign(this.buttons[b.id].style, {
+        left: `${b.x * k}px`, top: `${FEEDBACK_BUTTON_Y * k}px`, width: `${FEEDBACK_BUTTON_W * k}px`, height: `${FEEDBACK_BUTTON_H * k}px`,
+      });
+    }
   }
   update() {
     this.frame++;
     menuBG().update();
     if (this.root) this.layout();
     if (this.frame <= 10) return;
-    // 入力欄の外で押したキー：X・Esc で戻る、Z で入力欄へ（入力欄の中では Esc で戻る）
+    // キャンバスで押したキー：X・Esc で戻る、Z でもう一度フォームを開く
     if (backPressed() || Input.pressed('pause')) this.back();
-    else if (Input.pressed('shot') && this.box) this.box.focus();
+    else if (Input.pressed('shot')) this.open();
+  }
+  open() {
+    this.opened = Feedback.open();
+    Sound.se(this.opened ? 'ok' : 'cancel');
   }
   back() {
     if (Game.scene !== this) return;
     Sound.se('cancel');
     Game.setScene(new TitleScene('feedback'));
-  }
-  async send() {
-    if (this.sending || !this.root) return;
-    // Google フォームがあるときは、フォームを開く（送るのはフォームの「送信」。文は消さずに残す）
-    if (Feedback.hasForm) {
-      const text = this.box.value;
-      if (!text.trim()) { this.result = 'empty'; Sound.se('cancel'); return; }
-      const link = Feedback.formLink(text);
-      // 文を欄に入れられない（共有リンク）か、長すぎて途中までしか入らないときは、全文をコピーしてから開く。
-      // コピーはフォームを開く前に、すぐに行う（開いたあとは、このページが手前でなくなってコピーできないことがある）
-      const needCopy = !link.prefilled || link.cut;
-      let copied = needCopy && this.copyNow();
-      window.open(link.url, '_blank', 'noopener');
-      Sound.se('ok');
-      if (!needCopy) { this.result = 'formOpened'; return; }
-      if (!copied) {
-        try { await navigator.clipboard.writeText(text); copied = true; } catch (e) { /* コピーできなかった */ }
-      }
-      this.result = link.prefilled ? (copied ? 'formCut' : 'formCutNoCopy') : (copied ? 'formPaste' : 'formPasteNoCopy');
-      return;
-    }
-    this.sending = true;
-    this.result = 'sending';
-    this.buttons.send.disabled = true;
-    this.box.readOnly = true; // 送っているあいだは書きかえない（送り終えたら空にするため）
-    const r = await Feedback.send(this.box.value);
-    this.sending = false;
-    this.buttons.send.disabled = false;
-    this.box.readOnly = false;
-    if (r.ok) {
-      Feedback.draft = '';
-      this.box.value = '';
-      Sound.se('ok');
-    } else Sound.se('cancel');
-    this.result = r.ok ? 'ok' : r.reason;
-  }
-  // 入力欄の文を、すぐに（押したその場で）コピーする。できたら true。
-  // Clipboard API は、claude.ai の共有ページの中などでは使えないことがあるので、文を選んでブラウザのコピーの命令を使う
-  copyNow() {
-    const box = this.box;
-    if (!box || !box.value) return false;
-    try {
-      box.focus({ preventScroll: true });
-      box.select();
-      box.setSelectionRange(0, box.value.length);
-      const ok = document.execCommand('copy');
-      box.setSelectionRange(box.value.length, box.value.length);
-      return !!ok;
-    } catch (e) { return false; }
-  }
-  async copy() {
-    const text = this.box.value;
-    if (!text.trim()) { this.result = 'empty'; return; }
-    if (this.copyNow()) { this.result = 'copied'; return; }
-    try {
-      await navigator.clipboard.writeText(text);
-      this.result = 'copied';
-    } catch (e) {
-      // コピーを許されていないときは、文を選んでおく
-      this.box.focus();
-      this.box.select();
-      this.result = 'selected';
-    }
   }
   draw(ctx) {
     menuBG().draw(ctx);
@@ -12672,28 +12440,17 @@ class FeedbackScene {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = `700 17px ${FONT_JP}`;
-    strokeText(ctx, '開発者へのアドバイス・感想', SCREEN_W / 2, 112, '#ffe8b0', 'rgba(20,10,40,0.9)', 3);
-    // 入力欄の箱（入力欄が出る前から見えるように、キャンバスにも描く）
-    const B = FEEDBACK_BOX;
-    ctx.fillStyle = 'rgba(10,6,30,0.6)';
-    ctx.fillRect(B.x, B.y, B.w, B.h);
-    ctx.strokeStyle = 'rgba(214,186,120,0.9)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(B.x - 0.5, B.y - 0.5, B.w + 1, B.h + 1);
-    ctx.textAlign = 'right';
-    ctx.font = `11px ${FONT_JP}`;
-    ctx.fillStyle = 'rgba(220,210,255,0.7)';
-    ctx.fillText(`${this.box ? this.box.value.length : 0} / ${FEEDBACK_MAX_CHARS}`, B.x + B.w, B.y + B.h + 9);
-    // 知らせ
-    const key = this.result || (Feedback.hasForm ? (Feedback.formPrefill ? 'form' : 'formPlain') : Feedback.state);
-    ctx.textAlign = 'center';
-    ctx.font = `13px ${FONT_JP}`;
-    ctx.fillStyle = FEEDBACK_GOOD.has(key) ? '#a8ffc0' : FEEDBACK_WARN.has(key) ? '#ffd0a0' : '#ece6ff';
-    wrapText(ctx, FEEDBACK_MSG[key] || '', 500).forEach((ln, i) => ctx.fillText(ln, SCREEN_W / 2, 408 + i * 20));
+    strokeText(ctx, '開発者へのアドバイス・感想', SCREEN_W / 2, 140, '#ffe8b0', 'rgba(20,10,40,0.9)', 3);
+    const lines = !Feedback.hasForm ? ['いまはフィードバックを受け付けていません。']
+      : this.opened ? ['Google フォームを新しいタブで開きました。', 'フォームに書いて「送信」を押すと、開発者に届きます。']
+        : ['フォームを開けませんでした。', '下の「フォームを開く」を押してください。'];
+    ctx.font = `14px ${FONT_JP}`;
+    ctx.fillStyle = this.opened ? '#ece6ff' : '#ffd0a0';
+    lines.forEach((ln, i) => ctx.fillText(ln, SCREEN_W / 2, 200 + i * 26));
     if (!Input.isTouch) {
       ctx.font = `12px ${FONT_JP}`;
       ctx.fillStyle = 'rgba(220,210,255,0.7)';
-      ctx.fillText('Esc：戻る　Ctrl+Enter：送信', SCREEN_W / 2, 466);
+      ctx.fillText('Z：フォームを開く　X：戻る', SCREEN_W / 2, 466);
     }
   }
 }
@@ -13645,46 +13402,24 @@ const Admin = {
   },
 
   // ---------------- フィードバック ----------------
-  // タイトルの「フィードバック」から届いた文（js/feedback.js）。
-  // 読めるのは claude.ai の共有ページを開いている、持ち主と編集者だけ（共有ページのデータベースにある）
-  async showFeedback() {
+  // タイトルの「フィードバック」で開く Google フォーム（js/feedback.js）。届いた文は Google フォームの「回答」で読む
+  showFeedback() {
     const body = this.subPage('フィードバック');
-    if (Feedback.hasForm) {
-      body.append(domEl('p', 'admin-note', 'いまは Google フォームで受け取っています。届いた文は、Google フォームの編集画面の「回答」で読めます（下に出るのは、共有ページのデータベースに届いた分だけです）'));
-    }
-    const msg = domEl('p', 'admin-empty', '読みこんでいます…');
-    body.append(msg);
-    let list;
-    try { list = await Feedback.list(); } catch (e) { list = undefined; }
-    if (!body.isConnected) return; // 読みこんでいるあいだに、ほかのページへ移った
-    if (list === null) {
-      msg.textContent = '届いたフィードバックは、claude.ai の共有ページで開いたときだけ読めます（ダウンロードした1ファイル版などには届きません）';
+    if (!Feedback.hasForm) {
+      body.append(domEl('p', 'admin-empty', 'Google フォームのリンクが入っていません（js/feedback.js の FEEDBACK_FORM_URL）。タイトルの「フィードバック」は選べません'));
       return;
     }
-    if (list === undefined) {
-      msg.textContent = '読みこめませんでした。少し待ってから開き直してください';
-      return;
-    }
-    if (!list.length) {
-      msg.textContent = 'まだ届いていません（届いた文を読めるのは、共有ページの持ち主と編集者だけです）';
-      return;
-    }
-    const people = new Set(list.map(e => e.from)).size;
-    msg.textContent = `${list.length} 件・${people} 人から（新しい順。送った人は番号で分けています）`;
-    const when = at => {
-      const d = new Date(at);
-      return isNaN(d) ? at || '日時不明' : d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    };
-    const ol = domEl('ol', 'admin-feedback');
-    for (const e of list) {
-      const li = domEl('li', 'admin-fbitem');
-      li.append(
-        domEl('div', 'admin-sub', `${when(e.at)}　送った人 ${e.from}　版 ${e.version || '？'}`),
-        domEl('p', 'admin-fbtext', e.text),
-      );
-      ol.append(li);
-    }
-    body.append(ol);
+    body.append(
+      domEl('p', 'admin-empty', 'フィードバックは Google フォームで受け取っています。タイトルの「フィードバック」を選ぶと、このフォームが新しいタブで開きます。'),
+      domEl('p', 'admin-empty', '届いた文は、フォームを作った Google アカウントでフォームの編集画面を開き、「回答」タブで読めます。'),
+    );
+    const line = domEl('p', 'admin-empty', 'フォーム：');
+    const a = domEl('a', 'admin-link', Feedback.link);
+    a.href = Feedback.link;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    line.append(a);
+    body.append(line);
   },
 
   // ---------------- キャラクター一覧 ----------------

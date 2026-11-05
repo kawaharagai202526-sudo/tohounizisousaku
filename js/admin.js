@@ -309,46 +309,24 @@ const Admin = {
   },
 
   // ---------------- フィードバック ----------------
-  // タイトルの「フィードバック」から届いた文（js/feedback.js）。
-  // 読めるのは claude.ai の共有ページを開いている、持ち主と編集者だけ（共有ページのデータベースにある）
-  async showFeedback() {
+  // タイトルの「フィードバック」で開く Google フォーム（js/feedback.js）。届いた文は Google フォームの「回答」で読む
+  showFeedback() {
     const body = this.subPage('フィードバック');
-    if (Feedback.hasForm) {
-      body.append(domEl('p', 'admin-note', 'いまは Google フォームで受け取っています。届いた文は、Google フォームの編集画面の「回答」で読めます（下に出るのは、共有ページのデータベースに届いた分だけです）'));
-    }
-    const msg = domEl('p', 'admin-empty', '読みこんでいます…');
-    body.append(msg);
-    let list;
-    try { list = await Feedback.list(); } catch (e) { list = undefined; }
-    if (!body.isConnected) return; // 読みこんでいるあいだに、ほかのページへ移った
-    if (list === null) {
-      msg.textContent = '届いたフィードバックは、claude.ai の共有ページで開いたときだけ読めます（ダウンロードした1ファイル版などには届きません）';
+    if (!Feedback.hasForm) {
+      body.append(domEl('p', 'admin-empty', 'Google フォームのリンクが入っていません（js/feedback.js の FEEDBACK_FORM_URL）。タイトルの「フィードバック」は選べません'));
       return;
     }
-    if (list === undefined) {
-      msg.textContent = '読みこめませんでした。少し待ってから開き直してください';
-      return;
-    }
-    if (!list.length) {
-      msg.textContent = 'まだ届いていません（届いた文を読めるのは、共有ページの持ち主と編集者だけです）';
-      return;
-    }
-    const people = new Set(list.map(e => e.from)).size;
-    msg.textContent = `${list.length} 件・${people} 人から（新しい順。送った人は番号で分けています）`;
-    const when = at => {
-      const d = new Date(at);
-      return isNaN(d) ? at || '日時不明' : d.toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-    };
-    const ol = domEl('ol', 'admin-feedback');
-    for (const e of list) {
-      const li = domEl('li', 'admin-fbitem');
-      li.append(
-        domEl('div', 'admin-sub', `${when(e.at)}　送った人 ${e.from}　版 ${e.version || '？'}`),
-        domEl('p', 'admin-fbtext', e.text),
-      );
-      ol.append(li);
-    }
-    body.append(ol);
+    body.append(
+      domEl('p', 'admin-empty', 'フィードバックは Google フォームで受け取っています。タイトルの「フィードバック」を選ぶと、このフォームが新しいタブで開きます。'),
+      domEl('p', 'admin-empty', '届いた文は、フォームを作った Google アカウントでフォームの編集画面を開き、「回答」タブで読めます。'),
+    );
+    const line = domEl('p', 'admin-empty', 'フォーム：');
+    const a = domEl('a', 'admin-link', Feedback.link);
+    a.href = Feedback.link;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    line.append(a);
+    body.append(line);
   },
 
   // ---------------- キャラクター一覧 ----------------

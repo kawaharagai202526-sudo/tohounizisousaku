@@ -83,28 +83,12 @@
     #hint { display: block; }
   }
 
-  /* ---------- フィードバックの入力欄（js/menus.js の FeedbackScene がキャンバスの上に重ねる） ---------- */
+  /* ---------- フィードバックの画面のボタン（js/menus.js の FeedbackScene がキャンバスの上に重ねる） ---------- */
   #feedbackUI {
     position: fixed;
     z-index: 20;
     pointer-events: none;
   }
-  #feedbackUI textarea {
-    position: absolute;
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0.6em 0.8em;
-    font: inherit;
-    line-height: 1.6;
-    color: var(--ink);
-    background: rgba(10, 6, 30, 0.88);
-    border: 1px solid var(--gold);
-    border-radius: 0;
-    resize: none;
-    pointer-events: auto;
-  }
-  #feedbackUI textarea::placeholder { color: var(--ink-dim); }
-  #feedbackUI textarea:focus { outline: none; box-shadow: 0 0 0 2px rgba(214, 186, 120, 0.6); }
   .feedback-btn {
     position: absolute;
     box-sizing: border-box;
@@ -120,7 +104,6 @@
     pointer-events: auto;
   }
   .feedback-btn:hover:not(:disabled), .feedback-btn:focus-visible { background: rgba(214, 186, 120, 0.22); border-color: var(--gold); outline: none; }
-  .feedback-btn:disabled { color: var(--ink-dim); opacity: 0.6; cursor: progress; }
 
   /* ---------- 管理者ページ ---------- */
   #adminHotspot {
@@ -303,9 +286,7 @@
   .admin-table { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
   .admin-table th, .admin-table td { padding: 5px 10px; border: 1px solid rgba(214, 186, 120, 0.25); text-align: left; white-space: nowrap; }
   .admin-table th { background: rgba(214, 186, 120, 0.12); font-weight: 600; }
-  .admin-feedback { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
-  .admin-fbitem { padding: 8px 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(214, 186, 120, 0.25); }
-  .admin-fbtext { margin: 4px 0 0; font-size: 14px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .admin-link { color: var(--gold); overflow-wrap: anywhere; }
   .admin-chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
   .admin-card {
     display: block;
