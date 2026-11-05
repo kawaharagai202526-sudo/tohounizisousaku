@@ -11,11 +11,21 @@
 //    送れるのは、共有ページに書きこめる人だけ（持ち主・編集者として招待した人・Team などで同じ組織の人）。
 //    公開リンクで見ている人は送れない（claude.ai のしくみ）。
 //  それ以外（ダウンロードした1ファイル版を開いたときなど）は送り先がないので送れない。書いた文はこのブラウザに残し、コピーできるようにする。
+//
+//  Google フォーム（2.12.1 でユーザーの指定「GOOGLEホームを作る」）：FEEDBACK_FORM_URL にフォームのリンクを入れると、
+//  「送信」でそのフォームを開き、書いた文を答えの欄に入れておく（送るのはフォームの「送信」。だれでも送れる）。
+//  このときは共有ページのデータベースには送らない（届く場所を1つにする）。届いた文は、フォームの編集画面の「回答」で読む。
 // ============================================================
 
 const FEEDBACK_MAX_CHARS = 1000; // 1回に送れる文字数
 const FEEDBACK_KEEP = 50;        // 1人の文書に残す件数（1000文字×50件でも、1文書の上限 256 KiB に収まる）
 const FEEDBACK_TIMEOUT_MS = 20000; // 送り先が答えないときに、あきらめるまでの時間
+
+// Google フォームの「事前入力したURL」。作り方：段落の質問を1つだけ作り、右上の︙ →「事前入力したURLを取得」→
+// 欄に何か書いて「リンクを取得」→「リンクをコピー」したものを、そのまま入れる（欄に書いた文は、遊んだ人の文に入れかわる）。
+// 空のあいだは、claude.ai の共有ページのデータベースに送る
+const FEEDBACK_FORM_URL = '';
+const FEEDBACK_FORM_MAX_URL = 7000; // フォームを開くリンクの長さの上限（長すぎると開けないので、文は入るところまで入れる）
 
 // 時間のかかる呼び出しを、ms で打ち切る（打ち切ったら code 'timeout' で断る）
 function withTimeout(promise, ms) {
@@ -31,6 +41,7 @@ const Feedback = {
   host: false,     // claude.ai の共有ページの中で開いているか
   ready: false,    // 送り先を確かめ終わったか
   whenReady: Promise.resolve(), // 確かめ終わると解決する
+  formUrl: FEEDBACK_FORM_URL,   // Google フォームのリンク（テストで入れかえられるように、ここから読む）
 
   // 起動したときに一度だけ。claude.use は、すぐには答えない（最大 10 秒）ので、待たずに先へ進む
   init() {
@@ -101,6 +112,34 @@ const Feedback = {
       }
     });
     return out.sort((a, b) => (b.at > a.at ? 1 : b.at < a.at ? -1 : 0));
+  },
+
+  // Google フォームのリンクの、答えを入れる欄（entry.数字）までの部分。リンクがないか、形がちがうときは null
+  formBase() {
+    const m = String(this.formUrl || '').trim().match(/^(https:\/\/docs\.google\.com\/forms\/(?:u\/\d+\/)?d\/(?:e\/)?[\w-]+\/viewform)\?(.*)$/);
+    if (!m) return null;
+    const entry = m[2].split('&').map(p => p.split('=')[0]).find(k => /^entry\.\d+$/.test(k));
+    return entry ? `${m[1]}?usp=pp_url&${entry}=` : null;
+  },
+  get hasForm() { return !!this.formBase(); },
+
+  // 書いた文を入れた Google フォームのリンク：{ url, cut }（cut：長すぎて途中までしか入らなかった）。フォームがないときは null
+  formLink(text) {
+    const base = this.formBase();
+    if (!base) return null;
+    // 1文字ずつに分ける（絵文字を途中で切らないように）。対になっていないサロゲートは encodeURIComponent が受けつけないので置きかえる
+    const chars = [...String(text || '').trim()].map(c => (c.length === 1 && c >= '\uD800' && c <= '\uDFFF' ? '\uFFFD' : c)).slice(0, FEEDBACK_MAX_CHARS);
+    const enc = n => encodeURIComponent(chars.slice(0, n).join(''));
+    let n = chars.length;
+    if (base.length + enc(n).length > FEEDBACK_FORM_MAX_URL) {
+      let lo = 0, hi = n;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (base.length + enc(mid).length <= FEEDBACK_FORM_MAX_URL) lo = mid; else hi = mid - 1;
+      }
+      n = lo;
+    }
+    return { url: base + enc(n), cut: n < chars.length };
   },
 
   // 書きかけの文（このブラウザにだけ残す）

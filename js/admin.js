@@ -313,6 +313,9 @@ const Admin = {
   // 読めるのは claude.ai の共有ページを開いている、持ち主と編集者だけ（共有ページのデータベースにある）
   async showFeedback() {
     const body = this.subPage('フィードバック');
+    if (Feedback.hasForm) {
+      body.append(domEl('p', 'admin-note', 'いまは Google フォームで受け取っています。届いた文は、Google フォームの編集画面の「回答」で読めます（下に出るのは、共有ページのデータベースに届いた分だけです）'));
+    }
     const msg = domEl('p', 'admin-empty', '読みこんでいます…');
     body.append(msg);
     let list;

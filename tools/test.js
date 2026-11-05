@@ -683,6 +683,50 @@ test('フィードバックを共有ページのデータベースに送り、�
   } finally { await context.close(); }
 }, { noPage: true });
 
+test('Google フォームのリンクを入れると、「送信」でフォームを開いて書いた文を入れる', async ({ page }) => {
+  // 本物のリンクのかわりに、同じ形のリンクを入れる。開いたリンクは window.open を差しかえて受け取る
+  const base = 'https://docs.google.com/forms/d/e/1FAIpQLSf-TEST_form/viewform';
+  const parts = await page.evaluate(b => {
+    window.__opened = [];
+    window.open = (url, target, features) => { window.__opened.push({ url, target, features }); return null; };
+    const check = u => { Feedback.formUrl = u; return Feedback.hasForm; };
+    const r = {
+      none: check(''), other: check('https://example.com/form?entry.1=a'), noEntry: check(b + '?usp=sharing'),
+      ok: check(b + '?usp=pp_url&entry.1234567890=%E3%83%86%E3%82%B9%E3%83%88'),
+    };
+    Store.remove('feedbackDraft');
+    return r;
+  }, base);
+  assert(!parts.none && !parts.other && !parts.noEntry && parts.ok, `フォームのリンクの見分け: ${JSON.stringify(parts)}`);
+  await openFeedback(page);
+  assert(await page.evaluate(() => { T.step(1); return Feedback.hasForm && !Game.scene.result; }), 'フォームがあるのに、最初の知らせがフォームのものではない');
+  // 空のときは開かない
+  await page.click('.feedback-btn:nth-of-type(1)');
+  let r = await page.evaluate(() => ({ result: Game.scene.result, opened: window.__opened.length }));
+  assert(r.result === 'empty' && r.opened === 0, `空の文でフォームを開いた: ${JSON.stringify(r)}`);
+  // 書いた文（改行・記号・絵文字を含む）が答えの欄に入る。文は消さずに残す
+  const text = 'ボスが強い！\n6面 & Extra が好き 100% 🎮';
+  await page.fill('#feedbackUI textarea', text);
+  await page.click('.feedback-btn:nth-of-type(1)');
+  r = await page.evaluate(() => ({ result: Game.scene.result, opened: window.__opened.slice(), value: document.querySelector('#feedbackUI textarea').value, db: Feedback.state }));
+  assert(r.opened.length === 1 && r.opened[0].url === `${base}?usp=pp_url&entry.1234567890=${encodeURIComponent(text)}` && r.opened[0].target === '_blank', `開いたリンク: ${JSON.stringify(r.opened)}`);
+  assert(r.result === 'formOpened' && r.value === text, `フォームを開いたあと: ${JSON.stringify(r)}`);
+  // 長すぎる文は、リンクに入るところまで入れる（全文はコピーする）
+  r = await page.evaluate(async () => {
+    const long = '屋敷'.repeat(500);
+    const link = Feedback.formLink(long);
+    const value = decodeURIComponent(link.url.split('entry.1234567890=')[1]);
+    return { len: link.url.length, max: FEEDBACK_FORM_MAX_URL, cut: link.cut, prefix: long.startsWith(value), vlen: value.length, short: Feedback.formLink('短い文').cut };
+  });
+  assert(r.cut && r.len <= r.max && r.prefix && r.vlen > 300 && r.short === false, `長い文: ${JSON.stringify(r)}`);
+  await page.fill('#feedbackUI textarea', '座敷'.repeat(500));
+  await page.click('.feedback-btn:nth-of-type(1)');
+  await page.waitForFunction(() => Game.scene.result !== 'formOpened', null, { polling: 50, timeout: 3000 });
+  r = await page.evaluate(() => Game.scene.result);
+  assert(r === 'formCut' || r === 'formCutNoCopy', `長い文のときの知らせ: ${r}`);
+  await page.evaluate(() => { Feedback.formUrl = ''; });
+});
+
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');

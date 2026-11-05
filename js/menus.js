@@ -461,9 +461,14 @@ const FEEDBACK_MSG = {
   error: '送れませんでした。少し待ってから、もう一度「送信」を押してください',
   copied: 'コピーしました',
   selected: '文を選んだので、Ctrl+C（スマホは長押し）でコピーしてください',
+  // Google フォームで受け取るとき（js/feedback.js の FEEDBACK_FORM_URL）
+  form: '書いたら「送信」を押してください。Google フォームが開くので、そこでもう一度「送信」を押すと開発者に届きます',
+  formOpened: 'Google フォームを開きました。書いた文が入っているので、フォームの「送信」を押してください',
+  formCut: '文が長いので、フォームには途中まで入れました。全文をコピーしたので、フォームの欄に貼りつけなおしてから「送信」を押してください',
+  formCutNoCopy: '文が長いので、フォームには途中まで入れました。「コピー」で全文を写し、フォームの欄に貼りつけなおしてから「送信」を押してください',
 };
-const FEEDBACK_GOOD = new Set(['ok', 'copied']);
-const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error']);
+const FEEDBACK_GOOD = new Set(['ok', 'copied', 'formOpened']);
+const FEEDBACK_WARN = new Set(['nohost', 'denied', 'empty', 'full', 'error', 'formCut', 'formCutNoCopy']);
 
 class FeedbackScene {
   constructor() {
@@ -533,6 +538,20 @@ class FeedbackScene {
   }
   async send() {
     if (this.sending || !this.root) return;
+    // Google フォームがあるときは、フォームを開いて文を入れておく（送るのはフォームの「送信」。文は消さずに残す）
+    if (Feedback.hasForm) {
+      const text = this.box.value;
+      if (!text.trim()) { this.result = 'empty'; Sound.se('cancel'); return; }
+      const link = Feedback.formLink(text);
+      window.open(link.url, '_blank', 'noopener');
+      Sound.se('ok');
+      this.result = 'formOpened';
+      if (link.cut) {
+        // 長すぎて途中までしか入らなかったので、全文をコピーしておく
+        try { await navigator.clipboard.writeText(text); this.result = 'formCut'; } catch (e) { this.result = 'formCutNoCopy'; }
+      }
+      return;
+    }
     this.sending = true;
     this.result = 'sending';
     this.buttons.send.disabled = true;
@@ -582,7 +601,7 @@ class FeedbackScene {
     ctx.fillStyle = 'rgba(220,210,255,0.7)';
     ctx.fillText(`${this.box ? this.box.value.length : 0} / ${FEEDBACK_MAX_CHARS}`, B.x + B.w, B.y + B.h + 9);
     // 知らせ
-    const key = this.result || Feedback.state;
+    const key = this.result || (Feedback.hasForm ? 'form' : Feedback.state);
     ctx.textAlign = 'center';
     ctx.font = `13px ${FONT_JP}`;
     ctx.fillStyle = FEEDBACK_GOOD.has(key) ? '#a8ffc0' : FEEDBACK_WARN.has(key) ? '#ffd0a0' : '#ece6ff';
