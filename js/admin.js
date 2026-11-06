@@ -347,12 +347,12 @@ const Admin = {
     const both = (...fns) => (c, t) => fns.forEach(f => f(c, t));
     const at = (x, y, s, fn) => (c, t) => { c.save(); c.translate(x, y); c.scale(s, s); fn(c, t); c.restore(); };
     const dotH = key => (Images.get(key) ? Images.get(key).naturalHeight : 74);
-    const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, dotH(CHARA_INFO[id].dot), true));
+    const imageChara = id => both(image(CHARA_INFO[id].image, -26, 0, 120), image(CHARA_INFO[id].dot, 46, 0, CHARA_INFO[id].dotH || dotH(CHARA_INFO[id].dot), !CHARA_INFO[id].dotH));
 
     // 自機は PLAYER_TYPES、ボスは各ステージの bosses から自動で並べる
     const crisp = fn => (c, t) => { c.imageSmoothingEnabled = false; fn(c, t); c.imageSmoothingEnabled = true; };
     const bossPreview = (id, def) => (CHARA_INFO[id] && CHARA_INFO[id].image
-      ? (CHARA_INFO[id].dot ? imageChara(id) : image(CHARA_INFO[id].image, 0, 0, 120))
+      ? (CHARA_INFO[id].dot && CHARA_INFO[id].dot !== CHARA_INFO[id].image ? imageChara(id) : image(CHARA_INFO[id].image, 0, 0, 120))
       : chibi(id, 0, 16, 2, def && def.pose));
     // 自機の絵：原画（CHARA_INFO の image）があればそれを、なければキャンバスで描く絵
     const portrait = (id, x) => (CHARA_INFO[id] && CHARA_INFO[id].image ? image(CHARA_INFO[id].image, x, 0, 124) : chibi(id, x, 16, 1.8));
@@ -363,11 +363,10 @@ const Admin = {
       }))],
       ['ボス・中ボス', allStages().flatMap(({ st, short }) => (st.bosses || []).map(b => ({
         ...info(b.id),
-        note: `${short}${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot ? '（右はゲーム中のドット絵）' : ''),
+        note: `${short}${b.mid ? '中ボス' : 'ボス'}` + (CHARA_INFO[b.id] && CHARA_INFO[b.id].dot && CHARA_INFO[b.id].dot !== CHARA_INFO[b.id].image ? '（右はゲーム中のドット絵）' : ''),
         draw: bossPreview(b.id, b.def),
       })))],
       ['ザコ・その他', [
-        { name: '？？？', title: '1面の中ボス', note: '1面中ボス（ザコと同じしくみで動く）', draw: image('midboss1', 0, 0, 120) },
         { name: '妖精', title: '', note: '1・2面（3面以降は一つ目の手の絵）', draw: both(at(-44, 6, 2, (c, t) => drawFairy(c, 'blue', t)), at(0, 6, 2, (c, t) => drawFairy(c, 'red', t)), at(44, 6, 2, (c, t) => drawFairy(c, 'yellow', t))) },
         { name: '大妖精（ザコ）', title: '', note: '2〜5面', draw: at(0, 10, 2, (c, t) => drawFairy(c, 'purple', t, true)) },
         { name: '毛玉', title: '', note: '1面', draw: both(at(-30, 0, 2.4, (c, t) => drawKedama(c, 'white', t)), at(30, 0, 2.4, (c, t) => drawKedama(c, 'blue', t))) },

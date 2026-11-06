@@ -364,15 +364,15 @@ class Boss {
       ctx.beginPath(); ctx.arc(0, 0, 40, 0, TAU); ctx.fill();
     }
     ctx.rotate(this.tilt * 0.12 + (this.spin || 0)); // spin：倒されて回りながら落ちるとき（エキストラの中ボス）
-    const dot = CHARA_INFO[this.id].dot;
+    const info = CHARA_INFO[this.id], dot = info.dot;
     if (dot) {
-      // ドット絵のボス（拡大してもぼやけないように補間を切る）
+      // ドット絵のボス（拡大してもぼやけないように補間を切る）。dotH があるのはドット絵でない絵を縮めて使うボス（なめらかに描く）
       const img = Images.get(dot);
       if (img) {
         ctx.translate(0, Math.sin(this.frame * 0.06) * 1.5);
         const smooth = ctx.imageSmoothingEnabled;
-        ctx.imageSmoothingEnabled = false;
-        drawImageSprite(ctx, dot, img.naturalHeight, 0.5, 0.52);
+        ctx.imageSmoothingEnabled = !!info.dotH;
+        drawImageSprite(ctx, dot, info.dotH || img.naturalHeight, 0.5, 0.52);
         ctx.imageSmoothingEnabled = smooth;
       }
     } else {

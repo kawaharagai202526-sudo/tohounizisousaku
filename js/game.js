@@ -19,6 +19,7 @@ const Settings = { lives: Store.get('lives', 3) };
 const PRACTICE_POWER = [100, 250, 400, 400, 400, 400]; // プラクティス開始時の霊力（面ごと）
 const EXTRA_POWER = 400;                               // エキストラステージ開始時の霊力
 const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
+const MAX_CONTINUES = 3;                               // コンティニューできる回数（2.14.0 でユーザーの指定「上限は３回」）
 
 // ボスの体力の倍率（2.12.0 でユーザーの指定「全体の体力を１０％減らす（特にスペカ中）」。通常攻撃は 10%、スペルカードは 20% 減らした）
 const BOSS_HP_SCALE = { non: 0.9, spell: 0.8 };
@@ -527,8 +528,8 @@ class GameScene {
   }
 
   onOutOfLives() {
-    // エキストラステージはコンティニューできない
-    if (this.extra) { this.finish('gameover'); return; }
+    // エキストラステージはコンティニューできない。本編も MAX_CONTINUES 回まで
+    if (this.extra || this.continues >= MAX_CONTINUES) { this.finish('gameover'); return; }
     this.continueMenu = { sel: 0, frame: 0 };
     Sound.se('pause');
   }
@@ -774,7 +775,7 @@ class GameScene {
       ctx.fillRect(0, 0, FIELD_W, FIELD_H);
     }
     if (this.paused) drawFieldMenu(ctx, '一時停止', ['ゲームを再開', '最初からやり直す', 'タイトルに戻る'], this.pauseSel, 'Esc / X で再開');
-    if (this.continueMenu) drawFieldMenu(ctx, '満身創痍', ['コンティニューする', 'あきらめる'], this.continueMenu.sel, `コンティニュー回数 ${this.continues}`);
+    if (this.continueMenu) drawFieldMenu(ctx, '満身創痍', ['コンティニューする', 'あきらめる'], this.continueMenu.sel, `コンティニューはあと ${MAX_CONTINUES - this.continues} 回`);
     ctx.restore();
     drawSidePanel(ctx, this);
   }

@@ -137,7 +137,7 @@ test('全ステージを道中からボス撃破まで進められる', async ({
           Game.update();
           if (++f % 240 === 0) Game.draw();
         }
-        const expected = stage.bosses.filter(bs => !(bossOnly && bs.mid))
+        const expected = stage.bosses.filter(bs => !(bossOnly && bs.mid) && DIFF >= (bs.minDiff || 0))
           .reduce((n, bs) => n + bs.phases.filter(ph => DIFF >= (ph.minDiff || 0)).length, 0);
         out.push({ st: extra ? 'Extra' : `${st + 1}面`, ch, bossOnly, end: Game.scene.constructor.name, frames: f, phases: seen.size, expected, kyou: g.kyou, holdFire: g.holdFire });
       }
@@ -153,6 +153,95 @@ test('全ステージを道中からボス撃破まで進められる', async ({
     assert(x.kyou === null, `${label}：面が終わっても凶方が残っている`);
     assert(x.holdFire === false, `${label}：自機の弾を止めたまま終わった`);
   }
+});
+
+test('1面（2.14.0）：足の妖精は撃たない・中ボスは Hard から スペルカード・火の玉は10秒ごとに増える', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    // 道中のはじめ（足の妖精の列だけが出るところ）で、弾が1つも出ない
+    Game.setScene(new GameScene({ difficulty: 3, character: PLAYER_IDS[0], stage: 0, practice: true }));
+    G.cheat = true;
+    let feet = new Set(), bullets = 0;
+    for (let f = 0; f < 470; f++) {
+      Game.update();
+      for (const e of G.enemies) if (e.kind === 'foot') feet.add(e);
+      bullets = Math.max(bullets, G.bullets.list.filter(b => b.alive).length);
+    }
+    out.feet = feet.size;
+    out.footBullets = bullets;
+    // Hard：中ボスがボスとして出て、通常の攻撃のあとにスペルカード。火の玉ははじめ1つ、10秒たつと2つ
+    const run = diff => {
+      Game.setScene(new GameScene({ difficulty: diff, character: PLAYER_IDS[0], stage: 0, practice: true }));
+      const g = G;
+      g.cheat = true;
+      const res = { phases: [], fire: [], zako: false };
+      let spellStart = -1;
+      for (let f = 0; f < 30000 && Game.scene === g; f++) {
+        if (g.dialogue && f % 6 === 0) Input.just.shot = true;
+        const b = g.boss;
+        if (g.enemies.some(e => e.kind === 'midboss1')) res.zako = true;
+        if (b && b.id === 'nokiba') break;
+        if (b && b.id === 'midboss1' && b.phase) {
+          if (!res.phases.includes(b.phase.name || 'non')) res.phases.push(b.phase.name || 'non');
+          if (b.phase.type === 'non') b.hp = 0;
+          else {
+            if (spellStart < 0) spellStart = f;
+            const n = g.bullets.list.filter(x => x.alive && x.type === 'fireball').length;
+            if (f - spellStart === 300 || f - spellStart === 1000) res.fire.push(n);
+            if (f - spellStart === 1000) b.hp = 0;
+          }
+        }
+        Game.update();
+      }
+      res.reachedBoss = !!(g.boss && g.boss.id === 'nokiba');
+      return res;
+    };
+    out.hard = run(2);
+    out.normal = run(1);
+    // 1面ボスのスペルカード「鬼の視線」：レーザーの点滅（当たらない予告）は2秒
+    startBossTest({ stage: 0, boss: 'nokiba', phase: 2, only: true });
+    for (let f = 0; f < 400 && !G.lasers.length; f++) Game.update();
+    out.glare = { name: G.boss && G.boss.phase && G.boss.phase.name, warn: G.lasers[0] && G.lasers[0].warn };
+    return out;
+  });
+  assert(r.feet >= 16 && r.footBullets === 0, `1面の足の妖精が弾を撃った: ${JSON.stringify(r)}`);
+  assert(r.hard.phases.join() === 'non,炎符「かきちぃー大炎上」' && r.hard.reachedBoss && !r.hard.zako, `Hard の中ボス: ${JSON.stringify(r.hard)}`);
+  assert(r.hard.fire.join() === '1,2', `火の玉の数（はじめ1つ、10秒で2つ）: ${JSON.stringify(r.hard.fire)}`);
+  assert(r.normal.phases.length === 0 && r.normal.zako && r.normal.reachedBoss, `Normal の中ボス（ザコのまま）: ${JSON.stringify(r.normal)}`);
+  assert(r.glare.name === '瓦符「鬼の視線」' && r.glare.warn === 120, `鬼の視線: ${JSON.stringify(r.glare)}`);
+});
+
+test('コンティニューは3回まで・自機の弾は1.3倍太く・魔理沙の弾は1.5倍の威力（2.14.0）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }));
+    const g = G;
+    g.continues = 2;
+    g.onOutOfLives();
+    out.menuAt2 = !!g.continueMenu;
+    Game.draw();
+    g.continueMenu = null;
+    g.continues = 3;
+    g.onOutOfLives();
+    out.menuAt3 = !!g.continueMenu;
+    for (let f = 0; f < 600 && Game.scene === g; f++) Game.update();
+    out.after3 = Game.scene.constructor.name;
+    out.max = MAX_CONTINUES;
+    // 自機の弾
+    const shots = id => {
+      Game.setScene(new GameScene({ difficulty: 1, character: id, stage: 0 }));
+      const n0 = G.shots.length;
+      G.player.shotFrame = 0;
+      G.player.shoot(G);
+      return G.shots.slice(n0).map(s => ({ kind: s.kind, dmg: Math.round(s.dmg * 100) / 100, r: Math.round(s.r * 100) / 100 }));
+    };
+    out.reimu = shots('reimu');
+    out.marisa = shots('marisa');
+    return out;
+  });
+  assert(r.max === 3 && r.menuAt2 && !r.menuAt3 && r.after3 === 'ResultScene', `コンティニューの上限: ${JSON.stringify(r)}`);
+  assert(r.reimu.length && r.reimu.every(s => s.r === 7.8 && s.dmg === 1), `霊夢の弾: ${JSON.stringify(r.reimu)}`);
+  assert(r.marisa.length && r.marisa.every(s => s.r === 7.8 && s.dmg === 1.8), `魔理沙の弾（1.2 の 1.5 倍）: ${JSON.stringify(r.marisa)}`);
 });
 
 test('ストーリー・曲・キャラクターのデータがそろっている', async ({ page }) => {
@@ -777,8 +866,8 @@ test('前のゲーム（東方星降夜）の記録は消さず、設定だけ�
   } finally { await context.close(); }
 }, { noPage: true });
 
-test('スペルカードの名前を変えても、取得履歴は新しい名前に写る（保存データの形式 4）', async ({ browser }) => {
-  // 2.12.0 で名前を変えた3枚。'難易度:自機:スペル名' の名前だけが変わり、ほかの履歴はそのまま
+test('スペルカードの名前を変えても、取得履歴は新しい名前に写る（保存データの形式 4・5）', async ({ browser }) => {
+  // 2.12.0 で名前を変えた3枚と、2.14.0 で名前を変えた1枚。'難易度:自機:スペル名' の名前だけが変わり、ほかの履歴はそのまま
   const { page, context, errors } = await openGame(browser, {}, '', ctx => ctx.addInitScript(() => {
     if (localStorage.getItem('zashiki.saveVersion') === null) {
       localStorage.setItem('zashiki.saveVersion', '3');
@@ -787,6 +876,7 @@ test('スペルカードの名前を変えても、取得履歴は新しい名�
         '4:marisa:耐久スペル「四方塞がり」': { got: 1, tried: 1 },
         '4:reimu:ラストスペル「金神七殺」': { got: 0, tried: 3 },
         '1:reimu:瓦符「鬼瓦の睨み」': { got: 1, tried: 3 },
+        '2:marisa:屋符「屋根の上から失礼」': { got: 2, tried: 2 },
       }));
     }
   }));
@@ -796,7 +886,8 @@ test('スペルカードの名前を変えても、取得履歴は新しい名�
       '3:reimu:家符「座敷童子のいる家」': { got: 2, tried: 5 },
       '4:marisa:末符「四方塞がり」': { got: 1, tried: 1 },
       '4:reimu:神罰「七殺」': { got: 0, tried: 3 },
-      '1:reimu:瓦符「鬼瓦の睨み」': { got: 1, tried: 3 },
+      '1:reimu:瓦符「鬼の視線」': { got: 1, tried: 3 },
+      '2:marisa:屋符「屋根の上から失礼」': { got: 2, tried: 2 },
     };
     assert(JSON.stringify(Object.keys(r.spells).sort()) === JSON.stringify(Object.keys(want).sort()), `履歴の名前が写っていない: ${JSON.stringify(r)}`);
     for (const [k, v] of Object.entries(want)) assert(r.spells[k].got === v.got && r.spells[k].tried === v.tried, `履歴の数がちがう: ${k} ${JSON.stringify(r.spells[k])}`);

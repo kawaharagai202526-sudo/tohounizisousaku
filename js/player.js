@@ -11,6 +11,7 @@
 //   drawOption(ctx, o, i, t)  オプション（自機のまわりの玉）を描く
 //   focusLaser            低速時にオプションから貫通しないレーザーを出すか（fireLasers）
 //   makeBomb(p) / bombInvuln / bombName   ボムの本体（クラス）・無敵時間・名前
+//   shotPower             ショット（低速のレーザーも）の威力の倍率。ボムにはかけない
 const PLAYER_TYPES = {
   reimu: {
     speed: 4.5, focusSpeed: 2.0, hitR: 2.2, deathbomb: 15,
@@ -51,6 +52,7 @@ const PLAYER_TYPES = {
     bombInvuln: 270,
     makeBomb: p => new MasterSpark(p),
     focusLaser: true,
+    shotPower: 1.5, // 2.14.0 でユーザーの指定「魔理沙の弾の火力を1.5倍にする」
     shoot(p, g, f) {
       const shots = g.shots;
       if (f % 4 === 0) {
@@ -105,6 +107,9 @@ const OPT_LAYOUT = {
 // ------------------------------------------------------------
 //  自機ショット
 // ------------------------------------------------------------
+// 自機の弾の太さの倍率（見た目と当たり判定。2.14.0 でユーザーの指定「弾を1.3倍太くする」。魔理沙の低速のレーザーも）
+const PSHOT_THICK = 1.3;
+
 class PShot {
   constructor(kind, x, y, vx, vy, dmg) {
     this.kind = kind;
@@ -114,7 +119,7 @@ class PShot {
     this.vy = vy;
     this.dmg = dmg;
     this.alive = true;
-    this.r = kind === 'missile' ? 7 : 6;
+    this.r = (kind === 'missile' ? 7 : 6) * PSHOT_THICK;
     this.frame = 0;
     this.target = null;
     this.turned = 0; // 誘導弾が曲がった角度の合計
@@ -147,6 +152,8 @@ class PShot {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(Math.atan2(this.vy, this.vx) + Math.PI / 2);
+    // 太くする（進む向きに対して横はば。星はまるい形なので、全体を大きくする）
+    if (this.kind === 'star') ctx.scale(PSHOT_THICK, PSHOT_THICK); else ctx.scale(PSHOT_THICK, 1);
     switch (this.kind) {
       case 'amulet':
         ctx.globalAlpha = 0.6;
@@ -466,7 +473,10 @@ class Player {
   shoot(g) {
     const f = this.shotFrame++;
     if (f % 5 === 0) Sound.se('shot');
+    const n0 = g.shots.length;
     this.type.shoot(this, g, f);
+    const k = this.type.shotPower || 1;
+    if (k !== 1) for (let i = n0; i < g.shots.length; i++) g.shots[i].dmg *= k;
   }
 
   // 低速時のレーザー（focusLaser の自機）：一番手前の敵で止まる
@@ -475,13 +485,13 @@ class Player {
       let best = null, bestY = -Infinity;
       const consider = e => {
         if (!e || !e.alive || e.untouchable || e.y > o.y || e.y < -20) return;
-        if (Math.abs(e.x - o.x) < e.r + 4 && e.y > bestY) { best = e; bestY = e.y; }
+        if (Math.abs(e.x - o.x) < e.r + 4 * PSHOT_THICK && e.y > bestY) { best = e; bestY = e.y; }
       };
       for (const e of g.enemies) consider(e);
       consider(g.boss);
       const endY = best ? best.y + 4 : -20;
       if (best) {
-        g.damageEnemy(best, 0.42, false, this.frame % 2 === 0);
+        g.damageEnemy(best, 0.42 * (this.type.shotPower || 1), false, this.frame % 2 === 0);
         if (this.frame % 3 === 0) Fx.hit(o.x, best.y + 6);
       }
       this.lasers.push({ x: o.x, y0: o.y - 6, y1: endY });
@@ -541,7 +551,7 @@ class Player {
     if (this.lasers.length) {
       ctx.globalCompositeOperation = 'lighter';
       for (const l of this.lasers) {
-        const w = 5 + Math.sin(this.frame * 0.9) * 1;
+        const w = (5 + Math.sin(this.frame * 0.9) * 1) * PSHOT_THICK;
         const g = ctx.createLinearGradient(l.x - w, 0, l.x + w, 0);
         g.addColorStop(0, 'rgba(80,255,120,0)');
         g.addColorStop(0.5, 'rgba(230,255,200,0.75)');

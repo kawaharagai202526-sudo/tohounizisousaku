@@ -119,13 +119,14 @@ const NAMESAWA_PHASES = [
     },
   },
   {
-    // 通常2：左右へ素早く移動しながら、札弾をばら撒く
+    // 通常2：左右へ移動しながら、札弾をばら撒く。
+    // 2.14.0 でユーザーの指定「表札の掛け替えの前の通常弾幕の時の３の動きを減らす」により、画面の端から端まで動いていたのを、まん中の近く（左右 70px）にした
     type: 'non', hp: 1100, time: 30,
     *script(b) {
       yield 20;
       for (let loop = 0; ; loop++) {
-        const tx = loop % 2 ? FIELD_W - 60 : 60;
-        b.move(tx, rand(70, 120), 36, Ease.inOutQuad);
+        const tx = FIELD_W / 2 + (loop % 2 ? 70 : -70);
+        b.move(tx, rand(85, 105), 40, Ease.inOutQuad);
         for (let f = 0; f < 40; f++) {
           if (f % dv(5, 4, 3, 3) === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.2, 1.2), speed: rand(1.4, 2.4), type: 'card', color: pick(['red', 'blue']), silent: true });
           yield;

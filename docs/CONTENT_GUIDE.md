@@ -70,7 +70,8 @@
    python3 tools/make-sprite.py もらった画像.jpg boss5 --dot 78 --preview 確認用フォルダ
    ```
 3. ステージの `bosses` に `{ id, phases, mid, bgm, def }` を書く（`def` はスペルカードの背景 `spellBg`・魔法陣の色 `circleColor` など）。
-   `mid: true` の中ボスは、戦っているあいだ名前を出さない
+   `mid: true` の中ボスは、戦っているあいだ名前を出さない。`minDiff` を書くと、その難易度からボスとして出る（1面の中ボスは Hard から。Easy/Normal はザコ）
+   ドット絵のない絵をゲーム中にも使うときは、`CHARA_INFO` の `dot` に同じ絵、`dotH` に高さを書く（なめらかに縮めて描く。1面の中ボス）
 4. ステージの `boss(g)`（中ボスは `script(g)` の中）で `g.spawnStageBoss('ID', { x, y })` → `g.fight(boss, 攻撃)` → `g.bossDown(boss)`
 5. 同じキャラクターが何度も出るときは、出る面ごとに `CHARA_INFO` に別のIDを作る
    （例：家鳴は5面中ボス `yanariMid`・5面ボス `yanari`・6面中ボス `yanari6`）。ボスの攻撃を試す機能がIDで面を探すため

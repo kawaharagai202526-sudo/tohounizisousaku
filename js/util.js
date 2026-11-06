@@ -59,7 +59,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.13.1';
+const GAME_VERSION = '2.14.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -103,7 +103,7 @@ function domButton(cls, text, onClick) {
 
 // 保存データの形式の版。保存データの形を変えたら数字を上げて、migrateSave に古い形からの変換を書く
 // （変換しないと、前の版で遊んでいた人のスコアや設定が読めなくなる）
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 // 前のゲーム『東方星降夜』の保存データの頭。設定（音量・残機など）だけを写し、記録は写さない・消さない
 const OLD_STORE_PREFIX = 'hoshifuru.';
 const SETTING_KEYS = ['bgmVol', 'seVol', 'muted', 'lives', 'lastDiff', 'lastChar'];
@@ -112,6 +112,7 @@ const SPELL_RENAMES = {
   'ラストスペル「金神七殺」': '神罰「七殺」',
   '耐久スペル「四方塞がり」': '末符「四方塞がり」',
   'ラストスペル「座敷童子のいる家」': '家符「座敷童子のいる家」',
+  '瓦符「鬼瓦の睨み」': '瓦符「鬼の視線」', // 2.14.0（保存データの形式 5）
 };
 function migrateSave() {
   const from = Store.get('saveVersion', 0);
@@ -127,8 +128,8 @@ function migrateSave() {
       } catch (e) { /* 読めなくても続行 */ }
     }
   }
-  // 4：スペルカードの名前を変えたので、取得履歴（spells。'難易度:自機:スペル名'）を新しい名前に写す（2.12.0）
-  if (from < 4) {
+  // 4・5：スペルカードの名前を変えたので、取得履歴（spells。'難易度:自機:スペル名'）を新しい名前に写す（2.12.0・2.14.0）
+  if (from < 5) {
     const spells = Store.get('spells', null);
     if (spells && typeof spells === 'object') {
       for (const k of Object.keys(spells)) {

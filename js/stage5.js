@@ -258,8 +258,8 @@ const YANARI_PHASES = [
             if (!bl || !bl.alive) s.bullets.set(t, fire({ x: s.vertical ? s.c : t, y: s.vertical ? t : s.c, speed: 0, type: 'small', color: 'purple', silent: true, delay: f < 5 ? 30 : 12 }));
           }
         }
-        // 部屋の中を弾が走る（廊下に沿って、まっすぐ）
-        if (f % dv(30, 26, 20, 16) === 10) {
+        // 部屋の中を弾が走る（廊下に沿って、まっすぐ）。2.14.0 でユーザーの指定「弾数を２倍にする」により、出す間隔を半分にした（壁の弾はそのまま）
+        if (f % (dv(30, 26, 20, 16) / 2) === 5) {
           if (rng.next() < 0.5) {
             const y = pick([(top + ys[0]) / 2, (ys[0] + ys[1]) / 2, (ys[1] + FIELD_H) / 2]) + rand(-20, 20), side = randSign();
             fire({ x: side < 0 ? -6 : FIELD_W + 6, y, angle: side < 0 ? 0 : Math.PI, speed: dv(1.8, 2.0, 2.3, 2.6), type: 'rubble', color: 'orange', silent: true });

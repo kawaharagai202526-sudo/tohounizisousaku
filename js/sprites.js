@@ -174,6 +174,30 @@ Object.assign(BTYPES, {
       for (const s of [-1, 1]) { c.beginPath(); c.moveTo(s * 5, 4); c.lineTo(s * 3.5, 8); c.lineTo(s * 2, 4); c.closePath(); c.fill(); }
     },
   },
+  // 火の玉（1面の中ボスのスペルカード「かきちぃー大炎上」。2.14.0。自機の2倍くらいの大きさで、ゆっくり回って燃えて見える）
+  fireball: {
+    size: 68, hitR: 13, additive: true, spin: 0.06,
+    draw: (c, col) => {
+      // まわりでゆらぐ炎の舌
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * TAU, len = 27 + (i % 3) * 3;
+        c.fillStyle = hexA(col.rim, 0.3);
+        c.beginPath();
+        c.moveTo(Math.cos(a - 0.38) * 15, Math.sin(a - 0.38) * 15);
+        c.quadraticCurveTo(Math.cos(a + 0.12) * (len + 3), Math.sin(a + 0.12) * (len + 3), Math.cos(a + 0.38) * 15, Math.sin(a + 0.38) * 15);
+        c.closePath();
+        c.fill();
+      }
+      const g = c.createRadialGradient(0, 0, 0, 0, 0, 27);
+      g.addColorStop(0, '#fffbe6');
+      g.addColorStop(0.28, '#ffe680');
+      g.addColorStop(0.58, col.rim);
+      g.addColorStop(0.84, hexA(col.rim, 0.45));
+      g.addColorStop(1, hexA(col.rim, 0));
+      c.fillStyle = g;
+      c.beginPath(); c.arc(0, 0, 27, 0, TAU); c.fill();
+    },
+  },
   // 虫（群れで動く小さな虫）
   bug: {
     size: 16, hitR: 2.6, rotate: true,

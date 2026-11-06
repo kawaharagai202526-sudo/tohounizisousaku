@@ -154,12 +154,13 @@ const YANARI6_PHASES = [
 // ------------------------------------------------------------
 const ZASHIKI_PHASES = [
   {
-    // 通常1：手鞠の弾を、跳ねるような軌道でばら撒く
+    // 通常1：手鞠の弾（お手玉）を、跳ねるような軌道でばら撒く
     type: 'non', hp: 1300, time: 30,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       for (let loop = 0; ; loop++) {
-        for (let i = 0; i < dv(3, 4, 5, 6); i++) temari(b.x, b.y, rand(-2.2, 2.2), rand(-3.2, -1.6), { color: pick(['red', 'pink', 'orange']) });
+        // 手鞠の数は 2.14.0 でユーザーの指定「通常弾（お手玉）の数を2/3にする」で 3/4/5/6 → 2/3/3/4 にした
+        for (let i = 0; i < Math.round((dv(3, 4, 5, 6) * 2) / 3); i++) temari(b.x, b.y, rand(-2.2, 2.2), rand(-3.2, -1.6), { color: pick(['red', 'pink', 'orange']) });
         Sound.se('tan');
         if (loop % 2) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.2, type: 'small', color: 'pink' });
         yield dv(40, 34, 28, 24);
@@ -185,9 +186,10 @@ const ZASHIKI_PHASES = [
           yield dv(36, 32, 28, 24);
         }
         yield 20;
+        // 「とお」で弾ける。2.14.0 でユーザーの指定により、弾ける弾を2倍にし、速さを 1/1.5 にした（前は 5/6/8/10 個・速さ 1.4）
         for (const bl of balls) {
           if (!bl.alive) continue;
-          fireRing({ x: bl.x, y: bl.y, n: dv(5, 6, 8, 10), angle: rand(TAU), speed: 1.4, type: 'small', color: 'pink', silent: true });
+          fireRing({ x: bl.x, y: bl.y, n: dv(5, 6, 8, 10) * 2, angle: rand(TAU), speed: 1.4 / 1.5, type: 'small', color: 'pink', silent: true });
           bl.alive = false;
         }
         Sound.se('tan');
@@ -361,6 +363,15 @@ const ZASHIKI_PHASES = [
       yield 420;
       // 足音
       b.tasks.add(footsteps(b, { color: 'pink', interval: dv(16, 14, 12, 11) }));
+      // 足音といっしょに、円弧に広がる弾幕を一定の間隔で撃ち続ける（2.14.0 でユーザーの指定で足した）。
+      // 向きを左右に少しずつ振る。扇の端ほど外へ広がるので、弾と弾のすき間で受ける
+      b.tasks.add((function* () {
+        for (let k = 0; ; k++) {
+          fireFan({ x: b.x, y: b.y, n: dv(9, 11, 13, 15), spread: 1.7, angle: Math.PI / 2 + (k % 2 ? 0.3 : -0.3), speed: dv(1.4, 1.5, 1.7, 1.9), type: 'small', color: 'gold', silent: true });
+          Sound.se('tan');
+          yield dv(64, 58, 50, 44);
+        }
+      })());
       yield 420;
       // 惹きつけ
       b.tasks.add(attraction(b, { n: dv(10, 12, 16, 20), gather: 160, rest: 90 }));

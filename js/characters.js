@@ -14,6 +14,8 @@ const CHARA_INFO = {
   // ボス・中ボス（中ボスは戦っているあいだ名前を出さない。STAGES の bosses の mid）
   nokiba: { name: '軒端 鬼乃', kana: 'のきば きの', title: '焼きたての反逆児', color: '#f0c890', image: 'nokiba', dot: 'nokibaDot' },
   ruri: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'ruri', dot: 'ruriDot' },
+  // 1面の中ボス（img/midboss1.png）。Hard/Lunatic はボスと同じしくみで戦う（2.14.0）。ドット絵はないので、同じ絵を高さ dotH に縮めて使う
+  midboss1: { name: '？？？', title: '？？？', color: '#a8f060', image: 'midboss1', dot: 'midboss1', dotH: 76 },
   kuraishiro: { name: '喰代 守子', kana: 'くらいしろ もりこ', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'kuraishiro', dot: 'kuraishiroDot' },
   // 3面の中ボスは正体を隠した滑沢（会話でも「？？？」と出るので、読み仮名もつけない）
   namesawaMask: { name: '？？？', title: '？？？', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },

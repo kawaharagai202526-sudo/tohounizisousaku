@@ -45,6 +45,7 @@ function* sideSweep(side, n, o = {}) {
       script: function* (e) {
         e.setMove(o.speed ?? 2.6, side < 0 ? (o.angle ?? 22) * DEG : (180 - (o.angle ?? 22)) * DEG, 0, side < 0 ? 0.0045 : -0.0045);
         yield 28 + i * 2;
+        if (o.noShot) return; // 弾を撃たない（1面の足の妖精。2.14.0 でユーザーの指定）
         if (DIFF > 0 || i % 2 === 0) {
           fireFan({ x: e.x, y: e.y, n: dv(1, 1, 3, 5), spread: 0.32, angle: e.aim(), speed: dv(2, 2.4, 2.9, 3.4), type: o.type || 'small', color: o.bcolor || 'blue' });
         }
@@ -150,7 +151,7 @@ const NOKIBA_PHASES = [
       for (let loop = 0; ; loop++) {
         const a = b.aim();
         fire({ x: b.x, y: b.y, angle: a, speed: dv(1.3, 1.5, 1.8, 2.0), type: 'oni', color: 'orange' });
-        const n = dv(6, 8, 12, 16);
+        const n = Math.ceil(dv(6, 8, 12, 16) / 2); // 2.14.0 でユーザーの指定「１の通常弾幕の弾数を1/2する」
         for (let i = 0; i < n; i++) {
           fire({
             x: b.x, y: b.y, angle: a + rand(-1.0, 1.0), speed: rand(1.2, 2.2) * dv(0.85, 1, 1.1, 1.2),
@@ -166,15 +167,17 @@ const NOKIBA_PHASES = [
   {
     // 自機を「睨む」と細いレーザーで狙いの線が引かれ、一拍おいてその方向へ鬼面弾と瓦の弾の扇が飛ぶ。
     // 横に少しずらすだけで避けられる（ちょん避けの練習）。Hard は2連続、Lunatic は3連続で、ときどき目を逸らすふりをして逆方向にも撃つ
-    type: 'spell', name: '瓦符「鬼瓦の睨み」', hp: 1000, time: 40,
+    // 2.14.0 でユーザーの指定により名前を「鬼瓦の睨み」から変え、レーザーの点滅（当たらない予告）を2秒にした
+    type: 'spell', name: '瓦符「鬼の視線」', hp: 1000, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
+      const WARN = 120, DUR = 8;
       for (let loop = 0; ; loop++) {
         const glares = dv(1, 1, 2, 3);
         for (let k = 0; k < glares; k++) {
           const a = b.aim();
-          fireLaser({ x: b.x, y: b.y, angle: a, length: 720, width: 4, warn: 34, dur: 8, color: 'red' });
-          yield 42;
+          fireLaser({ x: b.x, y: b.y, angle: a, length: 720, width: 4, warn: WARN, dur: DUR, color: 'red' });
+          yield WARN + DUR;
           const feint = DIFF >= 3 && loop % 3 === 2 && k === glares - 1;
           for (const d of feint ? [a, a + Math.PI] : [a]) {
             fire({ x: b.x, y: b.y, angle: d, speed: 2.4, type: 'oni', color: 'red' });
@@ -196,7 +199,8 @@ const NOKIBA_PHASES = [
         b.move(FIELD_W / 2 + (loop % 2 ? 1 : -1) * dv(60, 70, 80, 90), 90 + rand(-15, 15), 50);
         yield 20;
         for (let k = 0; k < 3; k++) {
-          fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 11), spread: dv(1.0, 1.1, 1.2, 1.3), angle: b.aim(), speed: dv(1.8, 2.1, 2.4, 2.6) - k * 0.15, type: 'tile', color: ['blue', 'cyan', 'white'][k] });
+          // 弾の数は 2.14.0 でユーザーの指定で半分にした
+          fireFan({ x: b.x, y: b.y, n: Math.ceil(dv(5, 7, 9, 11) / 2), spread: dv(1.0, 1.1, 1.2, 1.3), angle: b.aim(), speed: dv(1.8, 2.1, 2.4, 2.6) - k * 0.15, type: 'tile', color: ['blue', 'cyan', 'white'][k] });
           yield dv(12, 10, 8, 7) + randInt(0, 4);
         }
         yield dv(50, 40, 32, 26);
@@ -239,7 +243,7 @@ const NOKIBA_PHASES = [
       for (let loop = 0; ; loop++) {
         const sx = FIELD_W / 2 + (loop % 2 ? 1 : -1) * 150, sy = 40;
         fire({ x: sx, y: sy, angle: aimAt(sx, sy), speed: 1.9, type: 'oni', color: 'red', delay: 24 });
-        for (let k = 0; k < dv(6, 8, 10, 14); k++) {
+        for (let k = 0; k < Math.ceil(dv(6, 8, 10, 14) / 2); k++) { // 2.14.0 でユーザーの指定で半分にした
           fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.1, 1.1), speed: rand(1.4, 2.4), type: 'tile', color: 'blue', silent: true });
           if (k % 2) yield 3;
         }
@@ -285,6 +289,71 @@ const NOKIBA_PHASES = [
   },
 ];
 
+// ------------------------------------------------------------
+//  1面の中ボス（img/midboss1.png。名前は出さない）
+//  Easy/Normal はザコと同じしくみで、渦の攻撃だけを撃って帰る。
+//  Hard/Lunatic はボスと同じしくみで戦い、渦の攻撃のあとにスペルカード「かきちぃー大炎上」を撃つ（2.14.0 でユーザーの指定）
+// ------------------------------------------------------------
+// 七色の米粒弾の渦と、ときどき自機狙いの白い玉。frames だけ撃つ（ボスとして戦うときは、時間切れか倒されるまで）
+function* midboss1Spiral(e, frames = Infinity) {
+  let a = 0;
+  const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'];
+  for (let f = 0; f < frames; f++) {
+    if (f % dv(11, 9, 6, 5) === 0) {
+      const arms = dv(3, 3, 4, 5);
+      for (let k = 0; k < arms; k++) fire({ x: e.x, y: e.y, angle: a + (k * TAU) / arms, speed: 2, type: 'rice', color: colors[(f >> 3) % colors.length], silent: k > 0 });
+      a += 0.21;
+    }
+    if (f % 90 === 45) fireFan({ x: e.x, y: e.y, n: dv(3, 3, 5, 7), spread: 0.6, angle: e.aim(), speed: 2.6, type: 'ball', color: 'white' });
+    yield;
+  }
+}
+
+// 火の玉：自機から離れたところの、画面の下から上がってきて、自機をゆっくり追いかけ続ける（自機の2倍くらいの大きさ）。
+// 出てから少しのあいだ（delay）は当たらない
+function riseFireball() {
+  const p = G.player;
+  const x = p.x < FIELD_W / 2 ? rand(FIELD_W * 0.62, FIELD_W - 30) : rand(30, FIELD_W * 0.38);
+  return fire({
+    x, y: FIELD_H + 30, angle: -Math.PI / 2, speed: dv(0.8, 0.8, 0.9, 1.05), type: 'fireball', color: 'orange',
+    margin: 140, delay: 40,
+    script: function* (bl) {
+      for (;;) {
+        bl.angle += clamp(normAngle(aimAt(bl.x, bl.y) - bl.angle), -0.022, 0.022);
+        yield;
+      }
+    },
+  });
+}
+
+const MIDBOSS1_PHASES = [
+  // 渦の攻撃（Easy/Normal のザコのときと同じ。15秒）
+  { type: 'non', hp: 600, time: 15, *script(b) { yield* midboss1Spiral(b); } },
+  {
+    // 2.14.0 でユーザーが考えたスペルカード（Hard/Lunatic だけ）。「炎符」は Claude が形をそろえるために付けた。
+    // 円弧の弾（下向きの扇）を、向きを振りながら撃ち続ける。画面の下から火の玉が上がってきて、自機をゆっくり追いかけ続ける。
+    // 火の玉ははじめ1つで、10秒たつごとに1つ増える（ボムで消えたら、少しして出しなおす）
+    type: 'spell', name: '炎符「かきちぃー大炎上」', hp: 900, time: 40, minDiff: 2,
+    *script(b) {
+      yield* b.moveTo(FIELD_W / 2, 100, 40);
+      const balls = [];
+      let cool = 0;
+      for (let f = 0; ; f++) {
+        const iv = dv(14, 14, 13, 11);
+        if (f % iv === 0) {
+          const c = Math.PI / 2 + Math.sin(f * 0.02) * 0.6;
+          fireFan({ x: b.x, y: b.y, n: dv(5, 5, 6, 8), spread: dv(1.5, 1.5, 1.6, 1.8), angle: c, speed: dv(1.5, 1.6, 1.7, 1.9), type: 'rice', color: Math.floor(f / iv) % 2 ? 'orange' : 'red', silent: f % (iv * 2) !== 0 });
+        }
+        for (let i = balls.length - 1; i >= 0; i--) if (!balls[i].alive) balls.splice(i, 1);
+        const want = 1 + Math.floor(f / 600);
+        if (cool > 0) cool--;
+        else if (balls.length < want) { balls.push(riseFireball()); cool = 90; Sound.se('charge'); }
+        yield;
+      }
+    },
+  },
+];
+
 STAGES.push({
   name: '一夜で古びた里',
   nameEn: 'The Village that Aged Overnight',
@@ -293,6 +362,8 @@ STAGES.push({
   // この面のボス（管理者ページの一覧・ボスの攻撃を試す機能・テストが使う。ボスを増やしたらここにも書く）
   //   id: CHARA_INFO のID  phases: 攻撃の配列  mid: 中ボスなら true（名前を出さない）  bgm: ボス戦の曲  def: 見た目（スペルカードの背景・魔法陣の色など）
   bosses: [
+    // 中ボス：ボスとして戦うのは Hard から（minDiff。Easy/Normal はザコと同じしくみで出る）
+    { id: 'midboss1', phases: MIDBOSS1_PHASES, mid: true, minDiff: 2, def: { spellBg: 'kawara', circleColor: '170,240,90' } },
     { id: 'nokiba', phases: NOKIBA_PHASES, bgm: 'boss1', def: { spellBg: 'kawara', circleColor: '255,150,80' } },
   ],
   // 1面はほかの面よりやさしくする（2.1.0。弾速・全方位弾の数・ボスの体力）
@@ -301,9 +372,10 @@ STAGES.push({
   hpScale: 0.85,
   *script(g) {
     yield 160;
-    yield* sideSweep(-1, 8);
+    // 1面の足の妖精は弾を撃たない（2.14.0 でユーザーの指定）
+    yield* sideSweep(-1, 8, { noShot: true });
     yield 50;
-    yield* sideSweep(1, 8);
+    yield* sideSweep(1, 8, { noShot: true });
     yield 60;
     [70, 314, 150, 234].forEach((x, i) => ringFairy(x, { stopY: 90 + i * 12 }));
     yield 280;
@@ -313,31 +385,32 @@ STAGES.push({
     yield 260;
     yield* zigzag(12);
     yield 120;
-    g.tasks.add(sideSweep(-1, 6, { y: 60 }));
-    yield* sideSweep(1, 6, { y: 60 });
+    g.tasks.add(sideSweep(-1, 6, { y: 60, noShot: true }));
+    yield* sideSweep(1, 6, { y: 60, noShot: true });
     yield* waitClear(240);
 
-    // 中ボス（見た目は img/midboss1.png。ザコと同じしくみで動き、名前は出さない）
-    spawnEnemy({
-      x: FIELD_W / 2, y: -40, kind: 'midboss1', color: 'green', hp: 450, r: 22, score: 30000,
-      drops: { power: 6, point: 6, bomb: DIFF <= 1 ? 1 : 0 },
-      script: function* (e) {
-        yield* e.moveTo(FIELD_W / 2, 120, 60);
-        let a = 0;
-        const colors = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'];
-        for (let f = 0; f < 900; f++) {
-          if (f % dv(11, 9, 6, 5) === 0) {
-            const arms = dv(3, 3, 4, 5);
-            for (let k = 0; k < arms; k++) fire({ x: e.x, y: e.y, angle: a + (k * TAU) / arms, speed: 2, type: 'rice', color: colors[(f >> 3) % colors.length], silent: k > 0 });
-            a += 0.21;
-          }
-          if (f % 90 === 45) fireFan({ x: e.x, y: e.y, n: dv(3, 3, 5, 7), spread: 0.6, angle: e.aim(), speed: 2.6, type: 'ball', color: 'white' });
-          yield;
-        }
-        e.setMove(0, -Math.PI / 2, 0.05);
-      },
-    });
-    yield* waitClear(1000);
+    // 中ボス（見た目は img/midboss1.png。名前は出さない）
+    if (DIFF >= 2) {
+      // Hard/Lunatic：ボスと同じしくみで、渦の攻撃 → スペルカード「かきちぃー大炎上」
+      const mid = g.spawnStageBoss('midboss1', { x: FIELD_W / 2, y: -40 });
+      yield* mid.moveTo(FIELD_W / 2, 120, 60);
+      yield* g.fight(mid, MIDBOSS1_PHASES);
+      if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 6, point: 6 });
+      yield* g.bossDown(mid, true);
+      yield 60;
+    } else {
+      // Easy/Normal：ザコと同じしくみ（渦の攻撃を15秒撃って帰る）
+      spawnEnemy({
+        x: FIELD_W / 2, y: -40, kind: 'midboss1', color: 'green', hp: 450, r: 22, score: 30000,
+        drops: { power: 6, point: 6, bomb: 1 },
+        script: function* (e) {
+          yield* e.moveTo(FIELD_W / 2, 120, 60);
+          yield* midboss1Spiral(e, 900);
+          e.setMove(0, -Math.PI / 2, 0.05);
+        },
+      });
+      yield* waitClear(1000);
+    }
     yield 60;
     g.tasks.add(tileShower(360, dv(10, 16, 26, 40), ['blue', 'purple', 'white'], true));
     g.tasks.add(kedamaRain(360, dv(8, 10, 14, 18)));
