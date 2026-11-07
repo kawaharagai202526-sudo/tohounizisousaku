@@ -19,7 +19,7 @@ const IMAGE_FILES = {
   // ボス（原画はスペルカードのカットインと会話、_dot はゲーム中のドット絵）
   nokiba: 'img/nokiba.png',        // 1面ボス 軒端 鬼乃
   nokibaDot: 'img/nokiba_dot.png',
-  kuraishiro: 'img/kuraishiro.png',  // 2面ボス 喰代 守子
+  kuraishiro: 'img/kuraishiro.png',  // 2面ボス 喰代 守子（2.15.0 でもらったイラスト）
   kuraishiroDot: 'img/kuraishiro_dot.png',
   namesawa: 'img/namesawa.png',    // 3面中ボス・ボス 滑沢 瓢
   namesawaDot: 'img/namesawa_dot.png',

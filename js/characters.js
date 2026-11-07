@@ -16,6 +16,7 @@ const CHARA_INFO = {
   ruri: { name: '瑠璃', title: '？？？', color: '#7aa0ff', image: 'ruri', dot: 'ruriDot' },
   // 1面の中ボス（img/midboss1.png）。Hard/Lunatic はボスと同じしくみで戦う（2.14.0）。ドット絵はないので、同じ絵を高さ dotH に縮めて使う
   midboss1: { name: '？？？', title: '？？？', color: '#a8f060', image: 'midboss1', dot: 'midboss1', dotH: 76 },
+  // 2面ボス。絵は 2.15.0 でユーザーがくれたイラスト（赤い髪、黒と白のパーカー、トカゲの尾、爪のある靴。原画とドット絵の両方）。2.14.x までは 21.jpg
   kuraishiro: { name: '喰代 守子', kana: 'くらいしろ もりこ', title: '窓際の小さな略奪者', color: '#8ab8ff', image: 'kuraishiro', dot: 'kuraishiroDot' },
   // 3面の中ボスは正体を隠した滑沢（会話でも「？？？」と出るので、読み仮名もつけない）
   namesawaMask: { name: '？？？', title: '？？？', color: '#d0d0f0', image: 'namesawa', dot: 'namesawaDot' },
