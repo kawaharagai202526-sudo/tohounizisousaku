@@ -395,7 +395,7 @@ test('エンディングのあとにエンドロールが流れ、リザルト�
   });
   assert(r.roll.join('|') === [
     '制作:Claude', 'グラフィック:あるるちんちん/はるひ/Me', 'ＢＧＭ:たにゴリラ/はるひ', 'シナリオ:はるひ/Me',
-    'システム:はるひ', '原案:はるひ/Me', '制作:Claude', '原作:東方Project',
+    'システム:はるひ', '原案:はるひ/Me', '原作:東方Project',
   ].join('|') && r.thanks === '遊んでくれてありがとう', `エンドロールの内容: ${JSON.stringify(r)}`);
   assert(r.afterEnding === 'StaffRollScene', `エンディングのあとがエンドロールではない: ${r.afterEnding}`);
   assert(r.done && r.fastFrames < 700, `早送りで最後まで流れない: ${JSON.stringify(r)}`);
