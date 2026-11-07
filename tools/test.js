@@ -339,7 +339,7 @@ test('ユーザーが書いた会話・エキストラのボスの名前と背�
     const texts = arr => arr.filter(Array.isArray).map(l => `${l[0]}:${l[2]}`);
     return {
       name: CHARA_INFO.konjin.name, kana: CHARA_INFO.konjin.kana,
-      exReimu: texts(STORY.extra.reimu.after), exMarisa: texts(STORY.extra.marisa.after),
+      exReimu: texts(STORY.extra.reimu.after), exMarisa: texts(STORY.extra.marisa.after), exMid: texts(STORY.extraMid.reimu.before),
       s2: texts(STORY.stage2.marisa.after), s3: texts(STORY.stage3.reimu.before), s4: texts(STORY.stage4.reimu.before),
       bg: (() => { const b = new CompassRealmBG(); return b.rubble instanceof DuskRubbleBG; })(),
     };
@@ -352,6 +352,12 @@ test('ユーザーが書いた会話・エキストラのボスの名前と背�
   assert(r.exMarisa.join('|') === [
     'marisa:熱は収まったか？', 'konjin:祟るだけで許してやる', 'marisa:冗談だろ', 'konjin:冗談だ、今回は神として許そう', 'konjin:だが次はないぞ',
   ].join('|'), `エキストラの戦ったあと（魔理沙）: ${r.exMarisa}`);
+  // エキストラの中ボスの戦う前（霊夢）。2.16.0 でユーザーが書きかえた（最後の行の誤字は直した）
+  assert(r.exMid.join('|') === [
+    'reimu:あんたまだいたのね', 'toganooEx:今すぐ去った方がいい', 'reimu:再建するつもりじゃないでしょうね',
+    'toganooEx:違う！', 'toganooEx:私はお前と戦っている暇はないんだ！', 'reimu:その様子誰と戦っているのよ',
+    'toganooEx:邪神、とでも言おうか...', 'reimu:馬鹿ねー私は巫女よ？', 'reimu:その邪神、鎮められないわけないでしょ',
+  ].join('|'), `エキストラの中ボスの戦う前（霊夢）: ${r.exMid}`);
   assert(r.s2.includes('kuraishiro:そんなのどうでもいいわ、虫さえいれば私は幸せよ') && !r.s2.some(t => t.includes('全部食べちゃう')), `2面: ${r.s2}`);
   assert(r.s3.includes('reimu:そんなの見えないし、ますます怪しいわ') && !r.s3.includes('reimu:そんなの見えないわ。ますます怪しいわ'), `3面: ${r.s3}`);
   const i = r.s4.indexOf('toganoo:客人かい？誰かを呼んだ覚えはないんだけど');
@@ -360,6 +366,40 @@ test('ユーザーが書いた会話・エキストラのボスの名前と背�
     'toganoo:当たり前よ、この屋敷はこの辺の古びた家を再生させてつくったものだからな', 'reimu:人の部屋を引っこ抜いて何のためにこんな屋敷を建てたのよ',
   ].join('|'), `4面: ${r.s4}`);
   assert(r.bg, 'エキストラの方位盤の異界より前の背景が、西日の人里と瓦礫（DuskRubbleBG）ではない');
+});
+
+test('エンディングのあとにエンドロールが流れ、リザルトへ進む（2.16.0）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    out.roll = STAFF_ROLL.sections.map(sec => `${sec.role}:${sec.names.join('/')}`);
+    out.thanks = STAFF_ROLL.thanks;
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0 }));
+    const g = G;
+    Game.setScene(new EndingScene(g));
+    // エンディングのページを最後まで送る
+    for (let f = 0; f < 3000 && Game.scene instanceof EndingScene; f++) { if (f % 40 === 39) Input.just.shot = true; Game.update(); }
+    out.afterEnding = Game.scene.constructor.name;
+    // Z を押しているあいだは速く流れる。止まったら Z でリザルト
+    Input.debugHold.add('shot');
+    let f = 0;
+    for (; f < 4000 && !Game.scene.done; f++) Game.update();
+    Input.debugHold.delete('shot');
+    out.fastFrames = f;
+    out.done = Game.scene.done;
+    for (let k = 0; k < 70; k++) Game.update();
+    Game.draw();
+    Input.just.shot = true;
+    Game.update();
+    out.after = Game.scene.constructor.name;
+    return out;
+  });
+  assert(r.roll.join('|') === [
+    '制作:Claude', 'グラフィック:あるるちんちん/はるひ/Me', 'ＢＧＭ:たにゴリラ/はるひ', 'シナリオ:はるひ/Me',
+    'システム:はるひ', '原案:はるひ/Me', '制作:Claude', '原作:東方Project',
+  ].join('|') && r.thanks === '遊んでくれてありがとう', `エンドロールの内容: ${JSON.stringify(r)}`);
+  assert(r.afterEnding === 'StaffRollScene', `エンディングのあとがエンドロールではない: ${r.afterEnding}`);
+  assert(r.done && r.fastFrames < 700, `早送りで最後まで流れない: ${JSON.stringify(r)}`);
+  assert(r.after === 'ResultScene', `エンドロールのあとがリザルトではない: ${r.after}`);
 });
 
 test('音声ファイルの曲をデコードしてループで鳴らせる', async ({ page }) => {

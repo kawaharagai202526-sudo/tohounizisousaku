@@ -676,7 +676,7 @@ class EndingScene {
     if ((Input.pressed('shot') || Input.anyTap()) && this.pageFrame > 30) {
       this.page++;
       this.pageFrame = 0;
-      if (this.page >= total) Game.setScene(new ResultScene(this.g, 'clear'));
+      if (this.page >= total) Game.setScene(new StaffRollScene(this.g)); // エンドロールのあとにリザルト（2.16.0）
     }
   }
   draw(ctx) {
@@ -700,14 +700,90 @@ class EndingScene {
       strokeText(ctx, `Ending No.${PLAYER_IDS.indexOf(this.g.charId) + 1}`, SCREEN_W / 2, 150, '#e8d8a8', 'rgba(0,0,0,0.8)', 3);
       ctx.font = `800 30px ${FONT_JP}`;
       strokeText(ctx, `「${this.data.title}」`, SCREEN_W / 2, 196, '#ffffff', 'rgba(60,20,120,0.9)', 4);
-      ctx.font = `italic 600 22px ${FONT_EN}`;
-      strokeText(ctx, 'Thank you for playing!', SCREEN_W / 2, 262, '#ffe8b0', 'rgba(0,0,0,0.8)', 3);
-      ctx.font = `12px ${FONT_JP}`;
-      ctx.fillStyle = '#d0c8f0';
-      ctx.fillText('原作：東方Project（上海アリス幻樂団）', SCREEN_W / 2, 320);
-      ctx.fillText('二次創作：tohounizisousaku', SCREEN_W / 2, 342);
+      // 「遊んでくれてありがとう」と原作の名前は、このあとのエンドロールに出す（2.16.0）
     }
     ctx.globalAlpha = 1;
+  }
+}
+
+// ------------------------------------------------------------
+//  エンドロール（2.16.0。内容は js/story.js の STAFF_ROLL）
+//  役目と名前が下から上へ流れ、最後に「遊んでくれてありがとう」がまん中で止まる。
+//  Z（タッチ）を押しているあいだは速く流れ、X で最後まで飛ばす。止まったあとに Z でリザルトへ
+// ------------------------------------------------------------
+const STAFF_ROLL_SPEED = 0.6; // 1フレームに流れる量（px）
+
+class StaffRollScene {
+  constructor(g) {
+    this.g = g;
+    this.frame = 0;
+    // 流れる行：{ y（いちばん上の行からの位置）, text, kind: 'role' | 'name' | 'note' }
+    this.lines = [];
+    let y = 0;
+    for (const sec of STAFF_ROLL.sections) {
+      this.lines.push({ y, text: sec.role, kind: 'role' });
+      y += 34;
+      for (const n of sec.names) { this.lines.push({ y, text: n, kind: 'name' }); y += 32; }
+      if (sec.note) { this.lines.push({ y: y - 6, text: sec.note, kind: 'note' }); y += 20; }
+      y += 46;
+    }
+    this.thanksY = y + 120;          // 「遊んでくれてありがとう」の位置
+    this.scroll = 0;                  // 流れた量
+    this.end = this.thanksY - SCREEN_H / 2 + SCREEN_H; // ありがとうがまん中に来るまでの量
+    this.stopped = 0;                 // 止まってからのフレーム数
+  }
+  get done() { return this.scroll >= this.end; }
+  update() {
+    this.frame++;
+    menuBG().update();
+    if (!this.done) {
+      const fast = Input.down('shot') || Input.dragging;
+      this.scroll = Math.min(this.end, this.scroll + STAFF_ROLL_SPEED * (fast ? 5 : 1));
+      if (Input.pressed('bomb') && this.frame > 20) this.scroll = this.end;
+      return;
+    }
+    this.stopped++;
+    if ((Input.pressed('shot') || Input.anyTap()) && this.stopped > 60) {
+      Sound.se('ok');
+      Game.setScene(new ResultScene(this.g, 'clear'));
+    }
+  }
+  draw(ctx) {
+    menuBG().draw(ctx);
+    ctx.fillStyle = 'rgba(4,2,16,0.72)';
+    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const top = SCREEN_H - this.scroll; // いちばん上の行の、画面の上での位置
+    for (const l of this.lines) {
+      const y = top + l.y;
+      if (y < -30 || y > SCREEN_H + 30) continue;
+      // 画面の上下のふちでは、うすくする
+      ctx.globalAlpha = Math.max(0, Math.min(1, Math.min(y, SCREEN_H - y) / 70));
+      if (l.kind === 'role') {
+        ctx.font = `700 15px ${FONT_JP}`;
+        strokeText(ctx, l.text, SCREEN_W / 2, y, '#ffd890', 'rgba(20,10,40,0.9)', 3);
+      } else if (l.kind === 'note') {
+        ctx.font = `13px ${FONT_JP}`;
+        strokeText(ctx, l.text, SCREEN_W / 2, y, '#c8c0e8', 'rgba(20,10,40,0.9)', 3);
+      } else {
+        ctx.font = `600 22px ${FONT_JP}`;
+        strokeText(ctx, l.text, SCREEN_W / 2, y, '#ffffff', 'rgba(40,20,90,0.9)', 4);
+      }
+    }
+    ctx.globalAlpha = 1;
+    const ty = top + this.thanksY;
+    if (ty < SCREEN_H + 40) {
+      ctx.globalAlpha = Math.max(0, Math.min(1, (SCREEN_H - ty) / 120));
+      ctx.font = `800 28px ${FONT_JP}`;
+      strokeText(ctx, STAFF_ROLL.thanks, SCREEN_W / 2, ty, '#ffffff', 'rgba(60,20,120,0.9)', 5);
+      ctx.globalAlpha = 1;
+    }
+    ctx.font = `12px ${FONT_JP}`;
+    ctx.fillStyle = 'rgba(220,210,255,0.7)';
+    if (this.done) {
+      if (this.stopped > 60 && Math.floor(this.frame / 30) % 2 === 0) ctx.fillText(Input.isTouch ? 'タップでつづける' : 'Z でつづける', SCREEN_W / 2, 446);
+    } else if (!Input.isTouch) ctx.fillText('Z：早送り　X：とばす', SCREEN_W / 2, 466);
   }
 }
 
