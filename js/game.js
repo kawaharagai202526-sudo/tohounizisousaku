@@ -358,7 +358,7 @@ class GameScene {
   checkPlayerCollision() {
     const p = this.player;
     if (p.state !== 'normal') return;
-    const canHit = p.invuln === 0 && !this.cheat;
+    const canHit = p.invuln === 0 && !this.cheat && !Cheats.on.invincible; // キー「Y」：無敵（被弾しない）
     const canGraze = p.invuln === 0;
     const hr = p.hitR;
     for (const b of this.bullets.list) {

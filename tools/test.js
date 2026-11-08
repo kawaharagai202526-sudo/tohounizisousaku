@@ -984,6 +984,22 @@ test('キーの効果', async ({ page }) => {
     const k1 = dealt();
     Cheats.toggle('K');
     res.k = [k0, k1];
+    // Y：無敵。弾・レーザー・敵の体を自機に重ねても被弾しない（キーなしなら同じ置き方で被弾することも確かめる）
+    const touched = kind => {
+      g = start();
+      const p = g.player;
+      p.invuln = 0;
+      if (kind === 'bullet') fire({ x: p.x, y: p.y, speed: 0, delay: 0, silent: true });
+      if (kind === 'laser') fireLaser({ x: p.x, y: p.y - 120, angle: Math.PI / 2, warn: 0, dur: 600, silent: true });
+      if (kind === 'enemy') spawnEnemy({ x: p.x, y: p.y, hp: 100000, keep: true, drops: {}, script: function* () { for (;;) yield; } });
+      T.step(40);
+      return p.state !== 'normal' || g.misses > 0;
+    };
+    const kinds = ['bullet', 'laser', 'enemy'];
+    res.y0 = kinds.map(touched);
+    Cheats.toggle('Y');
+    res.y1 = kinds.map(touched);
+    Cheats.toggle('Y');
     // V：ゲーム中に入れるとボス戦へ
     g = start();
     T.step(600);
@@ -1020,6 +1036,8 @@ test('キーの効果', async ({ page }) => {
   assert(r.si[0] === 2 && r.si[1] === 18, `S・I: ${r.si}`);
   assert(r.v === r.vExpected, `V: ${r.v}（予定 ${r.vExpected}）`);
   assert(r.k[0] === 10 && r.k[1] === 15, `K: 威力が2倍にならない（ショット5＋ボム5の合計 ${r.k}。予定 10 → 15）`);
+  assert(r.y0.every(Boolean), `Y: キーなしで弾・レーザー・敵に重ねても被弾しない（テストの置き方の誤り）: ${r.y0}`);
+  assert(!r.y1.some(Boolean), `Y: 無敵なのに被弾した（弾・レーザー・敵）: ${r.y1}`);
   assert(r.d1 && r.d2, 'D: 画面の色が変わらない、または元に戻らない');
   assert(r.f1 && r.f2, 'F: すべてON / OFF にならない');
   assert(!r.e0 && r.e1 && !r.e2 && !r.eSaved, `E: ${[r.e0, r.e1, r.e2, r.eSaved]}`);

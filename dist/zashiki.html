@@ -445,7 +445,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.16.1';
+const GAME_VERSION = '2.16.2';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -7455,7 +7455,7 @@ class GameScene {
   checkPlayerCollision() {
     const p = this.player;
     if (p.state !== 'normal') return;
-    const canHit = p.invuln === 0 && !this.cheat;
+    const canHit = p.invuln === 0 && !this.cheat && !Cheats.on.invincible; // キー「Y」：無敵（被弾しない）
     const canGraze = p.invuln === 0;
     const hr = p.hitR;
     for (const b of this.bullets.list) {
@@ -13166,6 +13166,7 @@ const CHEAT_KEYS = {
   R: { id: 'autoBomb', label: 'ボム連発', desc: 'ボムを1秒おきに発動し続ける（ボムの数は減らない）' },
   E: { id: 'extraOpen', label: 'エキストラ解放', desc: 'はじめからエキストラステージを遊べる（エキストラの面があるとき。解放したことは保存しない）' },
   K: { id: 'power2', label: '自機火力2倍', desc: '自機の攻撃（ショット・魔理沙の低速レーザーなど。ボムは除く）の威力が2倍になる' },
+  Y: { id: 'invincible', label: '無敵', desc: '自機が無敵になり、敵の弾・レーザー・敵やボスの体に当たっても被弾しない（かすりは入る）' },
 };
 // この文字は、すべてのキーをまとめて ON にする（すべて ON のときは全部 OFF）
 const CHEAT_ALL_KEY = { letter: 'F', label: 'すべて', desc: 'すべてのキーを ON にする（すべて ON のときに入れると全部 OFF）' };
