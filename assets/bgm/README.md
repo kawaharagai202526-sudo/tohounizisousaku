@@ -3,6 +3,7 @@
 > 5 曲つなぎの原曲 (`source/medley5_original.mp3`) から作った完成版 5 パターンは [`medley5/`](medley5/README.md) にあります。
 > 3 部構成の原曲 (`source/medley3_original.mp3`) から作った完成版 5 パターンは [`medley3/`](medley3/README.md) にあります。
 > どちらも、原型より 1 曲としてのまとまりを優先して作り直した版が [`medley5_r2/`](medley5_r2/README.md) と [`medley3_r2/`](medley3_r2/README.md) にあります。
+> **採用版**: 3 部構成は `medley3_r2/medley3r2_v4_cinematic.ogg`、5 曲つなぎは繋ぎ目を作り直した [`medley5_r3/medley5r3_v4_cinematic.ogg`](medley5_r3/README.md)。
 
 `source/original.m4a` は、3 曲をつないだ未完成の原曲です（アップロードされた動画から音声だけを無劣化で取り出したもの）。
 現行版では **3 曲目を削除** し、1 曲目 → 2 曲目を曲調を揃えて自然につないだ完成版を 5 パターン用意しています。

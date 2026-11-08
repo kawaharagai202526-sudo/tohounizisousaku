@@ -212,17 +212,58 @@ def triplet_fill(dr, kit, L, gbar, gain=0.0):
             dr.tr["tom"].add(kit.toms[p], t0 + k * step, g + 3)
 
 
+class BeatLayout:
+    """拍ごとに長さを持つ小節割り (テンポを途中でなめらかに変えるため)。bb.Layout と同じ使い方。"""
+
+    def __init__(self, beat_durs, t0=0.06):
+        self.beats = np.asarray(beat_durs, dtype=float)
+        self.bstarts = t0 + np.r_[0, np.cumsum(self.beats)]
+        self.durs = [float(self.beats[i:i + 4].sum()) for i in range(0, len(self.beats), 4)]
+
+    def gt(self, bar, beat=0.0):
+        pos = int(bar) * 4 + beat
+        nb = len(self.beats)
+        if pos >= nb:
+            return self.bstarts[-1] + (pos - nb) * self.beats[-1]
+        i = int(np.floor(pos))
+        return self.bstarts[i] + (pos - i) * self.beats[i]
+
+    def step(self, bar, s):
+        return self.gt(bar, s / 4.0)
+
+    @property
+    def end(self):
+        return self.bstarts[-1]
+
+
 class Plan:
     """曲の並び (小節単位)。各区間の開始小節を名前で引けるようにする。"""
 
     def __init__(self, tail_bar):
         self.durs, self.at = [], {}
         self.tail_bar = tail_bar
+        self.beat_durs = None
 
     def add(self, name, n, bar_dur):
         self.at[name] = len(self.durs)
         self.durs += [bar_dur] * n
+        if self.beat_durs is not None:
+            self.beat_durs += [bar_dur / 4] * (4 * n)
+        return self.at[name]
+
+    def add_ramp(self, name, n, bpm_from, bpm_to):
+        """n 小節かけて bpm_from から bpm_to へ拍ごとになめらかに加速 (減速) する区間。"""
+        if self.beat_durs is None:
+            self.beat_durs = [d / 4 for d in self.durs for _ in range(4)]
+        self.at[name] = len(self.durs)
+        k = 4 * n
+        bpms = bpm_from + (bpm_to - bpm_from) * (np.arange(k) + 0.5) / k
+        beats = list(60.0 / bpms)
+        self.beat_durs += beats
+        self.durs += [sum(beats[i:i + 4]) for i in range(0, k, 4)]
         return self.at[name]
 
     def layout(self, extra=16):
-        return bb.Layout(self.durs + [self.tail_bar] * extra)
+        if self.beat_durs is None:
+            return bb.Layout(self.durs + [self.tail_bar] * extra)
+        return BeatLayout(self.beat_durs + [self.tail_bar / 4] * (4 * extra))
