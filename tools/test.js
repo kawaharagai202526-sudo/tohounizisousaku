@@ -431,6 +431,7 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     const out = {};
     // ユーザーの指定した割り当て（名前 → 音の文字）
     out.map = Object.fromEntries(Object.entries(SE_SAMPLE).map(([k, v]) => [k, v[0]]));
+    out.boost = SE_SAMPLE_BOOST; // 2.17.1 でユーザーの指定「音は２倍」
     // もらった音がすべてデコードでき、始まりに無音がない（鳴らしたときに遅れない）
     Sound.unlock();
     const want = Object.keys(SE_FILES).length;
@@ -560,6 +561,7 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     summon: 'g', bonus: 'a', spell: 'b', bossdie: 'd', extend: 'e', bomb: 'i', pichuun: 'j',
   };
   for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
+  assert(r.boost === 2, `もらった音の大きさの倍率が ${r.boost}（予定 2。ユーザーの指定「音は２倍」）`);
   assert(r.decoded === r.files && r.files.length === 14, `デコードできない音がある: ${r.decoded}（予定 ${r.files}）`);
   assert(!r.lateStart.length, `始まりに無音が残っている音: ${r.lateStart}`);
   assert(!r.weak.includes('fire') && !r.swarm.includes('fire'), `弱いザコの弾が鳴る: ${r.weak} / ${r.swarm}`);

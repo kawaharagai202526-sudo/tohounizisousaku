@@ -238,7 +238,8 @@ js/extra.js の `setKyou(g, 方角, { next, power })` で凶方を決める。�
   `charge`（チャージ・1面のレーザーの点滅）と `powerup` c、`laserHand`（手・柱のレーザー）h、`laserBoss4`（4面のボスのレーザー）f、
   `summon`（4面の四角）g、`bonus` a、`spell` b、`bossdie` d、`extend` e、`bomb` i、`pichuun` j
 - 大きさは、いちばん大きいところの 50ms の音量（dB）で決めてある（`SE_SAMPLE` の行の終わり）。音は `js/sefiles.js` の `norm` で
-  -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。同じ音は1フレームに1回、`SE_GAP` の秒数より短い間隔では鳴らさない
+  -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。鳴らすときは全体をさらに `SE_SAMPLE_BOOST` 倍にする（2.17.1 でユーザーの指定「音は２倍」で 2）。
+  同じ音は1フレームに1回、`SE_GAP` の秒数より短い間隔では鳴らさない
 - 弾の音：`fire()` はふつう `fire`（m）を鳴らす。`se: '名前'` で音を選び、`silent: true` で鳴らさない（同時に撃つ弾は1つだけ鳴らす）。
   弱くて数の多いザコ（体力が `QUIET_HP`＝18 より少ない。js/enemies.js）が撃つ弾は鳴らさない（`spawnEnemy` の `quiet` で決めることもできる）
 - レーザーの音：`fireLaser` の `sound`（光るとき。書かなければ合成音の `'laser'`）と `warnSound`（予告の線が出たとき）

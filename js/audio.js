@@ -141,7 +141,7 @@ const Sound = {
       v.g.gain.setTargetAtTime(0, t, 0.012);
       v.src.stop(t + 0.08);
     }
-    const level = vol * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
+    const level = vol * SE_SAMPLE_BOOST * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const g = ctx.createGain();
@@ -336,9 +336,12 @@ function trimSilence(ctx, buf, th = 0.002) {
 //  もらった音（audio/a-o の a〜o。js/sefiles.js）で鳴らす効果音（2.17.0 でユーザーの指定）
 //  名前: [音の文字, 大きさ, 重ねて鳴らせる数]。大きさは、いちばん大きいところの 50ms の音量（行の終わりの dB）で決めた。
 //  前の合成音の音量（弾 -33・スペル宣言 -28・被弾 -27・ボム -13・ボス撃破 -11dB など）と同じくらいか、少し大きめ。
-//  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)
+//  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。
+//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍にする（行の終わりの dB は、その前の値。実際は +6dB）
 //  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
 // ------------------------------------------------------------
+// もらった音を、表の大きさの何倍で鳴らすか（2.17.1 でユーザーの指定「音は２倍」。2.17.0 の大きさの2倍）
+const SE_SAMPLE_BOOST = 2;
 const SE_SAMPLE = {
   fire:       ['m', 0.126, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）（-32dB）
   needle:     ['n', 0.126, 3], // 針のような細い弾を撃つ（3面・エキストラ）（-32dB）
