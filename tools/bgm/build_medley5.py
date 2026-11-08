@@ -15,18 +15,16 @@ import json
 import os
 import sys
 
-import numpy as np
-import scipy.signal as ss
 import soundfile as sf
 
 import build_bgm as bb
 import dsp
-from dsp import SR, Track, db, fade
+from dsp import SR, Track, db
+from medley import Medley, Plan, triplet_fill
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(bb.OUT_DIR, "medley5")
 BUILD = os.path.join(bb.BUILD, "medley5")
-bb.SOURCES["m5"] = os.path.join(bb.ROOT, "assets", "bgm", "source", "medley5_original.mp3")
 
 M = json.load(open(os.path.join(HERE, "medley5_analysis.json")))
 SEG = {k: tuple(v) for k, v in M["segments"].items()}
@@ -48,133 +46,25 @@ S1_PITCH_OUTRO = -SONG["S1"]["tuning_cents"] / 100.0         # E のまま (補�
 LAND_E = (15, 0, 2)      # S5 の 15 小節目 1-2 拍目 (E メジャー) を最後の着地音に使う
 
 
-def beat_time(song, j):
-    s = SONG[song]
-    return s["bar0"] + np.asarray(j, dtype=float) * 60.0 / s["bpm"]
-
-
-# ======================================================================= 曲ごとの音作り
-
-_proc = {}
-
-
-def song_processor(song, amount=None):
-    """S5 に寄せる EQ (FIR) とゲインを、原曲の区間全体から 1 回だけ決める。"""
-    amount = EQ_AMOUNT[song] if amount is None else amount
-    key = (song, amount)
-    if key in _proc:
-        return _proc[key]
-    a, b = SEG[song]
-    raw = bb.cut(a + 0.2, b - 0.2, "m5")
-    ref = bb.cut(SEG["S5"][0] + 0.7, SEG["S5"][1] - 0.2, "m5")
-    h = None
-    if amount > 0:
-        _, (f, d) = dsp.match_eq(raw, ref, amount=amount, max_db=EQ_MAXCUT.get(song, 6.0), max_boost=3.0,
-                                 lo=20)
-        h = ss.firwin2(4097, f / (SR / 2), db(d))
-    y = apply_fir(raw, h)
-    gain = 0.0 if TARGET[song] is None else TARGET[song] - bb.lufs(y)
-    _proc[key] = (h, gain)
-    return _proc[key]
-
-
-def apply_fir(x, h):
-    if h is None:
-        return x
-    n = len(h)
-    return ss.fftconvolve(x, h[:, None], mode="full")[n // 2: n // 2 + len(x)].astype(np.float32)
-
-
-def process(song, y, eq_amount=None, width=None):
-    h, gain = song_processor(song, eq_amount)
-    y = apply_fir(y, h) * db(gain)
-    w = WIDTH[song] if width is None else width
-    if w != 1.0:
-        mid = (y[:, 0] + y[:, 1]) / 2
-        side = (y[:, 0] - y[:, 1]) / 2 * w
-        y = np.stack([mid + side, mid - side], axis=1).astype(np.float32)
-    return y
-
-
-# ======================================================================= 配置
-
-def place_song(tr, L, song, bars, g0, head=0.03, tail=0.03, fin=0.0, fout=0.03,
-               end_beat=None, keep_tempo=False, **proc):
-    """song の小節 bars を全体の小節 g0.. に合わせて伸縮して置く。
-    end_beat: 最後の小節の何拍目で切るか (None = 小節の終わり)。区間の終わりを越える分は自動で切る。"""
-    bars = list(bars)
-    j0 = bars[0] * 4
-    j1 = (bars[-1] + 1) * 4 if end_beat is None else bars[-1] * 4 + end_beat
-    js = np.arange(j0, int(np.ceil(j1)) + 1, dtype=float)
-    js[-1] = min(js[-1], j1)
-    s = beat_time(song, js)
-    seg_end = SEG[song][1]
-    keep = s <= seg_end - 0.01
-    js, s = js[keep], s[keep]
-    tail = min(tail, max(0.0, seg_end - s[-1])) if keep.all() else max(0.0, seg_end - 0.01 - s[-1])
-    d = np.array([L.gt(g0 + int((j - j0) // 4), (j - j0) % 4) for j in js])
-    head = max(0.0, min(head, s[0] - (SEG[song][0] - 0.15)))   # 区間の頭より 0.15 秒以上前は使わない
-    ratio = np.diff(d) / np.diff(s)
-    if np.max(np.abs(ratio - 1.0)) < 1e-4:
-        # テンポを変えない場合 (S5 / 原曲重視版) は伸縮処理を通さず原音をそのまま使う
-        y, d0 = bb.cut(s[0] - head, s[-1] + tail, "m5"), d[0] - head
-    else:
-        y, d0 = bb.warp(s, d, head, tail, 0.0, name="m5")
-    tr.add(fade(process(song, y, **proc), fin, fout), d0)
+MD = Medley("m5", os.path.join(bb.ROOT, "assets", "bgm", "source", "medley5_original.mp3"), M, ref="S5",
+            target=TARGET, eq_amount=EQ_AMOUNT, eq_maxcut=EQ_MAXCUT, width=WIDTH)
+beat_time = MD.beat_time
+process = MD.process
+place_song = MD.place
 
 
 def place_pad(tr, L, g0, n_bars, bar_dur, pitch, src_len=13.0, fin=0.0, fout=None, gain_db=0.0):
     """S1 のパッド (テンポ無し) を全体の小節 g0 から n_bars 分 (+1 小節の余韻) に収める。"""
     total = (n_bars + 1) * bar_dur
-    src_len = min(src_len, total)
     t0 = L.gt(g0)
-    y, d0 = bb.warp([0.0, src_len], [t0, t0 + total], 0.0, 0.0, pitch, name="m5")
-    y = process("S1", y)
-    tr.add(fade(y, fin, bar_dur if fout is None else fout), d0, gain_db)
+    MD.place_stretch(tr, L, "S1", 0.0, min(src_len, total), t0, t0 + total, fin=fin,
+                     fout=bar_dur if fout is None else fout, pitch=pitch, gain_db=gain_db)
 
 
 def landing(L, g, tail_sec=5.5, wet_db=-3.0, room=0.95, beats=2):
-    """S5 の E の和音を最後の「ジャーン」に。頭は原音、後ろは残響で伸ばす。"""
+    """S5 の E の和音を最後の「ジャーン」に。"""
     bar, beat, _ = LAND_E
-    s0 = beat_time("S5", bar * 4 + beat) - 0.01
-    s1 = beat_time("S5", bar * 4 + beat + beats)
-    dry = fade(bb.cut(s0, s1, "m5"), 0.0, (s1 - s0) * 0.6)
-    wet = dsp.reverb(dsp.lp(dry, 7000), room=room, damp=0.45)
-    n = len(dry) + int(tail_sec * SR)
-    out = np.zeros((n, 2), dtype=np.float32)
-    out[:len(dry)] += dry
-    m = min(n, len(wet))
-    out[:m] += wet[:m] * db(wet_db)
-    return fade(out, 0.0, tail_sec * 0.85), L.gt(g) - 0.01
-
-
-def triplet_fill(dr, kit, L, gbar, gain=0.0):
-    """112 BPM の小節の 3-4 拍目に 3 連符のフィル。112 の 3 連 8 分 = 168 の 8 分 なので、
-    そのまま 168 BPM の S3 へ拍が繋がる。"""
-    step = (L.durs[gbar] / 4) / 3
-    t0 = L.gt(gbar, 2.0)
-    seq = [("snare", None), ("snare", None), ("tom", 48), ("tom", 45), ("tom", 43), ("tom", 41)]
-    for k, (inst, p) in enumerate(seq):
-        g = -11 + 1.8 * k + gain
-        if inst == "snare":
-            dr.hit("snare", t0 + k * step, g)
-        else:
-            dr.tr["tom"].add(kit.toms[p], t0 + k * step, g + 3)
-
-
-class Plan:
-    """曲の並び (小節単位)。各区間の開始小節を名前で引けるようにする。"""
-
-    def __init__(self):
-        self.durs, self.at = [], {}
-
-    def add(self, name, n, bar_dur):
-        self.at[name] = len(self.durs)
-        self.durs += [bar_dur] * n
-        return self.at[name]
-
-    def layout(self, extra=16):
-        return bb.Layout(self.durs + [BAR] * extra)
+    return MD.landing(L, g, "S5", bar, beat, beats, tail_sec, wet_db, room)
 
 
 # ======================================================================= バージョン
@@ -182,7 +72,7 @@ class Plan:
 def build(version, *, s1_bars=4, s2_bars=4, s3_mode="full", s5_end="land", style="standard",
           original_tempo=False):
     kit = bb.Kit()
-    P = Plan()
+    P = Plan(BAR)
     t_slow = BAR_SLOW
     t_s2 = 4 * 60.0 / SONG["S2"]["bpm"] if original_tempo else BAR_SLOW
     t_s3 = 4 * 60.0 / SONG["S3"]["bpm"] if original_tempo else BAR
@@ -214,9 +104,8 @@ def build(version, *, s1_bars=4, s2_bars=4, s3_mode="full", s5_end="land", style
     if s3_mode == "full":
         put("S3", range(0, 9), g_s3, head=0.005, tail=0.03, fout=0.06)
         # 9 小節目 (ブレイクで和音を伸ばす所) は原曲が 2.5 拍で切れているので、伸ばして 1 小節を埋める
-        s0, s1 = beat_time("S3", 36) - 0.03, SEG["S3"][1] - 0.01
-        y, d0 = bb.warp([s0 + 0.03, s1], [L.gt(g_s3 + 9), L.gt(g_s4) - 0.02], 0.03, 0.0, name="m5")
-        music.add(fade(process("S3", y, eq_amount=eqa.get("S3")), 0.06, 0.15), d0)
+        MD.place_stretch(music, L, "S3", beat_time("S3", 36), SEG["S3"][1] - 0.01, L.gt(g_s3 + 9),
+                         L.gt(g_s4) - 0.02, head=0.03, fin=0.06, fout=0.15, eq_amount=eqa.get("S3"))
     else:
         put("S3", range(0, 8), g_s3, head=0.005, fout=0.03)
     # ---------------- S4 (A♭m → … → E♭)。最後の小節は前半だけ使い、後半は S5 の助走に渡す
