@@ -355,3 +355,38 @@ def duck_env(n, hits_sec, depth_db=-4.0, release=0.16, attack=0.004):
         if m > 0:
             g[i:i + m] = np.maximum(g[i:i + m], shape[:m])
     return db(depth_db * g)[:, None]
+
+
+def filter_sweep(x, kind, f_from, f_to, curve=1.0, slope_db_oct=24.0):
+    """時間とともにカットオフが動くハイパス / ローパス (STFT 上のゲインで実現, 位相は変えない)。
+    kind="hp": 低音をだんだん削る (曲の抜け際に使う) / "lp": 高音をだんだん開く (曲の入りに使う)。"""
+    n = len(x)
+    f, t, Z = ss.stft(x.T, fs=SR, nperseg=2048, noverlap=1536)
+    pos = np.clip(t / max(n / SR, 1e-6), 0, 1) ** curve
+    fc = f_from * (f_to / f_from) ** pos
+    r = np.maximum(f[:, None], 1.0) / fc[None, :]
+    p = slope_db_oct / 6.02
+    g = np.minimum(1.0, r ** p) if kind == "hp" else np.minimum(1.0, (1.0 / r) ** p)
+    _, y = ss.istft(Z * g[None], fs=SR, nperseg=2048, noverlap=1536)
+    return y.T[:n].astype(np.float32)
+
+
+def widen(x, amount=0.25, delay_ms=13.0, hp_hz=350.0):
+    """モノラルの音に、遅らせた高域を side として足して広げる。L+R (モノラルで聴いた時) は変わらない。"""
+    m = x.mean(axis=1)
+    k = int(delay_ms * SR / 1000)
+    d = np.r_[np.zeros(k, dtype=np.float32), m[:-k]] if k > 0 else m
+    side = butter(d, "high", hp_hz, 2) * amount
+    return np.stack([x[:, 0] + side, x[:, 1] - side], axis=1).astype(np.float32)
+
+
+def pad_note(pitch, sec, vel=70, program=89, attack=0.4):
+    """柔らかいパッドの単音 (FluidR3 の Pad 2 warm)。ゆっくり立ち上がり、ゆっくり消える。"""
+    x = gm_render([(pitch, 0.0, sec, vel)], program=program, sec=sec + 1.5, gain=1.0)
+    n = len(x)
+    a = int(min(attack * sec, sec) * SR)
+    env = np.ones(n, dtype=np.float32)
+    env[:a] = np.sin(np.linspace(0, np.pi / 2, a)) ** 2
+    r = int(1.2 * SR)
+    env[-r:] *= np.cos(np.linspace(0, np.pi / 2, r)) ** 2
+    return x * env[:, None]

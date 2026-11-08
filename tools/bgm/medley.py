@@ -24,7 +24,7 @@ class Medley:
     eq_amount: 基準曲の周波数バランスへ寄せる量, eq_maxcut: 削る量の上限 (dB), width: side の倍率"""
 
     def __init__(self, key, path, analysis, ref, target, eq_amount, eq_maxcut=None, width=None,
-                 ref_trim=(0.7, 0.2)):
+                 ref_trim=(0.7, 0.2), widen=None):
         bb.SOURCES[key] = path
         self.key = key
         self.seg = {k: tuple(v) for k, v in analysis["segments"].items()}
@@ -35,6 +35,7 @@ class Medley:
         self.eq_maxcut = eq_maxcut or {}
         self.width = width or {}
         self.ref_trim = ref_trim
+        self.widen = widen or {}     # モノラルの曲を広げる量 (dsp.widen)
         self._proc = {}
 
     def beat_time(self, song, j):
@@ -75,14 +76,17 @@ class Medley:
             mid = (y[:, 0] + y[:, 1]) / 2
             side = (y[:, 0] - y[:, 1]) / 2 * w
             y = np.stack([mid + side, mid - side], axis=1).astype(np.float32)
+        if self.widen.get(song, 0.0) > 0:
+            y = dsp.widen(y, self.widen[song])
         return y
 
     # ------------------------------------------------------------------ 配置
 
     def place(self, tr, L, song, bars, g0, head=0.03, tail=0.03, fin=0.0, fout=0.03,
-              end_beat=None, gain_db=0.0, **proc):
+              end_beat=None, gain_db=0.0, hp_out=None, lp_in=None, **proc):
         """song の小節 bars を全体の小節 g0.. に合わせて伸縮して置く。
-        end_beat: 最後の小節の何拍目で切るか (None = 小節の終わり)。区間の終わりを越える分は自動で切る。"""
+        end_beat: 最後の小節の何拍目で切るか (None = 小節の終わり)。区間の終わりを越える分は自動で切る。
+        hp_out=(秒, Hz): 最後の何秒かで低音をだんだん削る / lp_in=(秒, Hz): 最初の何秒かで高音をだんだん開く"""
         bars = list(bars)
         j0 = bars[0] * 4
         j1 = (bars[-1] + 1) * 4 if end_beat is None else bars[-1] * 4 + end_beat
@@ -101,13 +105,34 @@ class Medley:
             y, d0 = self.cut(s[0] - head, s[-1] + tail), d[0] - head
         else:
             y, d0 = bb.warp(s, d, head, tail, 0.0, name=self.key)
-        tr.add(fade(self.process(song, y, **proc), fin, fout), d0, gain_db)
+        y = sweep_edges(self.process(song, y, **proc), hp_out, lp_in)
+        tr.add(fade(y, fin, fout), d0, gain_db)
+
+    def place_runs(self, tr, L, song, bars, g0, head=0.03, tail=0.03, fin=0.0, fout=0.03, hp_out=None, lp_in=None,
+                   **kw):
+        """とびとびの小節 (例: 0-7 と 16-23) を、連続する所ごとに置いて短いクロスフェードで繋ぐ。"""
+        runs, cur = [], [bars[0]]
+        for b in bars[1:]:
+            if b == cur[-1] + 1:
+                cur.append(b)
+            else:
+                runs.append(cur)
+                cur = [b]
+        runs.append(cur)
+        g = g0
+        for i, r in enumerate(runs):
+            first, last = i == 0, i == len(runs) - 1
+            self.place(tr, L, song, r, g, head=head if first else 0.03, tail=tail if last else 0.03,
+                       fin=fin if first else 0.06, fout=fout if last else 0.06,
+                       hp_out=hp_out if last else None, lp_in=lp_in if first else None, **kw)
+            g += len(r)
 
     def place_stretch(self, tr, L, song, s0, s1, t0, t1, head=0.0, fin=0.0, fout=0.0, pitch=0.0,
-                      gain_db=0.0, **proc):
+                      gain_db=0.0, hp_out=None, lp_in=None, **proc):
         """原曲の s0..s1 秒を、出力の t0..t1 秒にそのまま伸び縮みさせて置く (テンポの無いパッド等)。"""
         y, d0 = bb.warp([s0, s1], [t0, t1], head, 0.0, pitch, name=self.key)
-        tr.add(fade(self.process(song, y, **proc), fin, fout), d0, gain_db)
+        y = sweep_edges(self.process(song, y, **proc), hp_out, lp_in)
+        tr.add(fade(y, fin, fout), d0, gain_db)
 
     def landing(self, L, g, song, bar, beat=0, beats=2, tail_sec=5.5, wet_db=-3.0, room=0.95):
         """song の bar 小節 beat 拍目からの和音を最後の「ジャーン」に。頭は原音、後ろは残響で伸ばす。"""
@@ -121,6 +146,57 @@ class Medley:
         m = min(n, len(wet))
         out[:m] += wet[:m] * db(wet_db)
         return fade(out, 0.0, tail_sec * 0.85), L.gt(g) - 0.01
+
+
+def sweep_edges(y, hp_out=None, lp_in=None):
+    """クリップの終わりをハイパスで抜き、頭をローパスから開く (DJ ミックス風の繋ぎ)。"""
+    if hp_out:
+        sec, f_to = hp_out
+        k = min(len(y), int(sec * SR))
+        y = y.copy()
+        y[-k:] = dsp.filter_sweep(y[-k:], "hp", 25.0, f_to, curve=1.6)
+    if lp_in:
+        sec, f_from = lp_in
+        k = min(len(y), int(sec * SR))
+        y = y.copy()
+        y[:k] = dsp.filter_sweep(y[:k], "lp", f_from, 18000.0, curve=0.7)
+    return y
+
+
+def groove(dr, L, g0, n, pat="drive", gain=0.0, crash_every=8, crash_db=-5.0, last=None):
+    """全曲共通のドラム層 (同じキット・同じノリ)。4 小節ごとに小さなフィル、8 小節ごとにクラッシュ。
+    last: 最後の小節だけ別のパターンにする (繋ぎのフィルとぶつからないように)。"""
+    for k in range(n):
+        p = pat
+        if pat in ("drive", "half") and k % 4 == 3:
+            p = pat + "_turn"
+        if last is not None and k == n - 1:
+            p = last
+        if p:
+            dr.bar(L, g0 + k, p, gain=gain)
+    if crash_every:
+        for k in range(crash_every, n, crash_every):
+            dr.hit("crash2", L.gt(g0 + k), crash_db)
+
+
+def common_tone(tr, L, pitch, t0, t1, gain_db=-20.0, attack=0.6):
+    """前後の和音に共通する音をパッドで伸ばし、キーの変わり目を自然につなぐ。"""
+    tr.add(dsp.pad_note(pitch, t1 - t0, attack=attack), t0, gain_db)
+
+
+def unify_mix(mus, drums, fxm, kicks, body, duck_db=-2.5, drum_rel=-8.0, space_db=-18.0, target=-13.0):
+    """全体の音作りを揃える最終段: ドラム層の音量 → キックに合わせたうねり → 共通の残響 → 全体のコンプ → 音量。"""
+    n = len(mus)
+    a0, a1 = int(body[0] * SR), int(body[1] * SR)
+    d_l, m_l = bb.lufs(drums[a0:a1]), bb.lufs(mus[a0:a1])
+    dgain = (m_l + drum_rel) - d_l if d_l > -60 else 0.0
+    mus = mus * dsp.duck_env(n, kicks, depth_db=duck_db, release=0.13)
+    mus = mus + dsp.reverb(mus, room=0.45, damp=0.55)[:n] * db(space_db)
+    mix = mus + drums * db(dgain) + fxm
+    rms = 20 * np.log10(np.sqrt(np.mean(mix[a0:a1] ** 2)) + 1e-9)
+    mix = dsp.compress(mix, thr=rms + 3.0, ratio=2.0, att=12, rel=160)
+    mix = mix * db(target - bb.lufs(mix[a0:a1]))
+    return mix, dgain
 
 
 def triplet_fill(dr, kit, L, gbar, gain=0.0):
