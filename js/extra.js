@@ -71,7 +71,8 @@ function updateKyou(g) {
 function kyouShot(g, i) {
   const [x, y] = edgeAt(dirAngle(i), rand(-130, 130), 8);
   if (dist(x, y, g.player.x, g.player.y) < 100) return;
-  fire({ x, y, angle: aimAt(x, y) + rand(-0.1, 0.1), speed: 1.7 + g.kyou.meter * 1.2, type: 'rice', color: 'red', delay: 16, silent: true });
+  // エキストラは、ボスから直接撃っていない弾もたいてい「m」（2.17.0 でユーザーの指定）
+  fire({ x, y, angle: aimAt(x, y) + rand(-0.1, 0.1), speed: 1.7 + g.kyou.meter * 1.2, type: 'rice', color: 'red', delay: 16 });
 }
 
 // 画面の中心から角度 a の方へ伸ばした線と、画面の端（inset だけ内側）が交わる点。along で端に沿ってずらす
@@ -84,7 +85,7 @@ function edgeAt(a, along = 0, inset = 8) {
 function edgeFan(a, o) {
   const [x, y] = edgeAt(a, rand(-140, 140), 10);
   if (dist(x, y, G.player.x, G.player.y) < 110) return;
-  fireFan({ x, y, angle: aimAt(x, y), delay: 18, silent: true, ...o });
+  fireFan({ x, y, angle: aimAt(x, y), delay: 18, ...o });
 }
 
 // 凶方の画面の端を赤く光らせる（弾より下に描く）
@@ -202,6 +203,7 @@ function* konjinKatatagae(b, g, frames, k = 1) {
       if (t % Math.max(2, Math.round(lerp(14, 3, m) / k)) === 0) {
         fire({ x: rand(8, FIELD_W - 8), y: -8, angle: Math.PI / 2 + rand(-0.15, 0.15), speed: rand(1.5, 2.3), type: 'needle', color: 'gold', silent: true });
       }
+      if (t % 15 === 0) Sound.se('needle'); // 降ってくる針は「n」（2.17.0。1本ずつだとうるさいので間をあける）
       if (t % Math.round(lerp(44, 12, m)) === 0) edgeFan(dirAngle(dir), { n: 3, spread: 0.4, speed: 1.8 + m, type: 'rice', color: 'red' });
       if (k >= 0.8 && t % 60 === 30) fireRing({ x: b.x, y: b.y, n: 12, angle: rand(TAU), speed: 1.4, type: 'ball', color: 'yellow' });
       yield;
@@ -245,6 +247,7 @@ function raiseWall(b, side, depth, skip = () => false) {
   const wall = { side, depth, stopped: false, stop() { this.stopped = true; for (const c of list) if (live(c)) { c.bl.alive = false; Fx.cancel(c.bl.x, c.bl.y, 'gold'); } } };
   b.tasks.add((function* () {
     Fx.text(side === 'W' ? 40 : side === 'E' ? FIELD_W - 40 : FIELD_W / 2, side === 'S' ? FIELD_H - 40 : FIELD_H / 2, '塞', '#ffb070', 22, 80);
+    Sound.se('appear'); // 弾の壁が出てくるときは「o」（2.17.0）
     for (let first = true; !wall.stopped; first = false) {
       for (const c of list) if (!live(c)) c.bl = fire({ x: c.x, y: c.y, speed: 0, type: 'ball', color: 'gold', delay: first ? c.d0 : 50, silent: true, margin: 60 });
       yield 90;
@@ -285,7 +288,7 @@ function* konjinGyoretsu(b, g, frames, k = 1, setK = true) {
       yield 34;
       const n = Math.round(12 * Math.max(0.6, k));
       for (let j = 0; j < n; j++) {
-        fire({ x: sx, y: sy, angle: travel, speed, type: 'ball', color, silent: true, margin: 60 });
+        fire({ x: sx, y: sy, angle: travel, speed, type: 'ball', color, silent: j > 0, margin: 60 });
         yield 8;
       }
     })());
@@ -313,6 +316,7 @@ function* konjinHari(b, g, frames, k = 1) {
         },
       });
     }
+    if (f % 15 === 0) Sound.se('needle'); // 降りそそぐ針は「n」（2.17.0）
     if (k >= 0.8 && f % 90 === 45) fireFan({ x: b.x, y: b.y, n: 5, spread: 0.8, angle: b.aim(), speed: 2.0, type: 'card', color: 'gold' });
     yield;
   }
@@ -359,7 +363,7 @@ const KONJIN_RUBBLE_PHASES = [
               yield randInt(48, 72);
               // 割れる：破片は凶方から吹きつける向きに飛ぶ
               Fx.explosion(bl.x, bl.y, 'rgba(210,170,120,0.7)', 0.7);
-              Sound.se('kira');
+              Sound.se('fire'); // 割れた破片も「m」（2.17.0。前は「キラ」）
               for (let k = 0; k < 8; k++) fire({ x: bl.x, y: bl.y, angle: away + rand(-0.75, 0.75), speed: rand(1.3, 2.5), type: 'rubble', color: pick(['brown', 'soot']), silent: true, delay: 4 });
               bl.alive = false;
             },
@@ -371,6 +375,7 @@ const KONJIN_RUBBLE_PHASES = [
           const [x, y] = edgeAt(dirAngle(dir), rand(-170, 170), 8);
           if (dist(x, y, G.player.x, G.player.y) > 90) fire({ x, y, angle: away + rand(-0.25, 0.25), speed: rand(1.6, 2.2), type: 'rubble', color: 'soot', delay: 20, silent: true });
         }
+        Sound.se('fire');
         yield 40;
         if (loop % 2) b.wander(40, 50);
       }
@@ -399,11 +404,12 @@ const KONJIN_RUBBLE_PHASES = [
               bl.setColor('white');
               yield 14;
               bl.setColor('gold');
+              if (i % 6 === 0) Sound.se('fire'); // 剥がれて散る札も「m」（2.17.0）
               bl.angle = Math.PI * 0.75 + rand(-0.7, 0.7);
               bl.speed = 0.4; bl.accel = 0.04; bl.maxSpeed = rand(1.8, 2.6);
             },
           });
-          if (i % 6 === 0) Sound.se('tan');
+          if (i % 6 === 0) Sound.se('fire');
           yield 3;
         }
         for (let f = 0; f < 110; f++) {
@@ -458,7 +464,7 @@ const KONJIN_PHASES = [
         const n = 6, off = rand(TAU), dir = loop % 2 ? 1 : -1;
         for (let k = 0; k < n; k++) fireLaser({ x: b.x, y: b.y, angle: off + (k * TAU) / n, length: 560, width: 12, warn: 50, dur: 130, angVel: dir * 0.0055, color: 'yellow' });
         for (let f = 0; f < 190; f++) {
-          if (f % 7 === 0) fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.1, 2.0), type: 'small', color: 'orange', silent: true });
+          if (f % 7 === 0) fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.1, 2.0), type: 'small', color: 'orange', silent: f % 14 !== 0 });
           if (f % 45 === 30) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.4, type: 'card', color: 'gold' });
           yield;
         }
@@ -518,7 +524,7 @@ const KONJIN_PHASES = [
               const dense = (s < 0) === east, step = dense ? 0.1 : 0.24, count = dense ? 7 : 3;
               for (let j = 1; j <= count; j++) fire({ x: b.x, y: b.y, angle: base + s * j * step, speed: 3.0, type: 'needle', color: dense ? 'red' : 'gold', silent: true });
             }
-            Sound.se('tan');
+            Sound.se('needle'); // 針のような弾は「n」（2.17.0）
             yield 8;
           }
           yield 36;
@@ -548,7 +554,7 @@ const KONJIN_PHASES = [
           edgeFan(dirAngle(pick(open)), { n: 3, spread: 0.5, speed: 2.0, type: 'rice', color: 'orange' });
         }
         if (f % 50 === 25) fireFan({ x: b.x, y: b.y, n: 5, spread: 0.6, angle: b.aim(), speed: 2.2, type: 'card', color: 'gold' });
-        if (f % 120 === 60) fireRing({ x: b.x, y: b.y, n: 14, angle: rand(TAU), speed: 1.3, type: 'ball', color: 'yellow', silent: true });
+        if (f % 120 === 60) fireRing({ x: b.x, y: b.y, n: 14, angle: rand(TAU), speed: 1.3, type: 'ball', color: 'yellow' });
         yield;
       }
     },
@@ -595,12 +601,13 @@ const KONJIN_PHASES = [
             fire({ x, y, angle: travel + rand(-0.2, 0.2), speed: sp, type: fast ? 'rice' : 'small', color, silent: true, delay: 0, margin: 50 });
           }
         }
+        if (f % 26 === 0) Sound.se('fire'); // 四方から来る弾も「m」（2.17.0。毎回だとうるさいので間をあける）
         // 天：金神から全方位に
         if (f % 70 === 0) fireRing({ x: b.x, y: b.y, n: 14, angle: rand(TAU), speed: cur === 0 ? 2.2 : 1.2, type: 'ball', color: cur === 0 ? 'gold' : 'cyan' });
         // 地：画面の下から噴き上がって、また落ちる
         if (f % 40 === 20) {
           const x = rand(20, FIELD_W - 20);
-          if (Math.abs(x - G.player.x) > 60) for (let k = 0; k < 3; k++) fire({ x: x + k * 8 - 8, y: FIELD_H + 6, angle: -Math.PI / 2 + rand(-0.25, 0.25), speed: cur === 4 ? 4.6 : 3.8, ay: 0.05, maxFall: 3, type: 'small', color: cur === 4 ? 'gold' : 'green', silent: true, delay: 0, margin: 60 });
+          if (Math.abs(x - G.player.x) > 60) for (let k = 0; k < 3; k++) fire({ x: x + k * 8 - 8, y: FIELD_H + 6, angle: -Math.PI / 2 + rand(-0.25, 0.25), speed: cur === 4 ? 4.6 : 3.8, ay: 0.05, maxFall: 3, type: 'small', color: cur === 4 ? 'gold' : 'green', silent: k > 0, delay: 0, margin: 60 });
         }
         yield;
       }
@@ -613,8 +620,8 @@ const KONJIN_PHASES = [
     *script(b, g) {
       yield* konjinIn(b, g, 'all', FIELD_W / 2, 110, { power: 1.2 });
       for (let f = 0; ; f++) {
-        if (f % 26 === 0) fireRing({ x: b.x, y: b.y, n: 18, angle: f * 0.037, speed: 1.15, type: 'small', color: 'gold', silent: true });
-        if (f % 45 === 10) for (let s = 0; s < 3; s++) fire({ x: b.x, y: b.y, angle: b.aim(), speed: 3.2 + s * 0.4, type: 'needle', color: 'red', silent: s > 0 });
+        if (f % 26 === 0) fireRing({ x: b.x, y: b.y, n: 18, angle: f * 0.037, speed: 1.15, type: 'small', color: 'gold' });
+        if (f % 45 === 10) for (let s = 0; s < 3; s++) fire({ x: b.x, y: b.y, angle: b.aim(), speed: 3.2 + s * 0.4, type: 'needle', color: 'red', silent: s > 0, se: 'needle' });
         yield;
       }
     },
@@ -709,7 +716,7 @@ function* konjinStrike(b, g) {
   yield* b.moveTo(FIELD_W / 2, 150, 36);
   // 予告：画面の上に光が集まり、通り道に線が出る
   const sx = b.x, top = 8;
-  Sound.se('charge');
+  Sound.se('appear'); // 上に現れる黄色の球（光）は「o」（2.17.0 でユーザーの指定。前は「チャージ」の音）
   fireLaser({ x: sx, y: 0, angle: Math.PI / 2, length: b.y, width: 3, warn: 64, dur: 0, color: 'gold', silent: true });
   for (let f = 0; f < 64; f++) {
     if (f % 12 === 0) Fx.ring(sx, top, 'rgba(255,214,110,0.9)', 50, -0.9, 40, 2);
@@ -719,7 +726,7 @@ function* konjinStrike(b, g) {
   // 弾：光の尾を引きながら、まっすぐ栂尾へ
   const shot = spawnEnemy({ x: sx, y: -30, kind: 'konjinShot', hp: 1, r: 10, score: 0, drops: {}, keep: true, noBody: true });
   shot.untouchable = true;
-  Sound.se('laser');
+  Sound.se('fire'); // 黄色の球が弾を撃つときは「m」（2.17.0 でユーザーの指定。前はレーザーの音）
   for (let f = 0; f < 120 && dist(shot.x, shot.y, b.x, b.y) > 8; f++) {
     const a = angleTo(shot.x, shot.y, b.x, b.y), step = Math.min(4.5, dist(shot.x, shot.y, b.x, b.y));
     shot.x += Math.cos(a) * step;

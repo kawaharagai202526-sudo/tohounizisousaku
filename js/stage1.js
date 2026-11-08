@@ -150,7 +150,7 @@ const NOKIBA_PHASES = [
       yield 40;
       for (let loop = 0; ; loop++) {
         const a = b.aim();
-        fire({ x: b.x, y: b.y, angle: a, speed: dv(1.3, 1.5, 1.8, 2.0), type: 'oni', color: 'orange' });
+        fire({ x: b.x, y: b.y, angle: a, speed: dv(1.3, 1.5, 1.8, 2.0), type: 'oni', color: 'orange', se: 'oni' }); // 鬼面の弾は「k」（2.17.0）
         const n = Math.ceil(dv(6, 8, 12, 16) / 2); // 2.14.0 でユーザーの指定「１の通常弾幕の弾数を1/2する」
         for (let i = 0; i < n; i++) {
           fire({
@@ -158,6 +158,7 @@ const NOKIBA_PHASES = [
             type: 'tile', color: pick(['blue', 'purple', 'white']), silent: true, delay: randInt(6, 14),
           });
         }
+        Sound.se('fire'); // 瓦の弾（通常弾）は「m」
         // 生まれたてらしく、間隔が少し不揃い
         yield dv(70, 56, 44, 36) + randInt(-8, 8);
         if (loop % 2) b.wander(60, 60);
@@ -176,11 +177,12 @@ const NOKIBA_PHASES = [
         const glares = dv(1, 1, 2, 3);
         for (let k = 0; k < glares; k++) {
           const a = b.aim();
-          fireLaser({ x: b.x, y: b.y, angle: a, length: 720, width: 4, warn: WARN, dur: DUR, color: 'red' });
+          // 2.17.0 でユーザーの指定：レーザーの点滅（予告）のときは「c」、発射のときは「m」
+          fireLaser({ x: b.x, y: b.y, angle: a, length: 720, width: 4, warn: WARN, dur: DUR, color: 'red', warnSound: 'charge', sound: 'fire' });
           yield WARN + DUR;
           const feint = DIFF >= 3 && loop % 3 === 2 && k === glares - 1;
           for (const d of feint ? [a, a + Math.PI] : [a]) {
-            fire({ x: b.x, y: b.y, angle: d, speed: 2.4, type: 'oni', color: 'red' });
+            fire({ x: b.x, y: b.y, angle: d, speed: 2.4, type: 'oni', color: 'red', se: 'oni' });
             fireFan({ x: b.x, y: b.y, n: dv(5, 7, 9, 9), spread: dv(0.9, 0.8, 0.75, 0.7), angle: d, speed: 2.1, type: 'tile', color: 'orange', silent: true });
           }
           yield dv(30, 24, 18, 14);
@@ -224,7 +226,7 @@ const NOKIBA_PHASES = [
               for (let i = 0; i < n; i++) {
                 fire({ x: bl.x, y: FIELD_H - 8, angle: -Math.PI / 2 + rand(-0.9, 0.9), speed: rand(2.0, 3.0), ay: 0.05, maxFall: 2.4, type: 'small', color: 'blue', silent: true });
               }
-              Sound.se('tan');
+              // 上から降ってくる弾は鳴らさない（2.17.0 でユーザーの指定。前は割れたときに鳴っていた）
               bl.alive = false;
             },
           });
@@ -242,7 +244,8 @@ const NOKIBA_PHASES = [
       yield 30;
       for (let loop = 0; ; loop++) {
         const sx = FIELD_W / 2 + (loop % 2 ? 1 : -1) * 150, sy = 40;
-        fire({ x: sx, y: sy, angle: aimAt(sx, sy), speed: 1.9, type: 'oni', color: 'red', delay: 24 });
+        fire({ x: sx, y: sy, angle: aimAt(sx, sy), speed: 1.9, type: 'oni', color: 'red', delay: 24, se: 'oni' });
+        Sound.se('fire');
         for (let k = 0; k < Math.ceil(dv(6, 8, 10, 14) / 2); k++) { // 2.14.0 でユーザーの指定で半分にした
           fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.1, 1.1), speed: rand(1.4, 2.4), type: 'tile', color: 'blue', silent: true });
           if (k % 2) yield 3;
@@ -280,9 +283,9 @@ const NOKIBA_PHASES = [
         // 線の向こうから鬼面弾を撃ちこむ
         if (f % dv(80, 70, 56, 44) === 30) {
           const sx = rand(40, FIELD_W - 40);
-          fire({ x: sx, y: lineY - 50, angle: aimAt(sx, lineY - 50), speed: 1.7, type: 'oni', color: 'red', delay: 20 });
+          fire({ x: sx, y: lineY - 50, angle: aimAt(sx, lineY - 50), speed: 1.7, type: 'oni', color: 'red', delay: 20, se: 'oni' });
         }
-        if (f % 60 === 0) fireFan({ x: b.x, y: b.y, n: 5, spread: 1.2, angle: Math.PI / 2, speed: 1.6, type: 'tile', color: 'blue', silent: true });
+        if (f % 60 === 0) fireFan({ x: b.x, y: b.y, n: 5, spread: 1.2, angle: Math.PI / 2, speed: 1.6, type: 'tile', color: 'blue' });
         yield;
       }
     },
@@ -316,7 +319,7 @@ function riseFireball() {
   const x = p.x < FIELD_W / 2 ? rand(FIELD_W * 0.62, FIELD_W - 30) : rand(30, FIELD_W * 0.38);
   return fire({
     x, y: FIELD_H + 30, angle: -Math.PI / 2, speed: dv(0.8, 0.8, 0.9, 1.05), type: 'fireball', color: 'orange',
-    margin: 140, delay: 40,
+    margin: 140, delay: 40, silent: true,
     script: function* (bl) {
       for (;;) {
         bl.angle += clamp(normAngle(aimAt(bl.x, bl.y) - bl.angle), -0.022, 0.022);
@@ -347,7 +350,7 @@ const MIDBOSS1_PHASES = [
         for (let i = balls.length - 1; i >= 0; i--) if (!balls[i].alive) balls.splice(i, 1);
         const want = 1 + Math.floor(f / 600);
         if (cool > 0) cool--;
-        else if (balls.length < want) { balls.push(riseFireball()); cool = 90; Sound.se('charge'); }
+        else if (balls.length < want) { balls.push(riseFireball()); cool = 90; Sound.se('appear'); } // 火の玉が出てくるときは「o」（2.17.0）
         yield;
       }
     },

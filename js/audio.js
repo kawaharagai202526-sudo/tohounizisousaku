@@ -1,7 +1,8 @@
 'use strict';
 // ============================================================
 //  サウンド：効果音シンセ と BGM シーケンサ（MML＋コード進行から自動伴奏）
-//  音声ファイルは使わず、すべて Web Audio でその場で合成する。
+//  ほとんどの音は Web Audio でその場で合成する。もらった音声ファイルの曲（js/bgmfiles.js）と、
+//  もらった音（audio/a-o の a〜o。js/sefiles.js）の効果音（SE_SAMPLE。2.17.0）だけは、埋めこんだ音をそのまま鳴らす。
 // ============================================================
 
 const Sound = {
@@ -15,7 +16,7 @@ const Sound = {
   bgmVolume: Store.get('bgmVol', 0.7),
   seVolume: Store.get('seVol', 0.7),
   muted: Store.get('muted', false),
-  pending: new Set(),
+  pending: new Map(), // このフレームに鳴らす効果音（名前 → オプション）
   song: null,
   songId: null,
   wantSong: null,
@@ -62,6 +63,7 @@ const Sound = {
       this.pulseWave = ctx.createPeriodicWave(re, im);
 
       this.applyVolume();
+      this.loadSeFiles();
       setInterval(() => this.schedule(), 40);
       document.addEventListener('visibilitychange', () => {
         if (!this.ctx) return;
@@ -92,22 +94,70 @@ const Sound = {
   },
 
   // ---------------- 効果音 ----------------
-  se(name) { this.pending.add(name); },
+  // name：SE_SAMPLE（もらった音）か SE_DEFS（合成音）の名前。opt.dur：その秒数で小さくして止める（チャージの音など）
+  se(name, opt = null) { if (opt || !this.pending.has(name)) this.pending.set(name, opt); },
   // 1フレームに同じ効果音は1回だけ鳴らす
   flush() {
     if (!this.ctx || this.ctx.state !== 'running') { this.pending.clear(); return; }
     const t = this.ctx.currentTime + 0.005;
-    for (const name of this.pending) {
-      const f = SE_DEFS[name];
-      if (!f) continue;
+    for (const [name, opt] of this.pending) {
       const gap = SE_GAP[name] || 0;
       if (gap && t - (this.lastPlayed[name] || 0) < gap) continue;
+      const smp = SE_SAMPLE[name];
+      if (smp && this.seBuf[smp[0]]) {
+        this.lastPlayed[name] = t;
+        this.playSample(name, smp, t, opt);
+        continue;
+      }
+      // もらった音がまだデコードできていないとき（読みこんだ直後など）は、前の合成音で代わりに鳴らす
+      const f = SE_DEFS[smp ? SE_FALLBACK[name] || name : name];
+      if (!f) continue;
       this.lastPlayed[name] = t;
       f(this, t, this.seBus);
     }
     this.pending.clear();
   },
   lastPlayed: {},
+  seBuf: {},    // もらった音をデコードしたもの（文字 → AudioBuffer）
+  seVoices: {}, // 鳴っているもらった音（名前 → [{ src, g, end }]）。SE_SAMPLE の数より多くは重ねない
+
+  // もらった音（SE_FILES）をデコードしておく（最初に音を出せるようになったとき。数十ミリ秒で終わる）
+  loadSeFiles() {
+    if (typeof SE_FILES === 'undefined') return;
+    for (const [k, f] of Object.entries(SE_FILES)) {
+      const bin = atob(f.data), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      this.ctx.decodeAudioData(bytes.buffer, buf => { this.seBuf[k] = trimSilence(this.ctx, buf); }, () => {});
+    }
+  },
+  playSample(name, [k, vol, max], t, opt) {
+    const ctx = this.ctx, buf = this.seBuf[k];
+    const voices = this.seVoices[name] || (this.seVoices[name] = []);
+    for (let i = voices.length - 1; i >= 0; i--) if (voices[i].end <= t) voices.splice(i, 1);
+    // 重ねられる数をこえたら、いちばん古い音をすぐ小さくして止める
+    while (voices.length >= max) {
+      const v = voices.shift();
+      v.g.gain.cancelScheduledValues(t);
+      v.g.gain.setTargetAtTime(0, t, 0.012);
+      v.src.stop(t + 0.08);
+    }
+    const level = vol * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(level, t);
+    src.connect(g);
+    g.connect(this.seBus);
+    src.start(t);
+    let end = t + buf.duration;
+    if (opt && opt.dur && opt.dur < buf.duration) {
+      g.gain.setValueAtTime(level, t + opt.dur);
+      g.gain.linearRampToValueAtTime(0, t + opt.dur + 0.08);
+      src.stop(t + opt.dur + 0.1);
+      end = t + opt.dur + 0.1;
+    }
+    voices.push({ src, g, end });
+  },
 
   osc(type, f0, f1, t, dur, vol, dest, attack = 0.003) {
     const ctx = this.ctx;
@@ -269,15 +319,62 @@ function makeLoopBuffer(ctx, buf, f) {
   return out;
 }
 
+// 効果音の前後の無音を切る（AAC は始まりに少し無音が入ることがあるので、鳴らしたときに遅れないように）
+function trimSilence(ctx, buf, th = 0.002) {
+  const chs = Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c));
+  const loud = i => chs.some(ch => Math.abs(ch[i]) > th);
+  let a = 0, b = buf.length;
+  while (a < b && !loud(a)) a++;
+  while (b > a && !loud(b - 1)) b--;
+  if (b - a < 64 || (a === 0 && b === buf.length)) return buf;
+  const out = ctx.createBuffer(chs.length, b - a, buf.sampleRate);
+  chs.forEach((ch, c) => out.getChannelData(c).set(ch.subarray(a, b)));
+  return out;
+}
+
+// ------------------------------------------------------------
+//  もらった音（audio/a-o の a〜o。js/sefiles.js）で鳴らす効果音（2.17.0 でユーザーの指定）
+//  名前: [音の文字, 大きさ, 重ねて鳴らせる数]。大きさは、いちばん大きいところの 50ms の音量（行の終わりの dB）で決めた。
+//  前の合成音の音量（弾 -33・スペル宣言 -28・被弾 -27・ボム -13・ボス撃破 -11dB など）と同じくらいか、少し大きめ。
+//  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)
+//  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
+// ------------------------------------------------------------
+const SE_SAMPLE = {
+  fire:       ['m', 0.126, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）（-32dB）
+  needle:     ['n', 0.126, 3], // 針のような細い弾を撃つ（3面・エキストラ）（-32dB）
+  oni:        ['k', 0.178, 2], // 1面：鬼面の弾を撃つ（-29dB）
+  burst:      ['k', 0.251, 2], // 6面：手鞠がはじける・集めた弾が散らばる（-26dB）
+  appear:     ['o', 0.158, 3], // 出てくる（火の玉・しっぽ・瞬間移動・弾を撃つ影や板や家・黄色の球など）（-30dB）
+  charge:     ['c', 0.224, 1], // チャージ（6面）・1面「鬼の視線」のレーザーの点滅（-27dB）
+  powerup:    ['c', 0.158, 1], // パワーアップ（-30dB）
+  laserHand:  ['h', 0.158, 3], // 手・柱のレーザー（-30dB）
+  laserBoss4: ['f', 0.178, 2], // 4面のボス（栂尾）のレーザー（-29dB）
+  summon:     ['g', 0.200, 2], // 4面「百間継ぎの建て増し」の四角が建つ（-28dB）
+  bonus:      ['a', 0.251, 1], // ボーナス（スペルカード取得・面のクリア）（-26dB）
+  spell:      ['b', 0.316, 1], // スペルカードの宣言（-24dB）
+  bossdie:    ['d', 1.000, 1], // ボスを倒した（エキストラで栂尾が撃ち落とされたときも。逃げていく中ボスは鳴らさない）（-14dB）
+  extend:     ['e', 0.200, 1], // 1UP（-28dB）
+  bomb:       ['i', 0.794, 2], // ボム（-16dB）
+  pichuun:    ['j', 0.398, 1], // 被弾（-22dB）
+};
+// もらった音がまだデコードできていないときに、代わりに鳴らす合成音（書いていない名前は、同じ名前の合成音）
+const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', summon: 'kira' };
+
 // ------------------------------------------------------------
 //  効果音定義
 // ------------------------------------------------------------
 // 連続で鳴りやすい音の最短間隔（秒）
-const SE_GAP = { tan: 0.05, hit: 0.06, graze: 0.035, shot: 0.07, item: 0.03, kill: 0.03, kira: 0.08 };
+const SE_GAP = {
+  tan: 0.05, hit: 0.06, graze: 0.035, shot: 0.07, item: 0.03, kill: 0.03, kira: 0.08,
+  fire: 0.07, needle: 0.06, oni: 0.08, burst: 0.08, appear: 0.06, laserHand: 0.08, laserBoss4: 0.08, summon: 0.05, temari: 0.05,
+};
 
 const SE_DEFS = {
   shot: (S, t, d) => S.noise(t, 0.04, 0.035, d, 'highpass', 5000),
+  // 前の弾の音。2.17.0 からは、もらった音がデコードできていないときの代わりにだけ使う
   tan: (S, t, d) => { S.osc('sine', 1500, 520, t, 0.07, 0.09, d); S.noise(t, 0.03, 0.04, d, 'bandpass', 3200, 0, 1); },
+  // 手鞠（6面）：前の弾の音「ピヨン」を大きくしたもの（2.17.0 でユーザーの指定）
+  temari: (S, t, d) => { S.osc('sine', 1500, 520, t, 0.08, 0.2, d); S.noise(t, 0.03, 0.085, d, 'bandpass', 3200, 0, 1); },
   hit: (S, t, d) => S.noise(t, 0.045, 0.06, d, 'bandpass', 1700, 0, 0.9),
   kill: (S, t, d) => { S.noise(t, 0.3, 0.2, d, 'lowpass', 3500, 180); S.osc('square', 520, 80, t, 0.18, 0.05, d); },
   graze: (S, t, d) => { S.noise(t, 0.035, 0.09, d, 'highpass', 7000); S.osc('triangle', 3300, 2500, t, 0.03, 0.03, d); },

@@ -62,7 +62,7 @@ const YANARI_MID_PHASES = [
             script: function* (bl) { const a0 = bl.angle; for (;;) { yield 8; bl.angle = a0 + rand(-0.35, 0.35); } },
           });
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(40, 32, 26, 20);
         if (loop % 4 === 3) b.wander(50, 60);
       }
@@ -91,7 +91,7 @@ const YANARI_PHASES = [
           const x = pick(pillars), y = rand(60, FIELD_H - 140);
           const a = aimAt(x, y) + rand(-1.2, 1.2);
           for (let i = 0; i < dv(3, 3, 4, 5); i++) fire({ x, y, angle: a, speed: 1.2 + i * 0.35, type: 'rubble', color: 'brown', delay: 14, silent: true });
-          if (f % 32 === 0) Sound.se('tan');
+          if (f % 32 === 0) Sound.se('fire'); // ボスから出ていない弾も「m」（2.17.0 でユーザーの指定の例外：1回目の通常弾）
         }
         yield;
       }
@@ -117,7 +117,7 @@ const YANARI_PHASES = [
             for (let i = 0; i < dv(3, 4, 5, 5); i++) fire({ x, y, angle: a, speed: 1.0 + i * 0.3, type: 'rubble', color: i % 2 ? 'brown' : 'orange', delay: 12, silent: true });
           }
         }
-        Sound.se('tan');
+        Sound.se('fire'); // ボスから出ていない弾も「m」（2.17.0 でユーザーの指定の例外）
         yield dv(80, 70, 56, 46);
       }
     },
@@ -131,7 +131,7 @@ const YANARI_PHASES = [
         for (const side of [-1, 1]) {
           const x = FIELD_W / 2 + side * rand(110, 160);
           spawnEnemy({
-            x, y: -10, kind: 'kobun', color: 'purple', hp: 18, r: 10, score: 2000, drops: { point: 1 },
+            x, y: -10, kind: 'kobun', color: 'purple', hp: 18, r: 10, score: 2000, drops: { point: 1 }, quiet: false, // 子分（ちっちゃい鬼）の弾は「m」（2.17.0）
             script: function* (e) {
               yield* e.moveTo(x, rand(90, 170), 40);
               for (let k = 0; k < dv(3, 4, 5, 6); k++) {
@@ -142,7 +142,7 @@ const YANARI_PHASES = [
             },
           });
         }
-        fireRing({ x: b.x, y: b.y, n: dv(10, 12, 16, 20), angle: rand(TAU), speed: 1.5, type: 'kobun', color: 'purple', silent: true });
+        fireRing({ x: b.x, y: b.y, n: dv(10, 12, 16, 20), angle: rand(TAU), speed: 1.5, type: 'kobun', color: 'purple' });
         yield dv(150, 130, 110, 100);
       }
     },
@@ -168,7 +168,7 @@ const YANARI_PHASES = [
             },
           });
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(50, 42, 34, 28);
         if (loop % 4 === 3) b.wander(50, 50);
       }
@@ -180,7 +180,7 @@ const YANARI_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 80, 40);
       for (let f = 0; ; f++) {
-        if (f % 8 === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.3, 1.3), speed: rand(0.4, 0.9), type: 'ball', color: 'soot', scale: 1.8, hitR: 6, life: 420, silent: true });
+        if (f % 8 === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.3, 1.3), speed: rand(0.4, 0.9), type: 'ball', color: 'soot', scale: 1.8, hitR: 6, life: 420, silent: f % 24 !== 0 });
         if (f % dv(50, 44, 36, 30) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.7, angle: b.aim(), speed: 2.3, type: 'rubble', color: 'orange' });
         yield;
       }
@@ -197,14 +197,14 @@ const YANARI_PHASES = [
         for (let i = 0; i < dv(5, 6, 7, 8); i++) {
           const x = rand(24, FIELD_W - 24), land = rand(230, FIELD_H - 30);
           spawnEnemy({
-            x, y: -12 - rand(0, 40), kind: 'kobun', color: i % 2 ? 'purple' : 'red', hp: 14, r: 10, score: 2000, drops: { point: 1 },
+            x, y: -12 - rand(0, 40), kind: 'kobun', color: i % 2 ? 'purple' : 'red', hp: 14, r: 10, score: 2000, drops: { point: 1 }, quiet: false, // 子分の弾は「m」（2.17.0）
             script: function* (e) {
               let vy = 0.5;
               while (e.y < land) { e.y += vy; vy = Math.min(vy + 0.06, 4); yield; }
               // その場で跳ねながら小弾を撒く
               for (let k = 0; k < 4; k++) {
                 for (let j = 0; j < 20; j++) { e.y = land - Math.sin((j / 20) * Math.PI) * 18; yield; }
-                fireRing({ x: e.x, y: e.y, n: dv(3, 4, 5, 5), angle: rand(TAU), speed: 1.3, type: 'small', color: 'purple', silent: true });
+                fireRing({ x: e.x, y: e.y, n: dv(3, 4, 5, 5), angle: rand(TAU), speed: 1.3, type: 'small', color: 'purple' });
                 yield 16;
               }
               e.setMove(1.2, -Math.PI / 2);
@@ -293,7 +293,7 @@ const YANARI_PHASES = [
             script: function* (bl) {
               yield 18;
               fireRing({ x: bl.x, y: bl.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: 1.4, type: 'rubble', color: 'brown', silent: true });
-              Sound.se('tan');
+              Sound.se('fire'); // ボスから出ていない弾も「m」（2.17.0 でユーザーの指定の例外）
               bl.alive = false;
             },
           });
@@ -301,7 +301,7 @@ const YANARI_PHASES = [
         // 逃げ道を塞ぐ弾
         if (f % dv(26, 22, 18, 15) === 0) {
           const a = b.aim() + rand(-0.8, 0.8);
-          fire({ x: b.x, y: b.y, angle: a, speed: dv(1.6, 1.8, 2.0, 2.2), type: 'ball', color: 'purple', silent: true });
+          fire({ x: b.x, y: b.y, angle: a, speed: dv(1.6, 1.8, 2.0, 2.2), type: 'ball', color: 'purple' });
         }
         if (f % 120 === 60) b.wander(60, 60);
         yield;

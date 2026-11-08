@@ -17,6 +17,7 @@ const NAMESAWA_MID_PHASES = [
         for (let i = 0; i < 12; i++) { b.alpha = 1 - i / 12; yield; }
         b.x = rand(80, FIELD_W - 80);
         b.y = rand(70, 140);
+        Sound.se('appear'); // 瞬間移動は「o」（2.17.0 でユーザーの指定）
         for (let i = 0; i < 12; i++) { b.alpha = i / 12; yield; }
         b.alpha = 1;
         const n = dv(12, 16, 22, 28), off = rand(TAU);
@@ -48,12 +49,12 @@ const NAMESAWA_MID_PHASES = [
               bl.setColor('yellow');
               yield 20;
               const a = aimAt(bl.x, bl.y);
-              for (let k = 0; k < dv(1, 2, 3, 3); k++) fire({ x: bl.x, y: bl.y, angle: a, speed: 3.0 + k * 0.4, type: 'needle', color: 'yellow', silent: k > 0 });
+              for (let k = 0; k < dv(1, 2, 3, 3); k++) fire({ x: bl.x, y: bl.y, angle: a, speed: 3.0 + k * 0.4, type: 'needle', color: 'yellow', silent: k > 0, se: 'needle' }); // 針のような弾は「n」（2.17.0）
               bl.setColor('green');
             } : null,
           });
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(70, 60, 50, 42);
         if (loop % 3 === 2) b.wander(50, 40);
       }
@@ -83,7 +84,7 @@ const NAMESAWA_PHASES = [
             script: function* (bl) { yield 40; bl.angle = rand(TAU); bl.accel = 0.015; bl.maxSpeed = dv(0.9, 1.1, 1.3, 1.5); },
           });
         }
-        Sound.se('kira');
+        Sound.se('appear'); // ボスから出ていない小弾が現れるときは「o」（2.17.0 でユーザーの指定。前は「キラ」）
         yield 30;
         fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'cup', color: 'blue' });
         yield dv(70, 60, 48, 40);
@@ -108,9 +109,10 @@ const NAMESAWA_PHASES = [
             y = near ? G.player.y + rand(-80, -30) : rand(20, FIELD_H - 60);
             tries++;
           } while (dist(x, y, G.player.x, G.player.y) < (near ? 46 : 80) && tries < 20);
-          const a = aimAt(x, y) + rand(-0.5, 0.5);
+          const a = aimAt(x, y) + rand(-0.5, 0.5), first = i === 0;
+          // 透けた弾が実体になって動き出す（発射される）ときに「m」（2.17.0 でユーザーの指定。1回に1つだけ鳴らす）
           fire({ x: clamp(x, 10, FIELD_W - 10), y: clamp(y, 10, FIELD_H - 10), angle: a, speed: 0, type: 'ball', color: loop % 2 ? 'purple' : 'blue', delay: ghost, silent: true,
-            script: function* (bl) { yield ghost; bl.accel = 0.03; bl.maxSpeed = dv(1.2, 1.4, 1.7, 2.0); } });
+            script: function* (bl) { yield ghost; if (first) Sound.se('fire'); bl.accel = 0.03; bl.maxSpeed = dv(1.2, 1.4, 1.7, 2.0); } });
         }
         Sound.se('kira');
         yield dv(80, 70, 56, 48);
@@ -129,9 +131,9 @@ const NAMESAWA_PHASES = [
         b.move(tx, rand(85, 105), 40, Ease.inOutQuad);
         for (let f = 0; f < 40; f++) {
           if (f % dv(5, 4, 3, 3) === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.2, 1.2), speed: rand(1.4, 2.4), type: 'card', color: pick(['red', 'blue']), silent: true });
+          if (f % 12 === 0) Sound.se('fire');
           yield;
         }
-        Sound.se('tan');
         fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2.2, type: 'card', color: 'white' });
         yield dv(30, 24, 18, 14);
       }
@@ -160,7 +162,7 @@ const NAMESAWA_PHASES = [
             behave(bl, f);
             cards.push(bl);
           }
-          if (f % 28 === 0) Sound.se('tan');
+          if (f % 28 === 0) Sound.se('fire');
         }
         const period = dv(240, 210, 170, 140);
         if (f % period === period - 30) {
@@ -190,6 +192,7 @@ const NAMESAWA_PHASES = [
       for (let loop = 0; ; loop++) {
         const shadows = [[60, 150], [FIELD_W - 60, 150]];
         for (const [sx, sy] of shadows) fire({ x: sx, y: sy, speed: 0, type: 'large', color: 'dark', delay: 30, life: 120, silent: true });
+        Sound.se('appear'); // 弾を撃つ影（空間）が現れるときは「o」（2.17.0 でユーザーの指定）
         yield 30;
         for (let k = 0; k < dv(4, 5, 6, 7); k++) {
           const tx = G.player.x, ty = G.player.y;
@@ -197,7 +200,7 @@ const NAMESAWA_PHASES = [
             const a = angleTo(sx, sy, tx, ty);
             for (const s of [-1, 1]) fire({ x: sx, y: sy, angle: a + s * dv(0.35, 0.3, 0.26, 0.22), speed: 2.0, type: 'rice', color: 'purple', silent: true });
           }
-          Sound.se('tan');
+          Sound.se('fire');
           yield dv(18, 15, 12, 10);
         }
         yield dv(60, 50, 40, 34);
@@ -246,7 +249,7 @@ const NAMESAWA_PHASES = [
         }
         Sound.se('kira');
         for (let f = 0; f < 70; f++) {
-          if (f % dv(14, 12, 10, 8) === 0) fire({ x: b.x, y: b.y, angle: b.aim() + rand(-0.6, 0.6), speed: 1.8, type: 'small', color: 'white', silent: true });
+          if (f % dv(14, 12, 10, 8) === 0) fire({ x: b.x, y: b.y, angle: b.aim() + rand(-0.6, 0.6), speed: 1.8, type: 'small', color: 'white' });
           yield;
         }
       }
@@ -265,7 +268,8 @@ function laserFairy(x, stopY) {
     script: function* (e) {
       yield* e.moveTo(x, stopY, 50);
       for (let k = 0; k < dv(1, 2, 2, 3); k++) {
-        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 12, warn: 45, dur: 30, color: 'purple', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
+        // 手のレーザーは「h」（2.17.0 でユーザーの指定。3面からは一つ目の手の絵）
+        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 12, warn: 45, dur: 30, color: 'purple', sound: 'laserHand', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
         yield 90;
       }
       e.setMove(0, -Math.PI / 2, 0.06);

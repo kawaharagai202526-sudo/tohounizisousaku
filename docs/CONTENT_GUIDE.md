@@ -228,6 +228,23 @@ js/extra.js の `setKyou(g, 方角, { next, power })` で凶方を決める。�
   （例：6面ボス `boss6` は Lunatic のとき `boss6lunatic`）。ミュージックルームでは選ばれないので、両方を `MUSIC_ROOM` に入れる
 - ミュージックルームの並びは `MUSIC_ROOM`
 
+## 効果音
+
+- 2.17.0 から、効果音の多くは、ユーザーがくれた音（`audio/a-o` の a〜o。一覧は `audio/README.md`）をそのまま鳴らす。
+  ほかの音（グレイズ・アイテム・敵を倒した音・メニューの音など）は、前のとおり `js/audio.js` の `SE_DEFS` で合成する
+- どの場面でどの音を鳴らすか：コードでは名前で `Sound.se('名前')` と書き、名前と音の文字の対応は `js/audio.js` の `SE_SAMPLE`
+  （`名前: [音の文字, 大きさ, 重ねて鳴らせる数]`）。たとえば「弾を撃つ音を o にする」なら `fire: ['o', …]` にするだけ。
+  いまの対応：`fire`（弾）m、`needle`（針）n、`oni`（1面の鬼面）k、`burst`（6面の弾ける・散らばる）k、`appear`（出てくる）o、
+  `charge`（チャージ・1面のレーザーの点滅）と `powerup` c、`laserHand`（手・柱のレーザー）h、`laserBoss4`（4面のボスのレーザー）f、
+  `summon`（4面の四角）g、`bonus` a、`spell` b、`bossdie` d、`extend` e、`bomb` i、`pichuun` j
+- 大きさは、いちばん大きいところの 50ms の音量（dB）で決めてある（`SE_SAMPLE` の行の終わり）。音は `js/sefiles.js` の `norm` で
+  -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。同じ音は1フレームに1回、`SE_GAP` の秒数より短い間隔では鳴らさない
+- 弾の音：`fire()` はふつう `fire`（m）を鳴らす。`se: '名前'` で音を選び、`silent: true` で鳴らさない（同時に撃つ弾は1つだけ鳴らす）。
+  弱くて数の多いザコ（体力が `QUIET_HP`＝18 より少ない。js/enemies.js）が撃つ弾は鳴らさない（`spawnEnemy` の `quiet` で決めることもできる）
+- レーザーの音：`fireLaser` の `sound`（光るとき。書かなければ合成音の `'laser'`）と `warnSound`（予告の線が出たとき）
+- 音を差しかえたら `node tools/embed-se.js` で `js/sefiles.js` を作り直す（ffmpeg でモノラルの AAC にして埋めこむ。使わない文字は入れない）。
+  もらった音がまだデコードできていないあいだは、`SE_FALLBACK` の合成音で代わりに鳴らす
+
 ## 古い内容を消すとき
 
 - 使わなくなったキャラクターは `CHARA_INFO`・`CHARA`・`IMAGE_FILES` と `img/` の画像を消す

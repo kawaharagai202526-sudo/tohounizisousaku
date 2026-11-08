@@ -3,7 +3,7 @@
 東方Projectの二次創作弾幕シューティングゲームです。ブラウザだけで動きます。
 
 > 本作品は上海アリス幻樂団「東方Project」の二次創作です。公式とは関係ありません。
-> 音楽・効果音と、`img/` 以外の絵はすべてこのリポジトリ内のコードで生成しています。
+> 音楽・効果音と、`img/` 以外の絵は、ほとんどこのリポジトリ内のコードで生成しています（一部の曲と、効果音の多くは、用意した音声をそのまま鳴らしています）。
 
 ## あそびかた
 
@@ -102,6 +102,8 @@ node tools/test.js --dist   # 1ファイル版を対象にする
   - 1〜6面の道中と6面ボスの曲は、もらった音声ファイルをそのまま流しています（`js/bgmfiles.js`。途切れずにループします）
   - 4面ボス・5面ボスの曲は、選んだ曲をつなぎ、調とテンポのつなぎ目をそろえてループするようにしたアレンジです
   - 6面ボスの曲は、Lunatic のときだけちがう曲になります
+- 効果音（弾を撃つ音・スペルカードの宣言・ボム・被弾など）は、用意した音（`audio/a-o` の a〜o）を鳴らしています。
+  弱くて数の多い敵の弾は音を出しません
 - ハイスコアとスペルカード履歴はブラウザに保存されます
 - タイトルの「フィードバック」を選ぶと、開発者の Google フォームが新しいタブで開きます。
   フォームに開発者へのアドバイス・感想を書いて「送信」を押すと届きます（だれでも送れます。インターネットにつながっている必要があります）
@@ -116,7 +118,9 @@ img/              差し替え用の画像（自機・ザコ・中ボス・ボ�
 js/util.js        定数・乱数・コルーチン（TaskRunner）などの共通処理
 js/images.js      img/ の画像の読み込み
 js/input.js       キーボード・タッチ・ゲームパッド入力
-js/audio.js       効果音シンセ、BGMシーケンサ、MMLパーサ
+js/audio.js       効果音（どの場面でどの音を鳴らすかの SE_SAMPLE と合成音）、BGMシーケンサ、MMLパーサ
+js/bgmfiles.js    音声ファイルの曲（tools/embed-audio.js で作る）
+js/sefiles.js     効果音にする音 a〜o（tools/embed-se.js で audio/a-o から作る）
 js/music.js       BGMデータ（MMLのメロディ＋コード進行）
 js/sprites.js     弾・アイテムの絵
 js/characters.js  キャラクターの名前と絵（画像のないキャラクターはキャンバスで描画）
@@ -138,9 +142,12 @@ js/cheats.js      管理者ページから使う機能
 js/main.js        起動とメインループ
 js/admin.js       管理者ページ（画面左上の隠しボタンから開く）
 tools/build-single.js  1ファイル版を作る
+tools/embed-audio.js   音声ファイルの曲を js/bgmfiles.js に入れる
+tools/embed-se.js      audio/a-o の音を効果音として js/sefiles.js に入れる
 tools/test.js     自動テスト
 tools/make-sprite.py  キャラクターの画像から原画とドット絵を作る（Python）
 docs/CONTENT_GUIDE.md 差し替えガイド
+audio/            効果音などの音声の素材（ゲームは直接読まない。一覧は audio/README.md）
 ```
 
 ## 改造するには
@@ -186,6 +193,8 @@ docs/CONTENT_GUIDE.md 差し替えガイド
   - 曲の途中でテンポやドラムを変えるときは `parts`。もらった音から曲データを作る道具は `tools/song-from-audio`（使い方はその中の README）
   - 音声ファイル（MP3 など）をそのまま曲にするときは `node tools/embed-audio.js 曲ID ファイル [ループの終わりの秒]` で
     `js/bgmfiles.js` に入れ、`SONGS` に `{ title, comment, audio: '曲ID' }` と書く
+- 効果音の音を入れかえるときは、`audio/a-o` の音を差しかえて `node tools/embed-se.js`。
+  どの場面でどの音を鳴らすか・音の大きさは `js/audio.js` の `SE_SAMPLE`（くわしくは `docs/CONTENT_GUIDE.md` の「効果音」）
 
 ## ライセンス・ガイドライン
 

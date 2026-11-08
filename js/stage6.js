@@ -2,8 +2,18 @@
 // ============================================================
 //  6面：瓦礫の空 ― 中ボス：家鳴 鳴音（名前は出さない）／ボス：座敷 宿美（座敷わらし）
 //  崩れた屋敷のがれきが浮かぶ、夜明け前の空（背景 RubbleSkyBG）
-//  道中の敵はほかの面と共通のもの（js/stage1.js・stage3.js・stage4.js）も使う
+//  道中の敵はほかの面と共通のもの（js/stage1.js・stage4.js）も使う
+//  中ボスを倒すと、すぐボス戦になる（2.17.0 でユーザーの指定「中ボスを倒すと、即6面戦開始」。前は中ボスのあとにも道中があった）
 // ============================================================
+
+// チャージの演出（2.17.0 でユーザーの指定で足した）：まわりから光の粒が集まり、輪が縮んでいく。毎フレーム呼ぶ（f はチャージを始めてからのフレーム）
+// チャージは CHARGE_FRAMES フレーム。音「c」はその長さで止め、終わったら「k」で弾けさせる
+const CHARGE_FRAMES = 60;
+function chargeFx(x, y, color, size, f) {
+  Fx.charge(x, y, color, size, f % 2 ? 1 : 2);
+  if (f % 12 === 0) Fx.ring(x, y, color, 36 * size, -1.4 * size, 24, 2);
+  if (f % 6 === 0) Fx.flash(x, y, color, (8 + f * 0.25) * size, 10);
+}
 
 // ------------------------------------------------------------
 //  座敷 宿美の攻撃の部品（最後のスペル「座敷童子のいる家」でも重ねて使う）
@@ -43,7 +53,7 @@ function* footsteps(b, o = {}) {
       x: px, y: py, angle: dir, speed: 0, type: 'foot', color: o.color || 'pink', delay: glow, silent: true,
       script: function* (bl) { yield 20; bl.speed = 0.2; bl.accel = 0.03; bl.maxSpeed = dv(1.3, 1.5, 1.8, 2.0); },
     });
-    if (s % 4 === 0) Sound.se('tan');
+    if (s % 4 === 0) Sound.se('fire'); // 足跡の弾は「m」（2.17.0 でユーザーの指定）
     yield o.interval ?? dv(14, 12, 11, 10);
   }
 }
@@ -72,7 +82,10 @@ function* attraction(b, o = {}) {
     }
     Sound.se('kira');
     yield o.gather ?? dv(180, 170, 150, 130);
-    // 花のように開く
+    // 集めたあとのチャージ（2.17.0 でユーザーの指定で足した。音は「c」）：ボスのまわりに光の粒が集まる
+    Sound.se('charge', { dur: CHARGE_FRAMES / 60 });
+    for (let f = 0; f < CHARGE_FRAMES; f++) { chargeFx(b.x, b.y, 'rgba(255,220,120,0.9)', 1.5, f); yield; }
+    // 花のように開く（散らばるときは「k」）
     for (const bl of pulled) if (bl.alive) { bl.script = null; bl.angle = angleTo(b.x, b.y, bl.x, bl.y) + rand(-0.3, 0.3); bl.speed = 0.5; bl.accel = 0.03; bl.maxSpeed = 2.0; }
     const petals = dv(5, 5, 6, 7);
     for (let ring = 0; ring < (DIFF >= 2 ? 2 : 1); ring++) {
@@ -83,7 +96,7 @@ function* attraction(b, o = {}) {
         }
       }
     }
-    Sound.se('tan');
+    Sound.se('burst');
     yield o.rest ?? 60;
   }
 }
@@ -91,7 +104,7 @@ function* attraction(b, o = {}) {
 // 小判：円形に広げる
 function kobanRing(b, n, speed, color = 'gold') {
   fireRing({ x: b.x, y: b.y, n, angle: rand(TAU), speed, type: 'koban', color, silent: true });
-  Sound.se('tan');
+  Sound.se('fire');
 }
 
 // ------------------------------------------------------------
@@ -109,6 +122,7 @@ const YANARI6_PHASES = [
         else {
           const n = dv(8, 10, 12, 16), off = rand(TAU);
           for (let i = 0; i < n; i++) fire({ x: b.x, y: b.y, angle: off + (i * TAU) / n, speed: 2.0, type: 'rice', color: 'white', silent: true, script: creakScript(beat % 4 === 1 ? 0.3 : -0.3, 4) });
+          Sound.se('fire');
         }
         if (beat % 8 === 7) b.wander(50, 60);
         yield 26;
@@ -140,7 +154,7 @@ const YANARI6_PHASES = [
             },
           });
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(46, 38, 30, 25);
       }
     },
@@ -161,7 +175,7 @@ const ZASHIKI_PHASES = [
       for (let loop = 0; ; loop++) {
         // 手鞠の数は 2.14.0 でユーザーの指定「通常弾（お手玉）の数を2/3にする」で 3/4/5/6 → 2/3/3/4 にした
         for (let i = 0; i < Math.round((dv(3, 4, 5, 6) * 2) / 3); i++) temari(b.x, b.y, rand(-2.2, 2.2), rand(-3.2, -1.6), { color: pick(['red', 'pink', 'orange']) });
-        Sound.se('tan');
+        Sound.se('temari'); // 手鞠は前の「ピヨン」という音を大きくしたもの（2.17.0 でユーザーの指定）
         if (loop % 2) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.2, type: 'small', color: 'pink' });
         yield dv(40, 34, 28, 24);
         if (loop % 4 === 3) b.wander(50, 50);
@@ -182,17 +196,28 @@ const ZASHIKI_PHASES = [
           Fx.text(b.x, b.y - 30, COUNT[c], '#ffd0e0', 13, 50);
           const a = rand(TAU);
           balls.push(temari(b.x, b.y, Math.cos(a) * sp, Math.sin(a) * sp, { gravity: 0, bounces: 9999, ceiling: true, color: c % 2 ? 'pink' : 'red' }));
-          Sound.se('kira');
+          Sound.se('temari');
           yield dv(36, 32, 28, 24);
         }
         yield 20;
-        // 「とお」で弾ける。2.14.0 でユーザーの指定により、弾ける弾を2倍にし、速さを 1/1.5 にした（前は 5/6/8/10 個・速さ 1.4）
+        // 弾ける前のチャージ（2.17.0 でユーザーの指定で足した。音は「c」）：手鞠がゆっくり止まり、まわりから光の粒が集まる
+        Sound.se('charge', { dur: CHARGE_FRAMES / 60 });
+        for (let f = 0; f < CHARGE_FRAMES; f++) {
+          for (const bl of balls) {
+            if (!bl.alive) continue;
+            bl.evx *= 0.88;
+            bl.evy *= 0.88;
+            chargeFx(bl.x, bl.y, 'rgba(255,170,210,0.9)', 0.7, f);
+          }
+          yield;
+        }
+        // 「とお」で弾ける（音は「k」）。2.14.0 でユーザーの指定により、弾ける弾を2倍にし、速さを 1/1.5 にした（前は 5/6/8/10 個・速さ 1.4）
         for (const bl of balls) {
           if (!bl.alive) continue;
           fireRing({ x: bl.x, y: bl.y, n: dv(5, 6, 8, 10) * 2, angle: rand(TAU), speed: 1.4 / 1.5, type: 'small', color: 'pink', silent: true });
           bl.alive = false;
         }
-        Sound.se('tan');
+        Sound.se('burst');
         yield 60;
       }
     },
@@ -231,10 +256,11 @@ const ZASHIKI_PHASES = [
     *script(b) {
       for (let loop = 0; ; loop++) {
         b.move(rand(60, FIELD_W - 60), rand(60, 160), 90, Ease.linear);
+        const iv = dv(10, 9, 8, 7);
         for (let f = 0; f < 90; f++) {
-          if (f % dv(10, 9, 8, 7) === 0) {
+          if (f % iv === 0) {
             const a = angleTo(b.prevX, b.y, b.x, b.y);
-            fire({ x: b.x + (f % 20 < 10 ? -5 : 5), y: b.y + 12, angle: Math.PI / 2 + rand(-0.4, 0.4), speed: 0, type: 'foot', color: 'pink', silent: true,
+            fire({ x: b.x + (f % 20 < 10 ? -5 : 5), y: b.y + 12, angle: Math.PI / 2 + rand(-0.4, 0.4), speed: 0, type: 'foot', color: 'pink', silent: f % (iv * 3) !== 0,
               script: function* (bl) { yield 40; bl.accel = 0.02; bl.maxSpeed = dv(1.2, 1.4, 1.7, 1.9); } });
           }
           yield;
@@ -265,7 +291,7 @@ const ZASHIKI_PHASES = [
             fire({ x: b.x, y: b.y, angle: a, speed: 1.3 + (2 - Math.abs(k - 2)) * 0.3, accel: -0.01, minSpeed: 1.1, angVel: (loop % 2 ? 1 : -1) * 0.004, type: 'ball', color: 'gold', silent: true });
           }
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(64, 56, 48, 42);
       }
     },
@@ -309,11 +335,12 @@ const ZASHIKI_PHASES = [
         });
         b.disguise = true;
         b.alpha = 1;
+        Sound.se('appear'); // 弾を放つ家（隠れ場所）が出てくるときは「o」（2.17.0 でユーザーの指定）
         for (let f = 0; f < dv(220, 200, 180, 160); f++) {
           if (f % dv(30, 26, 20, 16) === 10) {
             fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 2.0, type: 'temari', color: 'red' });
           }
-          if (f % 60 === 40) fireRing({ x: b.x, y: b.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: 1.3, type: 'small', color: 'pink', silent: true });
+          if (f % 60 === 40) fireRing({ x: b.x, y: b.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: 1.3, type: 'small', color: 'pink' }); // 家が弾を放つときは「m」
           yield;
         }
       }
@@ -357,6 +384,7 @@ const ZASHIKI_PHASES = [
       b.tasks.add((function* () {
         for (;;) {
           temari(b.x, b.y, rand(-2.2, 2.2), rand(-3.0, -1.6), { color: pick(['red', 'pink']) });
+          Sound.se('temari');
           yield dv(34, 28, 24, 20);
         }
       })());
@@ -368,7 +396,7 @@ const ZASHIKI_PHASES = [
       b.tasks.add((function* () {
         for (let k = 0; ; k++) {
           fireFan({ x: b.x, y: b.y, n: dv(9, 11, 13, 15), spread: 1.7, angle: Math.PI / 2 + (k % 2 ? 0.3 : -0.3), speed: dv(1.4, 1.5, 1.7, 1.9), type: 'small', color: 'gold', silent: true });
-          Sound.se('tan');
+          Sound.se('fire');
           yield dv(64, 58, 50, 44);
         }
       })());
@@ -452,30 +480,7 @@ STAGES.push({
     if (mid.hp <= 0) dropItems(mid.x, mid.y, { power: 6, point: 10, bomb: 1 });
     if (STORY.stage6mid[g.charId].after.length) yield* g.talk(STORY.stage6mid[g.charId].after);
     yield* g.bossDown(mid, true);
-    yield 60;
-
-    // 後半：大妖精 → 鈴の妖精とうずまき → レーザー → 大群 → 一列の妖精
-    splitterFairy(110);
-    yield 40;
-    splitterFairy(274);
-    yield 200;
-    for (let k = 0; k < 3; k++) { bellFairy(rand(60, FIELD_W - 60), 80 + k * 20); yield 70; }
-    g.tasks.add(swirlWave(-1, 10));
-    g.tasks.add(swirlWave(1, 10));
-    yield 200;
-    [70, 314].forEach(x => laserFairy(x, 110));
-    yield 120;
-    g.tasks.add(tileShower(480, dv(30, 44, 60, 80), ['purple', 'blue', 'white'], true));
-    for (let w = 0; w < 3; w++) {
-      g.tasks.add(swarmStream(-1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
-      g.tasks.add(swarmStream(1, 12, { y: 30 + w * 30, color: w % 2 ? 'red' : 'blue' }));
-      yield 110;
-    }
-    [80, 304].forEach(x => sniperFairy(x, 100));
-    yield 160;
-    fairyLine(7, 50);
-    yield* waitClear(900);
-    yield 120;
+    // 中ボスを倒すと、すぐボス戦（2.17.0 でユーザーの指定。前はこのあとにも道中（大妖精・鈴の妖精・レーザー・大群・一列の妖精）があった）
   },
   // ボス戦（キー「V」のときはここから始まる）
   *boss(g) {

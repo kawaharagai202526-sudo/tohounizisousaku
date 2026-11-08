@@ -6,6 +6,9 @@
 // 面ごとのザコの見た目：STAGES に zako: '種類' を書くと、その面の妖精と緑の手がその種類の絵になる
 const ZAKO_KINDS = new Set(['fairy', 'hand']);
 
+// 体力がこれより少ないザコは「弱くて数の多い敵」として、撃つ弾の音を鳴らさない（足の妖精・毛玉・虫・大群の妖精など。2.17.0）
+const QUIET_HP = 18;
+
 class Enemy {
   constructor(o) {
     this.x = o.x;
@@ -31,6 +34,8 @@ class Enemy {
     this.keep = !!o.keep;
     this.noBody = !!o.noBody;
     this.onDeath = o.onDeath || null;
+    // 弱くて数の多いザコ（体力が QUIET_HP より少ない）が撃つ弾は鳴らさない（2.17.0 でユーザーの指定。o.quiet で決めることもできる）
+    this.quiet = o.quiet ?? this.maxHp < QUIET_HP;
     this.side = o.side ?? 1;
     this.phase = frand(TAU);
     this.tasks = new TaskRunner();
@@ -40,7 +45,10 @@ class Enemy {
     this.frame++;
     if (this.flash > 0) this.flash--;
     if (this.invincible > 0) this.invincible--;
+    const shooter = SHOOTER;
+    SHOOTER = this;
     this.tasks.update();
+    SHOOTER = shooter;
     if (!this.alive) return;
     if (this.accel) this.speed = clamp(this.speed + this.accel, 0, 20);
     if (this.angVel) this.angle += this.angVel;

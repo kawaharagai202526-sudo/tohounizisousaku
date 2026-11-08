@@ -21,7 +21,7 @@ const MIDBOSS4_PHASES = [
             fire({ x: b.x + side * 16, y: b.y + 8, angle: Math.PI / 2 + side * (0.45 + sway), speed: dv(1.8, 2.1, 2.4, 2.7), type: 'rice', color: side < 0 ? 'red' : 'pink', silent: true });
           }
         }
-        if (f % 20 === 0) Sound.se('tan');
+        if (f % 20 === 0) Sound.se('fire');
         if (f % dv(90, 75, 60, 50) === 40) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.45, angle: b.aim(), speed: 2.6, type: 'ball', color: 'green' });
         if (f % 240 === 200) b.wander(60, 50);
         yield;
@@ -42,8 +42,8 @@ const MIDBOSS4_PHASES = [
           if ((i + row) % 2) continue;
           fire({ x: (i + 0.5) * cell, y: -6, angle: Math.PI / 2 + drift, speed, type: 'ball', color: row % 2 ? 'red' : 'white', silent: true });
         }
+        // 上から降りてくる市松の弾は鳴らさない（2.17.0）。中ボスから撃つ輪だけ「m」
         if (row % 3 === 2) fireRing({ x: b.x, y: b.y, n: dv(8, 12, 16, 20), angle: b.aim(), speed: 1.9, type: 'rice', color: 'green' });
-        else Sound.se('tan');
         // 1マス分進んだら次の段（市松になる）
         yield Math.round(cell / (speed * bulletSpeedK()));
       }
@@ -68,7 +68,7 @@ const TOGANOO_PHASES = [
       for (let loop = 0; ; loop++) {
         const py = clamp(G.player.y, 200, FIELD_H - 40);
         const ys = [py - dv(80, 74, 66, 60), py + dv(80, 74, 66, 60)].filter(y => y > 120 && y < FIELD_H - 8);
-        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 18, warn: 50, dur: 100, color: 'orange' });
+        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 18, warn: 50, dur: 100, color: 'orange', sound: 'laserBoss4' }); // 4面のボスのレーザーは「f」（2.17.0）
         yield 50;
         for (let f = 0; f < 100; f++) {
           if (f % dv(12, 10, 8, 7) === 0) {
@@ -76,6 +76,7 @@ const TOGANOO_PHASES = [
             const y = py + rand(-50, 50);
             fire({ x: side < 0 ? -6 : FIELD_W + 6, y, angle: side < 0 ? 0 : Math.PI, speed: dv(1.4, 1.6, 1.9, 2.2), type: 'small', color: 'yellow', silent: true });
           }
+          if (f % 24 === 0) Sound.se('fire'); // 通常弾は「m」
           if (f % 40 === 20) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.2, type: 'rice', color: 'orange' });
           yield;
         }
@@ -96,8 +97,8 @@ const TOGANOO_PHASES = [
         for (let x = ox; x < FIELD_W; x += cw) xs.push(x);
         for (let y = oy; y < FIELD_H; y += ch) ys.push(y);
         const hold = DIFF >= 2 ? 200 : 300;
-        for (const x of xs) fireLaser({ x, y: -10, angle: Math.PI / 2, length: FIELD_H + 20, width: 12, warn: 70, dur: hold, color: 'brown' });
-        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 12, warn: 70, dur: hold, color: 'brown' });
+        for (const x of xs) fireLaser({ x, y: -10, angle: Math.PI / 2, length: FIELD_H + 20, width: 12, warn: 70, dur: hold, color: 'brown', sound: 'laserBoss4' });
+        for (const y of ys) fireLaser({ x: -10, y, angle: 0, length: FIELD_W + 20, width: 12, warn: 70, dur: hold, color: 'brown', sound: 'laserBoss4' });
         yield 76;
         // 格子の中を跳ね返る小弾
         const cellOf = v => {
@@ -149,7 +150,7 @@ const TOGANOO_PHASES = [
             fire({ x: b.x + Math.cos(a + Math.PI / 2) * j * 18, y: b.y + Math.sin(a + Math.PI / 2) * j * 18, angle: a, speed: dv(1.3, 1.5, 1.7, 1.9), type: 'rice', color: d % 2 ? 'brown' : 'orange', silent: true });
           }
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(40, 34, 28, 24);
         if (loop % 4 === 3) b.wander(50, 50);
       }
@@ -174,7 +175,7 @@ const TOGANOO_PHASES = [
             w.bullets.push(fire({ x, y: w.y, speed: 0, type: 'card', angle: 0, color: 'brown', silent: true, delay: 16, data: x, noRotate: true }));
           }
           walls.push(w);
-          Sound.se('kira');
+          Sound.se('appear'); // 上に板（壁）が現れるときは「o」（2.17.0 でユーザーの指定。前は「キラ」）
         }
         for (const w of walls) {
           w.y += dv(0.9, 1.0, 1.2, 1.35);
@@ -216,7 +217,7 @@ const TOGANOO_PHASES = [
         yield 30;
         for (let k = 0; k < 4; k++) {
           for (const [cx, cy] of rooms) fireFan({ x: cx, y: cy, n: dv(3, 3, 5, 5), spread: 0.6, angle: aimAt(cx, cy), speed: dv(1.6, 1.8, 2.1, 2.3), type: 'small', color: 'yellow', silent: true });
-          Sound.se('tan');
+          Sound.se('fire');
           yield dv(36, 30, 26, 22);
         }
         yield 30;
@@ -240,7 +241,7 @@ const TOGANOO_PHASES = [
         const [c, r] = slots[i % slots.length];
         const cx = (c + 0.5) * cw, cy = 40 + (r + 0.5) * ch;
         built.push({ cx, cy, bullets: roomOutline(cx, cy, cw - 10, ch - 10, i % 2 ? 'brown' : 'orange', 0) });
-        Sound.se('kira');
+        Sound.se('summon'); // 四角（部屋）を呼び出すときは「g」（2.17.0 でユーザーの指定。前は「キラ」）
         if (built.length > keep) {
           // いちばん古い部屋が崩れて小弾になる
           const old = built.shift();
@@ -263,6 +264,7 @@ const TOGANOO_PHASES = [
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 80, 40);
       for (let loop = 0; ; loop++) {
+        Sound.se('fire'); // ボスが餅を撒く（2.17.0）
         for (let i = 0; i < dv(4, 5, 6, 7); i++) {
           const vx = rand(-2.6, 2.6), floor = rand(240, FIELD_H - 20);
           let vy = rand(-4.2, -2.6);
@@ -277,7 +279,6 @@ const TOGANOO_PHASES = [
               }
               // 落ちて割れる
               fireRing({ x: e.x, y: e.y, n: dv(5, 6, 8, 9), angle: rand(TAU), speed: 1.5, type: 'small', color: 'white', silent: true });
-              Sound.se('tan');
               e.alive = false;
             },
           });
@@ -296,11 +297,11 @@ const TOGANOO_PHASES = [
         const base = rand(TAU);
         for (let d = 0; d < 4; d++) {
           const a = base + (d * Math.PI) / 2;
-          fireLaser({ x: b.x, y: b.y, angle: a - 0.5, length: 640, width: 22, warn: 44, dur: 60, angVel: dv(0.012, 0.014, 0.016, 0.018), angVelWarn: 0, color: 'orange' });
+          fireLaser({ x: b.x, y: b.y, angle: a - 0.5, length: 640, width: 22, warn: 44, dur: 60, angVel: dv(0.012, 0.014, 0.016, 0.018), angVelWarn: 0, color: 'orange', sound: 'laserBoss4' });
           g.shake = 10;
           Sound.se('kira');
           yield 26;
-          fireRing({ x: b.x, y: b.y, n: dv(8, 10, 12, 14), angle: rand(TAU), speed: 1.5, type: 'rice', color: 'brown', silent: true });
+          fireRing({ x: b.x, y: b.y, n: dv(8, 10, 12, 14), angle: rand(TAU), speed: 1.5, type: 'rice', color: 'brown' });
         }
         yield dv(60, 50, 40, 34);
       }
@@ -316,7 +317,7 @@ const TOGANOO_PHASES = [
         const lost = 1 - b.hp / b.maxHp;
         const n = Math.round(dv(2, 3, 3, 4) + lost * dv(2, 3, 4, 4));
         g.shake = 20;
-        Sound.se('charge');
+        Sound.se('appear'); // 上に板（梁）が現れるときは「o」（2.17.0 でユーザーの指定。前は「チャージ」の音）
         const beams = [];
         for (let i = 0; i < n; i++) {
           const cx = rand(40, FIELD_W - 40), y = rand(26, 70);
@@ -343,7 +344,6 @@ const TOGANOO_PHASES = [
             }
           }
         }
-        Sound.se('tan');
         fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.8, angle: b.aim(), speed: 2.2, type: 'rice', color: 'orange' });
         yield Math.max(30, dv(90, 80, 70, 60) - lost * 30);
       }
@@ -419,7 +419,8 @@ function wallPillar(side, wait = 0) {
     script: function* (e) {
       yield 70 + wait;
       for (let k = 0; k < dv(1, 1, 2, 2); k++) {
-        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 10, warn: 50, dur: 28, color: 'orange', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
+        // 柱のレーザーは「h」（2.17.0 でユーザーの指定）
+        fireLaser({ x: e.x, y: e.y, angle: e.aim(), width: 10, warn: 50, dur: 28, color: 'orange', sound: 'laserHand', follow: l => { if (e.alive) { l.x = e.x; l.y = e.y; } } });
         yield 110;
       }
     },
@@ -491,7 +492,7 @@ function splitterFairy(x) {
             x: e.x, y: e.y, angle: e.aim() + (i - (n - 1) / 2) * 0.45, speed: 2.2, accel: -0.03, minSpeed: 0.6, type: 'large', color: 'blue',
             script: function* (bl) {
               yield 50;
-              fireRing({ x: bl.x, y: bl.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: 1.4, type: 'small', color: 'cyan', silent: true });
+              fireRing({ x: bl.x, y: bl.y, n: dv(6, 8, 10, 12), angle: rand(TAU), speed: 1.4, type: 'small', color: 'cyan' }); // 割れた輪も「m」（4面の道中は全部「m」）
               bl.alive = false;
             },
           });

@@ -426,6 +426,161 @@ test('音声ファイルの曲をデコードしてループで鳴らせる', as
   assert(!r.length, r.join('\n    '));
 });
 
+test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザコは無音・6面のチャージ・6面は中ボスのあとすぐボス戦', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const out = {};
+    // ユーザーの指定した割り当て（名前 → 音の文字）
+    out.map = Object.fromEntries(Object.entries(SE_SAMPLE).map(([k, v]) => [k, v[0]]));
+    // もらった音がすべてデコードでき、始まりに無音がない（鳴らしたときに遅れない）
+    Sound.unlock();
+    const want = Object.keys(SE_FILES).length;
+    for (let i = 0; i < 200 && Object.keys(Sound.seBuf).length < want; i++) await new Promise(res => setTimeout(res, 25));
+    out.decoded = Object.keys(Sound.seBuf).sort().join('');
+    out.files = Object.keys(SE_FILES).sort().join('');
+    out.lateStart = Object.entries(Sound.seBuf)
+      .filter(([, b]) => !Array.from({ length: b.numberOfChannels }, (_, c) => b.getChannelData(c)).some(ch => Math.abs(ch[0]) > 0.002))
+      .map(([k]) => k);
+    // 鳴らした効果音を記録する
+    const log = [], all = new Set();
+    const se = Sound.se;
+    Sound.se = function (name, opt) { log.push([G ? G.frame : 0, name]); all.add(name); return se.call(this, name, opt); };
+    const names = () => [...new Set(log.map(x => x[1]))];
+    const at = n => (log.find(x => x[1] === n) || [null])[0];
+    // 弾の音：ふつうは「m」（fire）、se で選べる、silent は鳴らさない。弱いザコ（体力 18 より少ない）の弾は鳴らさない
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0, practice: true }));
+    T.step(5);
+    G.cheat = true;
+    const shooter = (hp, extra = {}) => {
+      log.length = 0;
+      spawnEnemy({ x: 100, y: 100, hp, keep: true, drops: {}, ...extra, script: function* (e) { fire({ x: e.x, y: e.y, angle: 1, speed: 1 }); for (;;) yield; } });
+      T.step(2);
+      return names();
+    };
+    out.weak = shooter(10);
+    out.moderate = shooter(30);
+    out.forced = shooter(10, { quiet: false });
+    log.length = 0;
+    G.tasks.add(swarmStream(-1, 3)); // 4面などの、とても弱い妖精の大群
+    T.step(60);
+    out.swarm = names();
+    log.length = 0;
+    fire({ x: 50, y: 50, angle: 1, speed: 1 });
+    fire({ x: 50, y: 50, angle: 1, speed: 1, se: 'needle' });
+    fire({ x: 50, y: 50, angle: 1, speed: 1, silent: true });
+    out.direct = names();
+    log.length = 0;
+    fireLaser({ x: 100, y: 0, angle: Math.PI / 2, warn: 10, dur: 10, sound: 'laserHand', warnSound: 'charge' });
+    T.step(1);
+    out.laserWarn = names();
+    T.step(10);
+    out.laserOn = names();
+    // 手・柱のレーザーは「h」
+    log.length = 0;
+    laserFairy(100, 90);
+    wallPillar(1);
+    T.step(130);
+    out.handPillar = names();
+    // ボスの攻撃ごとに、鳴る音を確かめる（Lunatic。攻撃の番号は 1 から。自機は無敵）
+    const atk = (boss, phase, frames, stage) => {
+      startBossTest({ boss, phase, diff: 3, only: true, ...(stage ? { stage } : {}) });
+      G.cheat = true;
+      log.length = 0;
+      T.step(frames, 30);
+      return names();
+    };
+    out.atk = {
+      '1面 通常1（鬼面 k・瓦 m）': [atk('nokiba', 1, 200), ['oni', 'fire']],
+      '1面 鬼の視線（点滅 c・発射 m・鬼面 k）': [atk('nokiba', 2, 320), ['charge', 'fire', 'oni']],
+      '1面 かきちぃー大炎上（火の玉 o）': [atk('midboss1', 2, 200), ['appear', 'fire']],
+      '2面 トカゲの尻尾切り（しっぽ o）': [atk('kuraishiro', 6, 200), ['appear', 'fire']],
+      '3面 中ボスの瞬間移動（o）': [atk('namesawaMask', 1, 200), ['appear', 'fire']],
+      '3面 主人顔の一服（針 n）': [atk('namesawaMask', 2, 600), ['needle', 'fire']],
+      '3面 通常1（現れる小弾 o）': [atk('namesawa', 1, 200), ['appear', 'fire']],
+      '3面 通常3（弾を撃つ影 o）': [atk('namesawa', 5, 200), ['appear', 'fire']],
+      '4面 通常1（ボスのレーザー f）': [atk('toganoo', 1, 200), ['laserBoss4', 'fire']],
+      '4面 玄関から入れ（板 o）': [atk('toganoo', 4, 200), ['appear']],
+      '4面 百間継ぎの建て増し（四角 g）': [atk('toganoo', 6, 200), ['summon']],
+      '4面 家を支える者の意地（板 o）': [atk('toganoo', 9, 200), ['appear', 'fire']],
+      '6面 通常1（手鞠 ピヨン）': [atk('zashiki', 1, 200), ['temari']],
+      '6面 隠れ鬼（家 o・家の弾 m）': [atk('zashiki', 9, 200), ['appear', 'fire']],
+    };
+    // 6面 手鞠唄の数え歌：弾ける前にチャージ（c）、弾けるときは k。チャージのあいだに手鞠はゆっくり止まる
+    startBossTest({ boss: 'zashiki', phase: 2, diff: 3, only: true });
+    G.cheat = true;
+    log.length = 0;
+    let speedAtCharge = null, speedBeforeBurst = null;
+    for (let f = 0; f < 800 && !log.some(x => x[1] === 'burst'); f++) {
+      T.step(1, 30);
+      const balls = G.bullets.list.filter(bl => bl.alive && bl.data === 'temari');
+      const sp = balls.reduce((s, bl) => s + Math.hypot(bl.evx, bl.evy), 0) / Math.max(1, balls.length);
+      if (speedAtCharge === null && log.some(x => x[1] === 'charge')) speedAtCharge = sp;
+      if (speedAtCharge !== null && !log.some(x => x[1] === 'burst')) speedBeforeBurst = sp;
+    }
+    out.temari = { names: names(), charge: at('charge'), burst: at('burst'), speedAtCharge, speedBeforeBurst };
+    // 6面 惹符：集めたあとにチャージ（c）、散らばるときは k
+    startBossTest({ boss: 'zashiki', phase: 6, diff: 3, only: true });
+    G.cheat = true;
+    log.length = 0;
+    for (let f = 0; f < 800 && !log.some(x => x[1] === 'burst'); f++) T.step(1, 30);
+    out.attract = { names: names(), charge: at('charge'), burst: at('burst') };
+    // エキストラ：栂尾が撃たれるとき、上に現れる黄色の球は o、その球が撃つと m、倒されると d
+    startBossTest({ stage: 'extra', boss: 'toganooEx', phase: 2, only: true });
+    G.cheat = true;
+    T.step(160, 30);
+    G.boss.hp = G.boss.maxHp * 0.29;
+    log.length = 0;
+    for (let f = 0; f < 400 && G.bossPhases; f++) T.step(1, 30);
+    out.strike = log.map(x => x[1]).filter((n, i, a) => ['appear', 'fire', 'bossdie'].includes(n) && a.indexOf(n) === i);
+    // 6面：中ボスを倒すと、すぐボス戦（中ボスのあとに道中の敵は出ない）
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 5, practice: true }));
+    const g = G;
+    g.cheat = true;
+    const spawn = window.spawnEnemy;
+    let sawMid = false, midGone = null, bossAt = null, spawnedAfterMid = 0, f = 0;
+    window.spawnEnemy = o => { if (midGone !== null) spawnedAfterMid++; return spawn(o); };
+    while (Game.scene === g && f < 20000 && bossAt === null) {
+      if (g.dialogue && f % 6 === 0) Input.just.shot = true;
+      const b = g.boss;
+      if (b && b.id === 'yanari6') sawMid = true;
+      if (b && b.phase && !b.phase.survival && !b.untouchable && b.invincible <= 0) b.hp = 0;
+      // 中ボスがいなくなった（逃げ終わると、同じフレームでボスに入れかわる）
+      if (sawMid && midGone === null && !(g.boss && g.boss.id === 'yanari6')) midGone = f;
+      if (midGone !== null && g.boss && g.boss.id === 'zashiki') bossAt = f;
+      Game.update();
+      f++;
+    }
+    window.spawnEnemy = spawn;
+    out.stage6 = { sawMid, midGone, bossAt, spawnedAfterMid };
+    out.tanUsed = all.has('tan'); // 前の弾の音「tan」は、もう名前では鳴らさない（デコード前の代わりだけ）
+    Sound.se = se;
+    return out;
+  });
+  const mapWant = {
+    fire: 'm', needle: 'n', oni: 'k', burst: 'k', appear: 'o', charge: 'c', powerup: 'c', laserHand: 'h', laserBoss4: 'f',
+    summon: 'g', bonus: 'a', spell: 'b', bossdie: 'd', extend: 'e', bomb: 'i', pichuun: 'j',
+  };
+  for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
+  assert(r.decoded === r.files && r.files.length === 14, `デコードできない音がある: ${r.decoded}（予定 ${r.files}）`);
+  assert(!r.lateStart.length, `始まりに無音が残っている音: ${r.lateStart}`);
+  assert(!r.weak.includes('fire') && !r.swarm.includes('fire'), `弱いザコの弾が鳴る: ${r.weak} / ${r.swarm}`);
+  assert(r.moderate.includes('fire') && r.forced.includes('fire'), `体力がほどほどのザコの弾が鳴らない: ${r.moderate} / ${r.forced}`);
+  assert(r.direct.includes('fire') && r.direct.includes('needle') && r.direct.length === 2, `弾の音（se・silent）がちがう: ${r.direct}`);
+  assert(r.laserWarn.join() === 'charge' && r.laserOn.includes('laserHand'), `レーザーの音がちがう: ${r.laserWarn} / ${r.laserOn}`);
+  assert(r.handPillar.includes('laserHand') && !r.handPillar.includes('laser'), `手・柱のレーザーが「h」にならない: ${r.handPillar}`);
+  for (const [label, [got, want]] of Object.entries(r.atk)) {
+    assert(want.every(n => got.includes(n)), `${label}：鳴った音 ${got}（予定 ${want}）`);
+  }
+  assert(r.temari.charge !== null && r.temari.burst !== null && Math.abs(r.temari.burst - r.temari.charge - 60) <= 3,
+    `手鞠唄の数え歌：チャージ（c）のあとに弾けない（k）: ${JSON.stringify(r.temari)}`);
+  assert(r.temari.speedAtCharge > 1 && r.temari.speedBeforeBurst < r.temari.speedAtCharge * 0.1, `手鞠唄の数え歌：チャージのあいだに手鞠が止まらない: ${JSON.stringify(r.temari)}`);
+  assert(r.attract.charge !== null && r.attract.burst !== null && Math.abs(r.attract.burst - r.attract.charge - 60) <= 3,
+    `惹符：集めたあとにチャージ（c）して散らばらない（k）: ${JSON.stringify(r.attract)}`);
+  assert(r.strike.join() === 'appear,fire,bossdie', `エキストラ：黄色の球の音の順番がちがう: ${r.strike}（予定 appear,fire,bossdie）`);
+  assert(r.stage6.sawMid && r.stage6.bossAt !== null && r.stage6.bossAt - r.stage6.midGone <= 5 && r.stage6.spawnedAfterMid === 0,
+    `6面：中ボスのあと、すぐボス戦にならない: ${JSON.stringify(r.stage6)}`);
+  assert(!r.tanUsed, '前の弾の音「tan」を名前で鳴らしているところがある');
+});
+
 test('6面ボスの曲は Lunatic のときだけ別の曲', async ({ page }) => {
   const r = await page.evaluate(async () => {
     const out = {};

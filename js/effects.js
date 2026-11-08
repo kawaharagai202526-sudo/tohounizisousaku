@@ -116,6 +116,13 @@ const Fx = {
     this.ring(x, y, color, 6 * size, 2.2 * size, 18, 2);
     this.spark(x, y, color, Math.round(8 * size), 3.5 * size, 22);
   },
+  // チャージ：まわりから光の粒が (x, y) へ集まってくる（毎フレーム呼ぶ。6面の手鞠と惹きつけ。2.17.0）
+  charge(x, y, color, size = 1, n = 2) {
+    for (let i = 0; i < n; i++) {
+      const a = frand(TAU), r = (24 + frand(0, 20)) * size, life = 14;
+      this.add({ type: 'spark', x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: (-Math.cos(a) * r) / life, vy: (-Math.sin(a) * r) / life, life, color, w: 1.6 });
+    }
+  },
   cancel(x, y, color) {
     this.add({ type: 'glow', x, y, r: 12, life: 16, color });
   },

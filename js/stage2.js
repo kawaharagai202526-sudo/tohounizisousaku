@@ -110,7 +110,7 @@ const KURAISHIRO_PHASES = [
           for (let i = 0; i < rows; i++) {
             fire({ x, y, angle: inward + rand(-0.05, 0.05), speed: 0.9 + i * 0.35, type: 'bug', color: i % 2 ? 'green' : 'yellow', silent: true });
           }
-          if (f % 40 === 0) Sound.se('tan');
+          if (f % 40 === 0) Sound.se('fire');
         }
         yield;
       }
@@ -126,6 +126,7 @@ const KURAISHIRO_PHASES = [
         if (f % dv(8, 6, 5, 4) === 0) {
           fire({ x: b.x + rand(-30, 30), y: b.y + 6, angle: Math.PI / 2 + rand(-0.25, 0.25), speed: rand(1.3, 2.2), type: 'bug', color: 'orange', silent: true });
         }
+        if (f % 16 === 0) Sound.se('fire'); // ボスからこぼれる虫弾も「m」（2.17.0。毎回だとうるさいので間をあける）
         if (f % dv(70, 60, 48, 40) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 2.4, type: 'small', color: 'yellow' });
         yield;
       }
@@ -154,7 +155,7 @@ const KURAISHIRO_PHASES = [
               },
             });
           }
-          Sound.se('tan');
+          // 天井から湧く虫は、ボスから出ていないので鳴らさない（2.17.0）
         }
         if (f % 120 === 90) b.wander(60, 60);
         yield;
@@ -177,7 +178,7 @@ const KURAISHIRO_PHASES = [
             });
           }
         }
-        Sound.se('tan');
+        Sound.se('fire');
         yield dv(100, 90, 76, 64);
       }
     },
@@ -196,6 +197,7 @@ const KURAISHIRO_PHASES = [
         return segs;
       };
       let tail = makeTail();
+      Sound.se('appear'); // しっぽが出てくるときは「o」（2.17.0 でユーザーの指定）
       let lastHp = b.hp;
       const cutAt = b.maxHp * 0.18;
       for (let f = 0; ; f++) {
@@ -212,8 +214,8 @@ const KURAISHIRO_PHASES = [
           lastHp = b.hp;
           const segs = tail.filter(bl => bl.alive);
           g.tasks.add(cutTail(segs, dv(300, 360, 480, 560)));
-          Sound.se('kira');
           tail = makeTail();
+          Sound.se('appear'); // 新しいしっぽが出てくる（前は切れたときの「キラ」）
         }
         if (f % dv(70, 56, 46, 38) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.35, angle: b.aim(), speed: 2.4, type: 'bug', color: 'yellow' });
         yield;
@@ -228,7 +230,7 @@ const KURAISHIRO_PHASES = [
       yield* b.moveTo(FIELD_W / 2, 60, 40);
       const lx = FIELD_W / 2, ly = 210;
       for (let loop = 0; ; loop++) {
-        const light = fire({ x: lx, y: ly, speed: 0, type: 'large', color: 'yellow', delay: 30 });
+        const light = fire({ x: lx, y: ly, speed: 0, type: 'large', color: 'yellow', delay: 30, silent: true });
         const moths = [];
         for (let f = 0; f < 150; f++) {
           if (f < 110 && f % dv(6, 5, 4, 3) === 0) {

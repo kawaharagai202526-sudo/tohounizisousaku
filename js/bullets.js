@@ -187,6 +187,9 @@ class Laser {
     this.angVelWarn = o.angVelWarn ?? this.angVel;
     this.follow = o.follow || null;
     this.silent = !!o.silent; // 光るときの音を鳴らさない（通り道の予告の線など）
+    // 音（2.17.0）：sound は光るとき（ふつうは合成音 'laser'。手・柱は 'laserHand'、4面のボスは 'laserBoss4'）、warnSound は予告の線が出たとき
+    this.sound = o.sound === undefined ? 'laser' : o.sound;
+    this.warnSound = o.warnSound || null;
     this.frame = 0;
     this.alive = true;
     this.grazeCd = 0;
@@ -202,7 +205,8 @@ class Laser {
     this.frame++;
     this.angle += this.frame < this.warn ? this.angVelWarn : this.angVel;
     if (this.follow) this.follow(this);
-    if (this.frame === this.warn && !this.silent) Sound.se('laser');
+    if (this.frame === 1 && this.warnSound && !this.silent) Sound.se(this.warnSound);
+    if (this.frame === this.warn && this.sound && !this.silent) Sound.se(this.sound);
     if (this.frame >= this.warn + this.dur + this.fadeOut) this.alive = false;
     if (this.grazeCd > 0) this.grazeCd--;
   }
@@ -243,8 +247,12 @@ class Laser {
 // ------------------------------------------------------------
 //  弾幕ヘルパー
 // ------------------------------------------------------------
+// いま台本を動かしているザコ（Enemy.update が入れる）。弱くて数の多いザコ（quiet）が撃つ弾は鳴らさない
+let SHOOTER = null;
+
+// 弾を撃つ。o.silent なら音を鳴らさない。o.se で音を選べる（ふつうは 'fire'＝もらった音「m」。針は 'needle'、鬼面は 'oni' など。2.17.0）
 function fire(o) {
-  if (!o.silent) Sound.se('tan');
+  if (!o.silent && !(SHOOTER && SHOOTER.quiet)) Sound.se(o.se || 'fire');
   return G.bullets.spawn(o);
 }
 function fireRing(o) {
