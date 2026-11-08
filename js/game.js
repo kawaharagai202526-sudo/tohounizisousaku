@@ -400,7 +400,8 @@ class GameScene {
     Fx.graze(x, y);
   }
 
-  damageEnemy(e, dmg, isBomb = false, sound = true) {
+  // 自機の弾が当たったときの音は鳴らさない（2.18.0 でユーザーの指定「弾が命中した際の音は削除」）
+  damageEnemy(e, dmg, isBomb = false) {
     if (!e.alive || e.untouchable || e.invincible > 0) return;
     if (!isBomb && Cheats.on.power2) dmg *= 2; // キー「K」
     if (e.isBoss) {
@@ -408,13 +409,11 @@ class GameScene {
       e.hp -= dmg;
       e.flash = 2;
       this.score += 10;
-      if (sound) Sound.se('hit');
       return;
     }
     e.hp -= dmg;
     e.flash = 2;
     this.score += 10;
-    if (sound) Sound.se('hit');
     if (e.hp <= 0) this.killEnemy(e);
   }
 

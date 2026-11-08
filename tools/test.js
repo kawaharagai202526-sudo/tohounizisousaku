@@ -583,24 +583,44 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
   assert(!r.tanUsed, '前の弾の音「tan」を名前で鳴らしているところがある');
 });
 
-test('6面ボスの曲は Lunatic のときだけ別の曲', async ({ page }) => {
+test('4〜6面とエキストラのボスの曲（2.18.0）：もらった曲を入りのあとループ・6面ボスはどの難易度も同じ曲', async ({ page }) => {
   const r = await page.evaluate(async () => {
-    const out = {};
+    const out = { diff: {} };
+    // 6面ボスの曲は、すべての難易度で同じ（2.18.0 でユーザーの指定。前は Lunatic だけ別の曲）
     for (const diff of [0, 1, 2, 3]) {
       startBossTest({ boss: 'zashiki', diff });
       for (let i = 0; i < 5; i++) Game.update();
-      out[diff] = Sound.songId;
+      out.diff[diff] = Sound.songId;
     }
-    // どちらも、もらった音声ファイル（2.9.0）。Lunatic の曲は 93 秒のところで最初へ戻る（ユーザーの指定）
-    out.audio = [SONGS.boss6.audio, SONGS.boss6lunatic.audio];
+    out.lunaticSong = 'boss6lunatic' in SONGS || ('boss6lunatic' in BGM_FILES);
+    // 曲ごと：音声ファイルで、入り（はじめから流す）のあと loopStart〜loopEnd をくり返す
     Sound.unlock();
-    const buf = await Sound.decodeAudio('boss6lunatic');
-    out.lunaticLoop = buf && +buf.duration.toFixed(2);
+    out.songs = {};
+    for (const id of ['boss4', 'boss5', 'boss6', 'bossEx']) {
+      const def = SONGS[id], f = BGM_FILES[def.audio];
+      const buf = await Sound.decodeAudio(def.audio);
+      const il = buf && buf.introLoop;
+      Sound.playBgm(id);
+      await new Promise(res => setTimeout(res, 80));
+      const src = Sound.song && Sound.song.src;
+      out.songs[id] = {
+        audio: def.audio, intro: !!f.intro, len: f.loopEnd - f.loopStart,
+        loop: il && [+il.start.toFixed(3), +il.end.toFixed(3), +(il.end - il.start).toFixed(3)], dur: buf && +buf.duration.toFixed(3),
+        playing: !!src && src.loop && Math.abs(src.loopStart - il.start) < 0.001 && Math.abs(src.loopEnd - il.end) < 0.001,
+      };
+      Sound.stopBgm(0.05);
+    }
+    out.musicRoom = MUSIC_ROOM.join();
     return out;
   });
-  assert(r[0] === 'boss6' && r[1] === 'boss6' && r[2] === 'boss6' && r[3] === 'boss6lunatic', `難易度ごとの曲: ${JSON.stringify(r)}`);
-  assert(r.audio.join() === 'boss6,boss6lunatic', `6面ボスの曲が音声ファイルではない: ${JSON.stringify(r)}`);
-  assert(r.lunaticLoop > 92.9 && r.lunaticLoop <= 93, `Lunatic の6面ボスの曲が 93 秒でループしていない: ${r.lunaticLoop} 秒`);
+  assert(Object.values(r.diff).every(id => id === 'boss6'), `6面ボスの曲が難易度で変わる: ${JSON.stringify(r.diff)}`);
+  assert(!r.lunaticSong, 'Lunatic だけの6面ボスの曲が残っている');
+  for (const [id, s] of Object.entries(r.songs)) {
+    assert(s.audio === id && s.intro, `${id}：入りのある音声ファイルの曲ではない: ${JSON.stringify(s)}`);
+    assert(s.loop && s.loop[0] > 1 && Math.abs(s.loop[2] - s.len) < 0.01 && Math.abs(s.loop[1] - s.dur) < 0.01, `${id}：ループの範囲がおかしい: ${JSON.stringify(s)}`);
+    assert(s.playing, `${id}：入りのあとループするように鳴っていない: ${JSON.stringify(s)}`);
+  }
+  assert(!r.musicRoom.includes('boss6lunatic') && r.musicRoom.includes('bossEx'), `ミュージックルーム: ${r.musicRoom}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

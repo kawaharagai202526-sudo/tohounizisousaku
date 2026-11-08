@@ -220,10 +220,12 @@ const Sound = {
     this.songId = id;
     this.decodeAudio(def.audio).then(buf => {
       if (!buf || this.song !== song) return;
-      // buf はループする範囲だけを切り出したもの（makeLoopBuffer）なので、全体をくり返す
+      // buf はループする範囲だけを切り出したもの（makeLoopBuffer）なので、全体をくり返す。
+      // 入りのある曲（BGM_FILES の intro）は、はじめから流して、loopStart〜loopEnd をくり返す（2.18.0）
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       src.loop = true;
+      if (buf.introLoop) { src.loopStart = buf.introLoop.start; src.loopEnd = buf.introLoop.end; }
       src.connect(gain);
       song.t0 = this.ctx.currentTime + 0.03;
       src.start(song.t0);
@@ -295,6 +297,7 @@ function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 // 音声ファイルの曲をループ用に整える：前後の無音を切り（f.trim が false なら切らない）、loopStart〜loopEnd の範囲だけにして、
 // 終わりの f.crossfade 秒（ふつう 0.03 秒）を始まりに重ねる。くり返したときに「プツッ」と鳴らず、なめらかにつながる
 function makeLoopBuffer(ctx, buf, f) {
+  if (f.intro) return makeIntroLoopBuffer(ctx, buf, f);
   const sr = buf.sampleRate, nch = buf.numberOfChannels;
   const chs = Array.from({ length: nch }, (_, c) => buf.getChannelData(c));
   let a = Math.max(0, Math.floor((f.loopStart || 0) * sr));
@@ -363,6 +366,32 @@ const SE_SAMPLE = {
 // もらった音がまだデコードできていないときに、代わりに鳴らす合成音（書いていない名前は、同じ名前の合成音）
 const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', summon: 'kira' };
 
+// 入りのある曲（BGM_FILES の intro。2.18.0）：はじめから loopEnd までを1回流し、そのあとは loopStart〜loopEnd をくり返す。
+// loopStart / loopEnd は、はじめの無音を切ったあとの秒（AAC のはじめに入る無音の扱いがブラウザでちがっても、ずれないように）。
+// つなぎ目：loopEnd の手前 crossfade 秒を、loopStart の手前の音へなめらかに移していく（くり返しの部分は同じ曲の同じところなので、そのまま続いて聞こえる）
+function makeIntroLoopBuffer(ctx, buf, f) {
+  const sr = buf.sampleRate, nch = buf.numberOfChannels;
+  const chs = Array.from({ length: nch }, (_, c) => buf.getChannelData(c));
+  const loud = i => chs.some(ch => Math.abs(ch[i]) > 0.003);
+  let a = 0;
+  while (a < buf.length && !loud(a)) a++;
+  const ls = a + Math.round(f.loopStart * sr);
+  const le = Math.min(buf.length, a + Math.round(f.loopEnd * sr));
+  const xf = Math.min(Math.round((f.crossfade ?? 0.03) * sr), ls - a, (le - ls) >> 2);
+  if (le - ls < sr || xf < 0) return buf; // ループの位置がおかしいときは、そのまま全体をくり返す
+  const out = ctx.createBuffer(nch, le - a, sr);
+  chs.forEach((src, c) => {
+    const dst = out.getChannelData(c);
+    dst.set(src.subarray(a, le));
+    for (let i = 0; i < xf; i++) {
+      const t = (i / xf) * Math.PI / 2;
+      dst[le - xf + i - a] = src[le - xf + i] * Math.cos(t) + src[ls - xf + i] * Math.sin(t);
+    }
+  });
+  out.introLoop = { start: (ls - a) / sr, end: (le - a) / sr };
+  return out;
+}
+
 // ------------------------------------------------------------
 //  効果音定義
 // ------------------------------------------------------------
@@ -381,7 +410,8 @@ const SE_DEFS = {
   hit: (S, t, d) => S.noise(t, 0.045, 0.06, d, 'bandpass', 1700, 0, 0.9),
   kill: (S, t, d) => { S.noise(t, 0.3, 0.2, d, 'lowpass', 3500, 180); S.osc('square', 520, 80, t, 0.18, 0.05, d); },
   graze: (S, t, d) => { S.noise(t, 0.035, 0.09, d, 'highpass', 7000); S.osc('triangle', 3300, 2500, t, 0.03, 0.03, d); },
-  item: (S, t, d) => S.osc('triangle', 1900, 0, t, 0.05, 0.06, d),
+  // アイテムを取ったときの「カッ」（2.18.0 でユーザーの指定）：ごく短い、乾いた硬い音（はじめの「カ」の雑音と、すぐ消える低めの四角い音）
+  item: (S, t, d) => { S.noise(t, 0.024, 0.17, d, 'bandpass', 3200, 0, 1.2); S.osc('square', 1400, 900, t, 0.045, 0.05, d, 0.001); },
   powerup: (S, t, d) => [0, 4, 7, 12].forEach((n, i) => S.osc('pulse', 660 * Math.pow(2, n / 12), 0, t + i * 0.045, 0.08, 0.06, d)),
   pichuun: (S, t, d) => {
     S.osc('pulse', 1750, 170, t, 0.5, 0.16, S.echoIn);

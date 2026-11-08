@@ -491,7 +491,7 @@ class Player {
       consider(g.boss);
       const endY = best ? best.y + 4 : -20;
       if (best) {
-        g.damageEnemy(best, 0.42 * (this.type.shotPower || 1), false, this.frame % 2 === 0);
+        g.damageEnemy(best, 0.42 * (this.type.shotPower || 1), false);
         if (this.frame % 3 === 0) Fx.hit(o.x, best.y + 6);
       }
       this.lasers.push({ x: o.x, y0: o.y - 6, y1: endY });
