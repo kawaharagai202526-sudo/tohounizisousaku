@@ -445,7 +445,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.20.0';
+const GAME_VERSION = '2.20.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -1040,7 +1040,7 @@ const Sound = {
   applyVolume() {
     if (!this.ctx) return;
     this.bgmBus.gain.value = this.muted ? 0 : this.bgmVolume * BGM_BUS_LEVEL;
-    this.seBus.gain.value = this.muted ? 0 : this.seVolume * 0.9;
+    this.seBus.gain.value = this.muted ? 0 : this.seVolume * SE_BUS_LEVEL;
   },
   setVolumes(bgm, se) {
     this.bgmVolume = bgm;
@@ -1085,10 +1085,10 @@ const Sound = {
         continue;
       }
       // もらった音がまだデコードできていないとき（読みこんだ直後など）は、前の合成音で代わりに鳴らす
-      const f = SE_DEFS[smp ? SE_FALLBACK[name] || name : name];
-      if (!f) continue;
+      const def = smp ? SE_FALLBACK[name] || name : name;
+      if (!SE_DEFS[def]) continue;
       this.lastPlayed[name] = real;
-      f(this, t, this.seBus);
+      this.playSynth(def, t, seRatio(name));
     }
     this.pending.clear();
     if (grazeLater) this.pending.set('graze', null);
@@ -1111,10 +1111,17 @@ const Sound = {
   playGraze(t) {
     const n = Math.max(1, this.grazeN);
     this.grazeN = 0;
-    const g = this.ctx.createGain();
-    g.gain.value = GRAZE_SE.base * Math.min(GRAZE_SE.max, 1 + GRAZE_SE.step * (n - 1));
+    this.playSynth('item', t, SE_TO_BGM, GRAZE_SE.base * Math.min(GRAZE_SE.max, 1 + GRAZE_SE.step * (n - 1)));
+  },
+  // 合成音を鳴らす。いちばん大きいところが BGM の ratio 倍になるように（SE_SYNTH_PEAK）、さらに mul 倍。
+  // エコー（echoIn）を通る音も同じ倍率にするため、倍率をかけた入り口（d と echoIn）を作って渡す
+  playSynth(def, t, ratio, mul = 1) {
+    const ctx = this.ctx;
+    const g = ctx.createGain(), ge = ctx.createGain();
+    g.gain.value = ge.gain.value = seLoud(ratio) / (SE_SYNTH_PEAK[def] || 0.03) * mul;
     g.connect(this.seBus);
-    SE_DEFS.item(this, t, g);
+    ge.connect(this.echoIn);
+    SE_DEFS[def](Object.create(this, { echoIn: { value: ge } }), t, g);
   },
   playSample(name, [k, vol, max], t, opt) {
     const ctx = this.ctx, buf = this.seBuf[k];
@@ -1127,7 +1134,7 @@ const Sound = {
       v.g.gain.setTargetAtTime(0, t, 0.012);
       v.src.stop(t + 0.08);
     }
-    const level = vol * (SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST) * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
+    const level = vol * seLoud(seRatio(name)) / SE_FILE_PEAK * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const g = ctx.createGain();
@@ -1322,36 +1329,60 @@ function trimSilence(ctx, buf, th = 0.002) {
 }
 
 // ------------------------------------------------------------
-//  もらった音（audio/a-o の a〜o。js/sefiles.js）で鳴らす効果音（2.17.0 でユーザーの指定）
-//  名前: [音の文字, 大きさ, 重ねて鳴らせる数]。大きさは、いちばん大きいところの 50ms の音量（行の終わりの dB）で決めた。
-//  前の合成音の音量（弾 -33・スペル宣言 -28・被弾 -27・ボム -13・ボス撃破 -11dB など）と同じくらいか、少し大きめ。
-//  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。
-//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍にする（行の終わりの dB は、その前の値。1.5 倍なので実際は +3.5dB）
-//  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
+//  効果音の大きさ（2.20.1 でユーザーの指定「BGMを１として効果音をの音量を0.8にする。ただし、ｃ、ｋ、o、ｆは１．３にする」）
+//  BGM の大きさを 1 として、効果音はすべて 0.8、もらった音の c・k・o・f を使う効果音だけ 1.3 にする（オプションの音量が同じとき）。
+//  ・BGM の大きさ：曲のならした大きさ（RMS。BGM_LOUD）× BGM_BUS_LEVEL
+//  ・効果音の大きさ：いちばん大きいところの 50ms の音量（RMS）× SE_BUS_LEVEL（もらった音は js/sefiles.js の norm で -14dB にそろえてある。
+//    合成音は SE_SYNTH_PEAK に測った値がある）
+//  もらった音（a〜o）も合成音（自機の弾・アイテム・敵を倒した音・メニューなど）も同じ決まり。グレイズは GRAZE_SE（アイテムの音の 0.8 倍から）
+//  2.17.0〜2.20.0 は、場面ごとに前の合成音に合わせた大きさ（SE_SAMPLE の2つ目）に、倍率（2.17.1 で 2、2.18.1 で o・c・f だけ 3、
+//  2.19.1 ですべて 1.5）をかけていた。合成音は 2.17.0 より前のまま
 // ------------------------------------------------------------
-// もらった音を、表の大きさの何倍で鳴らすか。2.19.1 でユーザーの指定「3倍したもの、２倍したものをすべて１．５倍に変更する」で 1.5
-// （2.17.1 でユーザーの指定「音は２倍」で 2 にし、2.18.1 で o・c・f だけ 3 にしていた）
-const SE_SAMPLE_BOOST = 1.5;
-// 音の文字ごとの倍率（書いていない文字は SE_SAMPLE_BOOST）。2.18.1〜2.19.0 は o・c・f が 3。2.19.1 からはすべて SE_SAMPLE_BOOST なので空
-const SE_SAMPLE_BOOST_BY = {};
+const BGM_LOUD = 0.133;   // 曲のならした大きさ（RMS。SONGS の vol をかけたあと。15 曲の平均。曲ごとには 0.092〜0.151。2.20.1 で測った）
+const SE_BUS_LEVEL = 0.9; // 効果音のバスの倍率（オプションの効果音の音量にかける）
+const SE_TO_BGM = 0.8;    // BGM を 1 としたときの効果音の大きさ
+const SE_TO_BGM_BY = { c: 1.3, k: 1.3, o: 1.3, f: 1.3 }; // もらった音の文字ごとの例外
+const SE_FILE_PEAK = Math.pow(10, -14 / 20); // もらった音のいちばん大きいところ（norm をかけたあと）
+// 合成音のいちばん大きいところの 50ms の音量（RMS。そのまま鳴らしたとき。雑音の入る音は5回の平均）。2.20.1 で測った
+// （合成音の中身を変えたら測りなおす。名前のない合成音は 0.03 とみなす）
+const SE_SYNTH_PEAK = {
+  shot: 0.0052, tan: 0.0219, temari: 0.0494, hit: 0.0032, kill: 0.0412, item: 0.0133, powerup: 0.0085, pichuun: 0.0439,
+  bomb: 0.2143, spell: 0.0381, charge: 0.0554, bossdie: 0.2814, extend: 0.0113, bonus: 0.0315, cursor: 0.0045, ok: 0.0075,
+  cancel: 0.0076, pause: 0.0251, timeout: 0.0320, timeoutLow: 0.0449, clear: 0.0098, laser: 0.0206, freeze: 0.0439, kira: 0.0177,
+  gishi: 0.0163, spark: 0.0541,
+};
+// 効果音の名前 → BGM を 1 としたときの大きさ（もらった音の文字で決まる。合成音はすべて SE_TO_BGM）
+function seRatio(name) {
+  const smp = SE_SAMPLE[name];
+  return (smp && SE_TO_BGM_BY[smp[0]]) || SE_TO_BGM;
+}
+// 効果音のバスに入る手前での、いちばん大きいところの大きさ（BGM の何倍か → 音量）
+function seLoud(ratio) { return ratio * BGM_LOUD * BGM_BUS_LEVEL / SE_BUS_LEVEL; }
+
+// ------------------------------------------------------------
+//  もらった音（audio/a-o の a〜o。js/sefiles.js）で鳴らす効果音（2.17.0 でユーザーの指定）
+//  名前: [音の文字, 大きさの倍率（ふつうは 1。大きさは上の決まりで決まる。場面ごとに変えたいときだけ）, 重ねて鳴らせる数]
+//  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
+//  2.19.3 の b・d の半分、2.19.2 のボムの半分は、2.20.1 の決まり（すべて 0.8）に入れかわった
+// ------------------------------------------------------------
 const SE_SAMPLE = {
-  fire:       ['m', 0.126, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）（-32dB）
-  needle:     ['n', 0.126, 3], // 針のような細い弾を撃つ（3面・エキストラ）（-32dB）
-  oni:        ['k', 0.178, 2], // 1面：鬼面の弾を撃つ（-29dB）
-  burst:      ['k', 0.251, 2], // 6面：手鞠がはじける・集めた弾が散らばる（-26dB）
-  appear:     ['o', 0.158, 3], // 出てくる（火の玉・しっぽ・瞬間移動・弾を撃つ影や板や家・黄色の球など）（-30dB）
-  charge:     ['c', 0.224, 1], // チャージ（6面）・1面「鬼の視線」のレーザーの点滅（-27dB）
-  powerup:    ['c', 0.158, 1], // パワーアップ（-30dB）
-  laserHand:  ['h', 0.158, 3], // 手・柱のレーザー（-30dB）
-  laserBoss4: ['f', 0.178, 2], // 4面のボス（栂尾）のレーザー（-29dB）
-  spread:     ['f', 0.178, 2], // 6面：惹きつけた弾が花のように開く（「誰もが振り向く福の神」と最後のスペル。2.19.0 でユーザーの指定）（-29dB）
-  summon:     ['g', 0.200, 2], // 4面「百間継ぎの建て増し」の四角が建つ（-28dB）
-  bonus:      ['a', 0.251, 1], // ボーナス（スペルカード取得・面のクリア）（-26dB）
-  spell:      ['b', 0.158, 1], // スペルカードの宣言（-30dB。2.19.3 でユーザーの指定「音「b」、「ｄ」、「i」を１/2にする」で半分（-6dB）にした。前は 0.316・-24dB）
-  bossdie:    ['d', 0.500, 1], // ボスを倒した（エキストラで栂尾が撃ち落とされたときも。逃げていく中ボスは鳴らさない）（-20dB。2.19.3 で半分（-6dB）にした。前は 1.000・-14dB）
-  extend:     ['e', 0.200, 1], // 1UP（-28dB）
-  bomb:       ['i', 0.398, 2], // ボム（-22dB。2.19.2 でユーザーの指定「ボムの音を下げる」で半分（-6dB）にした。前は 0.794・-16dB。2.19.3 の「i を１/2」はこの半分のこと（同じ頼みを言いなおしたもの）と読んだ）
-  pichuun:    ['j', 0.398, 1], // 被弾（-22dB）
+  fire:       ['m', 1, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）
+  needle:     ['n', 1, 3], // 針のような細い弾を撃つ（3面・エキストラ）
+  oni:        ['k', 1, 2], // 1面：鬼面の弾を撃つ
+  burst:      ['k', 1, 2], // 6面：手鞠がはじける・集めた弾が散らばる・2面「軒下の誘蛾灯」の弾ける前
+  appear:     ['o', 1, 3], // 出てくる（火の玉・しっぽ・瞬間移動・弾を撃つ影や板や家・黄色の球など）
+  charge:     ['c', 1, 1], // チャージ（6面・3面「勝手口からお暇」）・1面「鬼の視線」のレーザーの点滅
+  powerup:    ['c', 1, 1], // パワーアップ
+  laserHand:  ['h', 1, 3], // 手・柱のレーザー
+  laserBoss4: ['f', 1, 2], // 4面のボス（栂尾）のレーザー
+  spread:     ['f', 1, 2], // 6面：惹きつけた弾が花のように開く（「誰もが振り向く福の神」と最後のスペル。2.19.0 でユーザーの指定）
+  summon:     ['g', 1, 2], // 4面「百間継ぎの建て増し」の四角が建つ
+  bonus:      ['a', 1, 1], // ボーナス（スペルカード取得・面のクリア）
+  spell:      ['b', 1, 1], // スペルカードの宣言
+  bossdie:    ['d', 1, 1], // ボスを倒した（エキストラで栂尾が撃ち落とされたときも。逃げていく中ボスは鳴らさない）
+  extend:     ['e', 1, 1], // 1UP
+  bomb:       ['i', 1, 2], // ボム
+  pichuun:    ['j', 1, 1], // 被弾
 };
 // もらった音がまだデコードできていないときに、代わりに鳴らす合成音（書いていない名前は、同じ名前の合成音）
 const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', spread: 'kira', summon: 'kira' };
@@ -1391,10 +1422,8 @@ function makeIntroLoopBuffer(ctx, buf, f) {
 // ------------------------------------------------------------
 //  効果音定義
 // ------------------------------------------------------------
-// BGM の大きさ（オプションの BGM 音量にかける倍率）。2.19.0 でユーザーの指定「背景ＢＧＭの音量は効果音以下にする」により 0.85 → 0.28（-9.6dB）。
-// 曲はならした大きさ（RMS）が 0.15 くらいにそろえてあり（SONGS の vol）、いちばんよく鳴る弾の音「m」はいちばん大きいところが
-// 0.126 × SE_SAMPLE_BOOST × -14dB × 0.9（効果音のバス）。2.19.1 で効果音の倍率を 2 → 1.5 にしたので、BGM も同じ割合で 0.28 → 0.21 にした
-// （0.126 × 1.5 × 0.2 × 0.9 ＝ 0.034、0.15 × 0.21 ＝ 0.0315 で、BGM がそれ以下になる。オプションの音量が同じとき）
+// BGM の大きさ（オプションの BGM 音量にかける倍率）。2.19.0 でユーザーの指定「背景ＢＧＭの音量は効果音以下にする」により 0.85 → 0.28（-9.6dB）、
+// 2.19.1 で効果音といっしょに 0.21 にした。2.20.1 からは、この BGM の大きさを 1 として効果音の大きさを決める（SE_TO_BGM。BGM はそのまま）
 const BGM_BUS_LEVEL = 0.21;
 // MML の曲を何秒先まで予約しておくか（2.19.1 でユーザーの指定「重くなった時に音が消える問題を解決」で 0.2 → 1.0。
 // 処理が重くてメインの処理がしばらく止まると、予約より先に進んだ音は鳴らせずに抜けていた。0.3 秒止まると 8 秒で 26 音ほど抜けた）

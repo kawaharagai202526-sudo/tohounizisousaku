@@ -431,8 +431,6 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     const out = {};
     // ユーザーの指定した割り当て（名前 → 音の文字）
     out.map = Object.fromEntries(Object.entries(SE_SAMPLE).map(([k, v]) => [k, v[0]]));
-    out.boost = SE_SAMPLE_BOOST; // 2.19.1 でユーザーの指定「3倍したもの、２倍したものをすべて１．５倍に変更する」（2.17.1〜2.19.0 は 2、o・c・f は 3）
-    out.boostBy = Object.fromEntries('abcdefghijkmno'.split('').map(k => [k, SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST]));
     // もらった音がすべてデコードでき、始まりに無音がない（鳴らしたときに遅れない）
     Sound.unlock();
     const want = Object.keys(SE_FILES).length;
@@ -562,9 +560,6 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     summon: 'g', bonus: 'a', spell: 'b', bossdie: 'd', extend: 'e', bomb: 'i', pichuun: 'j',
   };
   for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
-  assert(r.boost === 1.5, `もらった音の大きさの倍率が ${r.boost}（予定 1.5。2.19.1 でユーザーの指定）`);
-  const boostBad = Object.entries(r.boostBy).filter(([, v]) => v !== 1.5).map(([k, v]) => `${k}=${v}`);
-  assert(!boostBad.length, `音ごとの倍率がちがう：${boostBad.join(' ')}（予定 すべて 1.5。2.19.1 でユーザーの指定）`);
   assert(r.decoded === r.files && r.files.length === 14, `デコードできない音がある: ${r.decoded}（予定 ${r.files}）`);
   assert(!r.lateStart.length, `始まりに無音が残っている音: ${r.lateStart}`);
   assert(!r.weak.includes('fire') && !r.swarm.includes('fire'), `弱いザコの弾が鳴る: ${r.weak} / ${r.swarm}`);
@@ -664,15 +659,15 @@ test('2.19.0：タイトル・BGM と効果音の大きさ・グレイズの音�
     // タイトル（ユーザーの指定「東方座神鄭」。「鄭」は「邸」の変換ちがいと読んだ）
     out.title = GAME_INFO.title;
     out.docTitle = document.title;
-    // BGM は効果音以下：ならした曲の大きさ（RMS 0.15）× BGM の倍率 ≦ 弾の音「m」のいちばん大きいところ（-14dB にそろえた音 × 大きさ × 倍率 × 効果音のバス 0.9）
-    out.bgm = 0.15 * BGM_BUS_LEVEL;
-    out.fire = SE_SAMPLE.fire[1] * (SE_SAMPLE_BOOST_BY.m || SE_SAMPLE_BOOST) * Math.pow(10, -14 / 20) * 0.9;
+    // 「BGM は効果音以下」は 2.20.1 でユーザーの指定（BGM を 1 として効果音 0.8）に変わった（2.20.1 のテスト）
     // グレイズの音：アイテムの「カッ」の 0.8 倍。重なると大きくなる（2倍まで）
     Sound.unlock();
     const gains = [];
     const cg = Sound.ctx.createGain.bind(Sound.ctx);
     Sound.ctx.createGain = () => { const g = cg(); gains.push(g); return g; };
-    const level = n => { gains.length = 0; Sound.grazeN = n; Sound.playGraze(Sound.ctx.currentTime + 0.01); return +gains[0].gain.value.toFixed(3); };
+    // アイテムの「カッ」をふつうに鳴らすときの倍率を 1 とする（2.20.1 から合成音にも大きさの倍率がかかる）
+    const item = seLoud(SE_TO_BGM) / SE_SYNTH_PEAK.item;
+    const level = n => { gains.length = 0; Sound.grazeN = n; Sound.playGraze(Sound.ctx.currentTime + 0.01); return +(gains[0].gain.value / item).toFixed(3); };
     out.graze = [level(1), level(2), level(3), level(10)];
     Sound.ctx.createGain = cg;
     Sound.grazeN = 0;
@@ -747,7 +742,6 @@ test('2.19.0：タイトル・BGM と効果音の大きさ・グレイズの音�
     return out;
   });
   assert(r.title === '東方座神邸' && r.docTitle === '東方座神邸', `タイトル: ${JSON.stringify([r.title, r.docTitle])}`);
-  assert(r.bgm <= r.fire, `BGM（${r.bgm.toFixed(4)}）が弾の音「m」（${r.fire.toFixed(4)}）より大きい`);
   assert(JSON.stringify(r.graze) === JSON.stringify([0.8, 1.04, 1.28, 1.6]) && r.grazeCount === 3 && !r.oldGraze, `グレイズの音: ${JSON.stringify(r)}`);
   assert(r.yuga2.rings === 4 && r.yuga3.rings === 5 && r.yuga2.kBefore && r.yuga3.kBefore && !r.yuga3.kira, `誘蛾灯: ${JSON.stringify([r.yuga2, r.yuga3])}`);
   assert(r.katte >= 2, `勝手口からお暇：移動のたびのチャージが ${r.katte} 回`);
@@ -819,6 +813,80 @@ test('2.19.1：重くて処理が止まっても曲の音が抜けない（MML �
   });
   assert(r.lookahead >= 1 && r.ahead >= 0.85, `MML の曲の予約が短い（${r.ahead} 秒先まで。予定 ${r.lookahead} 秒）`);
   assert(r.gapReal, '効果音の連打の間隔を、実際の時間で測っていない');
+});
+
+test('2.20.1：BGM を 1 として効果音は 0.8（c・k・o・f は 1.3）。もらった音も合成音も、実際に鳴らして測る', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const sr = 44100;
+    // いちばん大きいところの 50ms の音量（RMS）
+    const peak50 = x => { const w = Math.round(sr * 0.05); let s = 0, best = 0; for (let i = 0; i < x.length; i++) { s += x[i] * x[i]; if (i >= w) s -= x[i - w] * x[i - w]; if (i >= w - 1) best = Math.max(best, s / w); } return Math.sqrt(best); };
+    // ゲームと同じ鳴らし方（Sound.playSample / playSynth）で、オフラインの音の処理に鳴らす。効果音のバスは SE_BUS_LEVEL（オプションの音量 1）
+    const bufs = {};
+    for (const [k, f] of Object.entries(SE_FILES)) {
+      const bin = atob(f.data), bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      bufs[k] = await new OfflineAudioContext(1, sr, sr).decodeAudioData(bytes.buffer);
+    }
+    const render = async play => {
+      const ctx = new OfflineAudioContext(1, sr * 3.5, sr);
+      const S = Object.create(Sound);
+      S.ctx = ctx; S.seVoices = {};
+      S.seBuf = Object.fromEntries(Object.entries(bufs).map(([k, b]) => [k, trimSilence(ctx, b)]));
+      S.seBus = ctx.createGain(); S.seBus.gain.value = SE_BUS_LEVEL; S.seBus.connect(ctx.destination);
+      S.echoIn = ctx.createGain();
+      const delay = ctx.createDelay(1); delay.delayTime.value = 0.13;
+      const fb = ctx.createGain(); fb.gain.value = 0.32;
+      const wet = ctx.createGain(); wet.gain.value = 0.4;
+      S.echoIn.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(S.seBus); S.echoIn.connect(S.seBus);
+      S.noiseBuf = ctx.createBuffer(1, sr, sr); const d = S.noiseBuf.getChannelData(0); for (let i = 0; i < sr; i++) d[i] = Math.random() * 2 - 1;
+      const N = 32, re = new Float32Array(N), im = new Float32Array(N);
+      for (let n = 1; n < N; n++) im[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * 0.25) * 1.2;
+      S.pulseWave = ctx.createPeriodicWave(re, im);
+      play(S);
+      return peak50((await ctx.startRendering()).getChannelData(0));
+    };
+    const bgm = BGM_LOUD * BGM_BUS_LEVEL; // BGM の大きさ（オプションの音量 1）
+    const out = { sample: {}, synth: {}, ratioBy: {} };
+    for (const [name, smp] of Object.entries(SE_SAMPLE)) out.sample[name] = [smp[0], (await render(S => S.playSample(name, smp, 0.01, null))) / bgm];
+    // ゲームで鳴らす合成音（雑音の入る音は毎回少しちがうので、3回の平均）
+    for (const name of ['shot', 'temari', 'kill', 'item', 'cursor', 'ok', 'cancel', 'pause', 'timeout', 'timeoutLow', 'clear', 'laser', 'kira', 'gishi', 'spark']) {
+      let acc = 0;
+      for (let k = 0; k < 3; k++) acc += await render(S => S.playSynth(name, 0.01, seRatio(name)));
+      out.synth[name] = acc / 3 / bgm;
+    }
+    out.ratioBy = SE_TO_BGM_BY;
+    out.base = SE_TO_BGM;
+    // BGM_LOUD は曲のならした大きさ。MML の曲を 3 つ鳴らして、ずれていないか見る（30 秒）
+    out.songs = {};
+    for (const id of ['title', 'boss1', 'stageEx']) {
+      const c = compileSong(SONGS[id]); const len = 30;
+      const ctx = new OfflineAudioContext(1, len * 22050, 22050);
+      const S = Object.create(Sound); S.ctx = ctx;
+      S.noiseBuf = ctx.createBuffer(1, 22050, 22050); const d = S.noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const N = 32, re = new Float32Array(N), im = new Float32Array(N);
+      for (let n = 1; n < N; n++) im[n] = (2 / (n * Math.PI)) * Math.sin(n * Math.PI * 0.25) * 1.2;
+      S.pulseWave = ctx.createPeriodicWave(re, im); S.echoIn = ctx.destination;
+      const g = ctx.createGain(); g.gain.value = SONGS[id].vol ?? 1; g.connect(ctx.destination);
+      for (const ev of c.events) if (ev.time < len) playInstrument(S, ev.inst, ev.midi, ev.time, ev.durSec, ev.vol, g);
+      const x = (await ctx.startRendering()).getChannelData(0);
+      let s = 0; for (const v of x) s += v * v;
+      out.songs[id] = Math.sqrt(s / x.length);
+    }
+    return out;
+  });
+  // ユーザーの指定：効果音 0.8、c・k・o・f は 1.3
+  assert(r.base === 0.8 && JSON.stringify(r.ratioBy) === JSON.stringify({ c: 1.3, k: 1.3, o: 1.3, f: 1.3 }), `倍率: ${r.base} ${JSON.stringify(r.ratioBy)}`);
+  const dB = v => 20 * Math.log10(v);
+  const bad = [];
+  for (const [name, [k, v]] of Object.entries(r.sample)) {
+    const want = r.ratioBy[k] || r.base;
+    if (Math.abs(dB(v / want)) > 1) bad.push(`${name}（${k}）${v.toFixed(2)}（予定 ${want}）`);
+  }
+  // 合成音は雑音でぶれるので ±1.5dB まで
+  for (const [name, v] of Object.entries(r.synth)) if (Math.abs(dB(v / r.base)) > 1.5) bad.push(`${name}（合成音）${v.toFixed(2)}（予定 ${r.base}）`);
+  assert(!bad.length, `BGM を 1 としたときの効果音の大きさがちがう: ${bad.join(' / ')}`);
+  const songBad = Object.entries(r.songs).filter(([, v]) => v < 0.09 || v > 0.16).map(([k, v]) => `${k} ${v.toFixed(3)}`);
+  assert(!songBad.length, `曲のならした大きさが BGM_LOUD（0.133）から大きくずれている: ${songBad}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
