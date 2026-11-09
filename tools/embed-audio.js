@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // もらった音声ファイル（MP3 など）を、曲として js/bgmfiles.js に埋めこむ
-//   node tools/embed-audio.js 曲ID 音声ファイル [ループの終わりの秒] [ループの始まりの秒] [--intro] [--xf 秒]
+//   node tools/embed-audio.js 曲ID 音声ファイル [ループの終わりの秒] [ループの始まりの秒] [--intro] [--xf 秒] [--fade 始まり,終わり]
 //   node tools/embed-audio.js --remove 曲ID
 // --intro：はじめからループの終わりまでを1回流し、そのあとはループの始まり〜終わりをくり返す（入りのある曲。2.18.0）。
 //          このときループの秒は、はじめの無音を切ったあとの秒（js/audio.js の makeIntroLoopBuffer）
 // --xf 秒：つなぎ目を重ねる長さ（書かなければ 0.03 秒。くり返しの音が録音ごとに少しちがう曲は 0.5 秒くらい）
+// --fade 始まり,終わり：もとの音声に入っているフェードアウト（振幅が直線で 1 から 0 へ下がる。秒は --intro のループの秒と同じ）。
+//          ループの中では、その分を大きくして打ち消す（--intro のときだけ。2.18.1）
 // file:// で開いても読めるように、音声は base64 の文字にして JS に入れる（fetch は file:// では使えないため）。
 // 曲として鳴らすには、js/music.js の SONGS に { title, comment, audio: '曲ID' } を書く。
 const fs = require('fs');
@@ -31,6 +33,7 @@ function save(files) {
     '//  { mime, name: もとのファイル名, loopStart / loopEnd: ループする範囲（秒。loopEnd が 0 なら最後まで）, intro, crossfade, data }',
     '//  鳴らすときに、前後の無音を切り、つなぎ目を 0.03 秒（crossfade）重ねてループする（js/audio.js の makeLoopBuffer）',
     '//  intro: true の曲は、はじめから流して loopStart〜loopEnd をくり返す（秒は、はじめの無音を切ったあと）',
+    '//  fadeOut: [始まり, 終わり] は、もとの音声に入っているフェードアウト。intro の曲のループの中では打ち消す',
     '// ============================================================',
     '',
     'const BGM_FILES = {',
@@ -38,7 +41,7 @@ function save(files) {
   for (const [id, f] of Object.entries(files)) {
     lines.push(`  ${id}: {`);
     lines.push(`    mime: '${f.mime}', name: '${f.name.replace(/[\\']/g, '\\$&')}', loopStart: ${f.loopStart}, loopEnd: ${f.loopEnd},` +
-      (f.intro ? ' intro: true,' : '') + (f.crossfade ? ` crossfade: ${f.crossfade},` : ''));
+      (f.intro ? ' intro: true,' : '') + (f.crossfade ? ` crossfade: ${f.crossfade},` : '') + (f.fadeOut ? ` fadeOut: [${f.fadeOut.join(', ')}],` : ''));
     lines.push(`    data: '${f.data}',`);
     lines.push('  },');
   }
@@ -52,6 +55,13 @@ const intro = args.includes('--intro');
 let crossfade = 0;
 const xi = args.indexOf('--xf');
 if (xi >= 0) { crossfade = +args[xi + 1]; args.splice(xi, 2); }
+let fadeOut = null;
+const fi = args.indexOf('--fade');
+if (fi >= 0) { fadeOut = String(args[fi + 1] || '').split(',').map(Number); args.splice(fi, 2); }
+if (fadeOut && !(fadeOut.length === 2 && fadeOut.every(Number.isFinite) && fadeOut[0] < fadeOut[1])) {
+  console.error('--fade は「始まり,終わり」の秒（始まり < 終わり。例：--fade 7.6,16.6）');
+  process.exit(1);
+}
 args = args.filter(a => a !== '--intro');
 const files = load();
 if (args[0] === '--remove') {
@@ -61,7 +71,7 @@ if (args[0] === '--remove') {
 } else {
   const [id, src, loopEnd = '0', loopStart = '0'] = args;
   if (!id || !src) {
-    console.error('使い方: node tools/embed-audio.js 曲ID 音声ファイル [ループの終わりの秒] [ループの始まりの秒]');
+    console.error('使い方: node tools/embed-audio.js 曲ID 音声ファイル [ループの終わりの秒] [ループの始まりの秒] [--intro] [--xf 秒] [--fade 始まり,終わり]');
     process.exit(1);
   }
   const mime = MIME[path.extname(src).toLowerCase()];
@@ -70,6 +80,7 @@ if (args[0] === '--remove') {
   files[id] = { mime, name: path.basename(src), loopStart: +loopStart, loopEnd: +loopEnd, data };
   if (intro) files[id].intro = true;
   if (crossfade) files[id].crossfade = crossfade;
+  if (fadeOut) files[id].fadeOut = fadeOut;
   save(files);
   console.log(`${id}: ${path.basename(src)}（${(data.length / 1024 / 1024).toFixed(2)} MB）を js/bgmfiles.js に入れました`);
 }

@@ -432,6 +432,7 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     // ユーザーの指定した割り当て（名前 → 音の文字）
     out.map = Object.fromEntries(Object.entries(SE_SAMPLE).map(([k, v]) => [k, v[0]]));
     out.boost = SE_SAMPLE_BOOST; // 2.17.1 でユーザーの指定「音は２倍」
+    out.boostBy = Object.fromEntries('abcdefghijkmno'.split('').map(k => [k, SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST])); // 2.18.1：o・c・f は3倍
     // もらった音がすべてデコードでき、始まりに無音がない（鳴らしたときに遅れない）
     Sound.unlock();
     const want = Object.keys(SE_FILES).length;
@@ -562,6 +563,8 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
   };
   for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
   assert(r.boost === 2, `もらった音の大きさの倍率が ${r.boost}（予定 2。ユーザーの指定「音は２倍」）`);
+  const boostBad = Object.entries(r.boostBy).filter(([k, v]) => v !== ('ocf'.includes(k) ? 3 : 2)).map(([k, v]) => `${k}=${v}`);
+  assert(!boostBad.length, `音ごとの倍率がちがう：${boostBad.join(' ')}（予定 o・c・f は 3、ほかは 2。2.18.1 でユーザーの指定）`);
   assert(r.decoded === r.files && r.files.length === 14, `デコードできない音がある: ${r.decoded}（予定 ${r.files}）`);
   assert(!r.lateStart.length, `始まりに無音が残っている音: ${r.lateStart}`);
   assert(!r.weak.includes('fire') && !r.swarm.includes('fire'), `弱いザコの弾が鳴る: ${r.weak} / ${r.swarm}`);
@@ -621,6 +624,38 @@ test('4〜6面とエキストラのボスの曲（2.18.0）：もらった曲を
     assert(s.playing, `${id}：入りのあとループするように鳴っていない: ${JSON.stringify(s)}`);
   }
   assert(!r.musicRoom.includes('boss6lunatic') && r.musicRoom.includes('bossEx'), `ミュージックルーム: ${r.musicRoom}`);
+});
+
+test('道中の曲（2.18.1）：ループのあいだに小さくならない（もとの音声のフェードアウトはループに入れないか打ち消す）', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    Sound.unlock();
+    const out = {};
+    for (let n = 1; n <= 6; n++) {
+      const id = `stage${n}`, def = SONGS[id], f = BGM_FILES[def.audio];
+      const buf = await Sound.decodeAudio(def.audio);
+      const sr = buf.sampleRate, il = buf.introLoop || { start: 0, end: buf.duration };
+      const s = Math.round(il.start * sr), e = Math.round(il.end * sr);
+      const chs = Array.from({ length: buf.numberOfChannels }, (_, c) => buf.getChannelData(c));
+      // 区間の音の大きさ（dB。ループの中の秒）
+      const db = (a, b) => {
+        let q = 0;
+        for (let i = s + Math.round(a * sr); i < s + Math.round(b * sr); i++) for (const ch of chs) q += ch[i] * ch[i];
+        return 10 * Math.log10(q / ((b - a) * sr * chs.length) + 1e-12);
+      };
+      const len = (e - s) / sr;
+      const all = db(0, len);
+      out[id] = { fade: f.fadeOut || null, intro: !!f.intro, len: +len.toFixed(2),
+        first: +(db(0, 1) - all).toFixed(1), last: +(db(len - 2, len) - all).toFixed(1), lastQ: +(db(len - 0.5, len) - all).toFixed(1) };
+    }
+    return out;
+  });
+  for (const [id, s] of Object.entries(r)) {
+    // 終わりの 2 秒・最後の 0.5 秒・始まりの 1 秒が、ループ全体より大きく下がらない（2.18.0 までの1面は終わりの2秒が -15dB ほど）
+    assert(s.last > -3 && s.lastQ > -6 && s.first > -3, `${id}：ループの終わりか始まりで小さくなる: ${JSON.stringify(s)}`);
+  }
+  // フェードアウトの入っていた1面・5面は、打ち消してループする。6面は小さいはじめと終わりをループに入れない
+  for (const id of ['stage1', 'stage5']) assert(r[id].intro && r[id].fade, `${id}：フェードアウトを打ち消していない: ${JSON.stringify(r[id])}`);
+  assert(r.stage6.intro, `stage6：入りのあとループしていない: ${JSON.stringify(r.stage6)}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

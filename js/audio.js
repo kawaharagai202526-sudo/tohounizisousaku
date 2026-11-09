@@ -141,7 +141,7 @@ const Sound = {
       v.g.gain.setTargetAtTime(0, t, 0.012);
       v.src.stop(t + 0.08);
     }
-    const level = vol * SE_SAMPLE_BOOST * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
+    const level = vol * (SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST) * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const g = ctx.createGain();
@@ -340,11 +340,13 @@ function trimSilence(ctx, buf, th = 0.002) {
 //  名前: [音の文字, 大きさ, 重ねて鳴らせる数]。大きさは、いちばん大きいところの 50ms の音量（行の終わりの dB）で決めた。
 //  前の合成音の音量（弾 -33・スペル宣言 -28・被弾 -27・ボム -13・ボス撃破 -11dB など）と同じくらいか、少し大きめ。
 //  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。
-//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍にする（行の終わりの dB は、その前の値。実際は +6dB）
+//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍（o・c・f は SE_SAMPLE_BOOST_BY の 3 倍）にする（行の終わりの dB は、その前の値。実際は +6dB、3 倍は +9.5dB）
 //  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
 // ------------------------------------------------------------
 // もらった音を、表の大きさの何倍で鳴らすか（2.17.1 でユーザーの指定「音は２倍」。2.17.0 の大きさの2倍）
 const SE_SAMPLE_BOOST = 2;
+// 音の文字ごとの倍率（書いていない文字は SE_SAMPLE_BOOST）。2.18.1 でユーザーの指定「「o」、「ｃ」、「ｆ」の音を２倍から３倍へ上昇」
+const SE_SAMPLE_BOOST_BY = { o: 3, c: 3, f: 3 };
 const SE_SAMPLE = {
   fire:       ['m', 0.126, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）（-32dB）
   needle:     ['n', 0.126, 3], // 針のような細い弾を撃つ（3面・エキストラ）（-32dB）
@@ -369,6 +371,8 @@ const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', app
 // 入りのある曲（BGM_FILES の intro。2.18.0）：はじめから loopEnd までを1回流し、そのあとは loopStart〜loopEnd をくり返す。
 // loopStart / loopEnd は、はじめの無音を切ったあとの秒（AAC のはじめに入る無音の扱いがブラウザでちがっても、ずれないように）。
 // つなぎ目：loopEnd の手前 crossfade 秒を、loopStart の手前の音へなめらかに移していく（くり返しの部分は同じ曲の同じところなので、そのまま続いて聞こえる）
+// fadeOut: [始まり, 終わり]（2.18.1）：もとの音声に入っているフェードアウト（振幅が「始まり」の 1 から「終わり」の 0 へ直線で下がる。秒は loopStart と同じ）。
+// ループの中では、下がった分だけ大きくして打ち消す（ループのたびに曲が小さくなって消えていかないように）
 function makeIntroLoopBuffer(ctx, buf, f) {
   const sr = buf.sampleRate, nch = buf.numberOfChannels;
   const chs = Array.from({ length: nch }, (_, c) => buf.getChannelData(c));
@@ -379,13 +383,17 @@ function makeIntroLoopBuffer(ctx, buf, f) {
   const le = Math.min(buf.length, a + Math.round(f.loopEnd * sr));
   const xf = Math.min(Math.round((f.crossfade ?? 0.03) * sr), ls - a, (le - ls) >> 2);
   if (le - ls < sr || xf < 0) return buf; // ループの位置がおかしいときは、そのまま全体をくり返す
+  // フェードアウトを打ち消す倍率（サンプルの位置 i ごと。フェードのないところは 1。打ち消すのは 20 倍まで）
+  const [f0, f1] = f.fadeOut || [Infinity, Infinity];
+  const unfade = i => { const t = (i - a) / sr; return t <= f0 ? 1 : 1 / Math.max(0.05, 1 - (t - f0) / (f1 - f0)); };
   const out = ctx.createBuffer(nch, le - a, sr);
   chs.forEach((src, c) => {
     const dst = out.getChannelData(c);
     dst.set(src.subarray(a, le));
+    if (f.fadeOut) for (let i = Math.max(a, a + Math.ceil(f0 * sr)); i < le; i++) dst[i - a] = src[i] * unfade(i);
     for (let i = 0; i < xf; i++) {
-      const t = (i / xf) * Math.PI / 2;
-      dst[le - xf + i - a] = src[le - xf + i] * Math.cos(t) + src[ls - xf + i] * Math.sin(t);
+      const t = (i / xf) * Math.PI / 2, j = le - xf + i, k = ls - xf + i;
+      dst[j - a] = src[j] * unfade(j) * Math.cos(t) + src[k] * unfade(k) * Math.sin(t);
     }
   });
   out.introLoop = { start: (ls - a) / sr, end: (le - a) / sr };
