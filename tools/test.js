@@ -1175,24 +1175,36 @@ test('フィードバック（タイトルで選ぶと Google フォームを新
 test('管理者ページ（PIN・キー・各ページ）', async ({ page }) => {
   await page.mouse.click(20, 12);
   await page.waitForSelector('#adminPin');
-  // PIN は2段階。まちがいは1つ目・2つ目を合わせて3回でロック（まちがいのPINは、正しいPINの1けた目を変えたもの）
+  // PIN は3段階（2.20.0）。まちがいは1つ目〜3つ目を合わせて3回でロック（まちがいのPINは、正しいPINの1けた目を変えたもの）
   const pins = await page.evaluate(() => ADMIN_PINS);
-  assert(pins.join() === '114514,810', `PIN: ${pins}`);
+  assert(pins.join() === '114514,810,4545', `PIN: ${pins}`);
   const wrong = pin => (pin[0] === '9' ? '0' : '9') + pin.slice(1);
   const title = () => page.$eval('.admin-title', e => e.textContent);
   const typePin = async v => { await page.focus('#adminPin'); await page.keyboard.type(v); };
   await typePin(wrong(pins[0]));
   await typePin(wrong(pins[0]));
   await typePin(pins[0]);
-  assert((await title()).includes('2/2'), `1つ目が合っても2つ目にならない: ${await title()}`);
+  assert((await title()).includes('2/3'), `1つ目が合っても2つ目にならない: ${await title()}`);
   await typePin(wrong(pins[1]));
-  assert((await title()).includes('1/2'), `2つ目をまちがえても1つ目に戻らない: ${await title()}`);
+  assert((await title()).includes('1/3'), `2つ目をまちがえても1つ目に戻らない: ${await title()}`);
   assert(await page.evaluate(() => document.getElementById('adminPin').disabled), 'PINを3回まちがえてもロックされない');
   await page.evaluate(() => { Store.remove('adminLock'); Admin.memLock = 0; });
   await page.waitForFunction(() => !document.getElementById('adminPin').disabled, null, { polling: 100, timeout: 3000 });
+  const waitTitle = t => page.waitForFunction(t => document.querySelector('.admin-title').textContent.includes(t), t, { polling: 50, timeout: 3000 });
   await typePin(pins[0]);
-  await page.waitForFunction(() => document.querySelector('.admin-title').textContent.includes('2/2'), null, { polling: 50, timeout: 3000 });
+  await waitTitle('2/3');
   await typePin(pins[1]);
+  await waitTitle('3/3');
+  // 3つ目をまちがえても1つ目からやり直し（まちがいは1回目なのでロックしない）
+  await typePin(wrong(pins[2]));
+  await waitTitle('1/3');
+  assert(!(await page.evaluate(() => document.getElementById('adminPin').disabled)), '3つ目を1回まちがえただけでロックされた');
+  await typePin(pins[0]);
+  await waitTitle('2/3');
+  await typePin(pins[1]);
+  await waitTitle('3/3');
+  assert(!(await page.$('#adminKey')), '3つ目を入れる前にキー入力になった');
+  await typePin(pins[2]);
   await page.waitForSelector('#adminKey');
   const key = async ch => { await page.focus('#adminKey'); await page.keyboard.type(ch); return page.evaluate(() => ({ msg: document.querySelector('.admin-keymsg').textContent, all: Cheats.allOn(), any: Cheats.anyOn() })); };
   let k = await key('f');
