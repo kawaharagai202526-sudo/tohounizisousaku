@@ -161,7 +161,7 @@ const Sound = {
     ge.connect(this.echoIn);
     SE_DEFS[def](Object.create(this, { echoIn: { value: ge } }), t, g);
   },
-  playSample(name, [k, vol, max], t, opt) {
+  playSample(name, [k, max], t, opt) {
     const ctx = this.ctx, buf = this.seBuf[k];
     const voices = this.seVoices[name] || (this.seVoices[name] = []);
     for (let i = voices.length - 1; i >= 0; i--) if (voices[i].end <= t) voices.splice(i, 1);
@@ -172,7 +172,7 @@ const Sound = {
       v.g.gain.setTargetAtTime(0, t, 0.012);
       v.src.stop(t + 0.08);
     }
-    const level = vol * seLoud(seRatio(name)) / SE_FILE_PEAK * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
+    const level = seLoud(seRatio(name)) / SE_FILE_PEAK * ((SE_FILES[k] && SE_FILES[k].norm) || 1) * ((opt && opt.vol) || 1);
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const g = ctx.createGain();
@@ -380,47 +380,51 @@ const BGM_LOUD = 0.133;   // 曲のならした大きさ（RMS。SONGS の vol �
 const SE_BUS_LEVEL = 0.9; // 効果音のバスの倍率（オプションの効果音の音量にかける）
 const SE_TO_BGM = 0.8;    // BGM を 1 としたときの効果音の大きさ
 const SE_TO_BGM_BY = { c: 1.3, k: 1.3, o: 1.3, f: 1.3 }; // もらった音の文字ごとの例外
+// 効果音の名前ごとに、上の大きさにかける倍率（書いていない名前は 1）。
+// 2.20.5 でユーザーの指定「アイテム収集時、雑魚撃破時、発射時の音を３０％下げる」：アイテム（item）・敵を倒した音（kill）・自機の弾（shot）を 0.7 倍。
+// 「発射時」は、同じ指定の中の「自機の弾発射音」と同じ自機の弾と読んだ（敵の弾の音 m はそのまま）。グレイズ（アイテムの音をもとにする）はそのまま
+const SE_NAME_MUL = { item: 0.7, kill: 0.7, shot: 0.7 };
 const SE_FILE_PEAK = Math.pow(10, -14 / 20); // もらった音のいちばん大きいところ（norm をかけたあと）
 // 合成音のいちばん大きいところの 50ms の音量（RMS。そのまま鳴らしたとき。雑音の入る音は5回の平均）。2.20.1 で測った
 // （合成音の中身を変えたら測りなおす。名前のない合成音は 0.03 とみなす）
 const SE_SYNTH_PEAK = {
-  shot: 0.0052, tan: 0.0219, temari: 0.0494, hit: 0.0032, kill: 0.0412, item: 0.0133, powerup: 0.0085, pichuun: 0.0439,
+  shot: 0.0072, tan: 0.0219, temari: 0.0494, hit: 0.0032, kill: 0.0412, item: 0.0133, powerup: 0.0085, pichuun: 0.0439,
   bomb: 0.2143, spell: 0.0381, charge: 0.0554, bossdie: 0.2814, extend: 0.0113, bonus: 0.0315, cursor: 0.0045, ok: 0.0075,
   cancel: 0.0076, pause: 0.0251, timeout: 0.0320, timeoutLow: 0.0449, clear: 0.0098, laser: 0.0206, freeze: 0.0439, kira: 0.0177,
   gishi: 0.0163, spark: 0.0541,
 };
-// 効果音の名前 → BGM を 1 としたときの大きさ（もらった音の文字で決まる。合成音はすべて SE_TO_BGM）
+// 効果音の名前 → BGM を 1 としたときの大きさ（もらった音の文字で決まる。合成音は SE_TO_BGM。名前ごとの倍率 SE_NAME_MUL をかける）
 function seRatio(name) {
   const smp = SE_SAMPLE[name];
-  return (smp && SE_TO_BGM_BY[smp[0]]) || SE_TO_BGM;
+  return ((smp && SE_TO_BGM_BY[smp[0]]) || SE_TO_BGM) * (SE_NAME_MUL[name] ?? 1);
 }
 // 効果音のバスに入る手前での、いちばん大きいところの大きさ（BGM の何倍か → 音量）
 function seLoud(ratio) { return ratio * BGM_LOUD * BGM_BUS_LEVEL / SE_BUS_LEVEL; }
 
 // ------------------------------------------------------------
 //  もらった音（audio/a-o の a〜o。js/sefiles.js）で鳴らす効果音（2.17.0 でユーザーの指定）
-//  名前: [音の文字, 大きさの倍率（ふつうは 1。大きさは上の決まりで決まる。場面ごとに変えたいときだけ）, 重ねて鳴らせる数]
+//  名前: [音の文字, 重ねて鳴らせる数]。大きさは上の決まりで決まる（場面ごとに変えたいときは SE_NAME_MUL。2.20.1〜2.20.4 はここに2つ目があった）
 //  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
 //  2.19.3 の b・d の半分、2.19.2 のボムの半分は、2.20.1 の決まり（すべて 0.8）に入れかわった
 // ------------------------------------------------------------
 const SE_SAMPLE = {
-  fire:       ['m', 1, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）
-  needle:     ['n', 1, 3], // 針のような細い弾を撃つ（3面・エキストラ）
-  oni:        ['k', 1, 2], // 1面：鬼面の弾を撃つ
-  burst:      ['k', 1, 2], // 6面：手鞠がはじける・集めた弾が散らばる・2面「軒下の誘蛾灯」の弾ける前
-  appear:     ['o', 1, 3], // 出てくる（火の玉・しっぽ・瞬間移動・弾を撃つ影や板や家・黄色の球など）
-  charge:     ['c', 1, 1], // チャージ（6面・3面「勝手口からお暇」）・1面「鬼の視線」のレーザーの点滅
-  powerup:    ['c', 1, 1], // パワーアップ
-  laserHand:  ['h', 1, 3], // 手・柱のレーザー
-  laserBoss4: ['f', 1, 2], // 4面のボス（栂尾）のレーザー
-  spread:     ['f', 1, 2], // 6面：惹きつけた弾が花のように開く（「誰もが振り向く福の神」と最後のスペル。2.19.0 でユーザーの指定）
-  summon:     ['g', 1, 2], // 4面「百間継ぎの建て増し」の四角が建つ
-  bonus:      ['a', 1, 1], // ボーナス（スペルカード取得・面のクリア）
-  spell:      ['b', 1, 1], // スペルカードの宣言
-  bossdie:    ['d', 1, 1], // ボスを倒した（エキストラで栂尾が撃ち落とされたときも。逃げていく中ボスは鳴らさない）
-  extend:     ['e', 1, 1], // 1UP
-  bomb:       ['i', 1, 2], // ボム
-  pichuun:    ['j', 1, 1], // 被弾
+  fire:       ['m', 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）
+  needle:     ['n', 3], // 針のような細い弾を撃つ（3面・エキストラ）
+  oni:        ['k', 2], // 1面：鬼面の弾を撃つ
+  burst:      ['k', 2], // 6面：手鞠がはじける・集めた弾が散らばる・2面「軒下の誘蛾灯」の弾ける前
+  appear:     ['o', 3], // 出てくる（火の玉・しっぽ・瞬間移動・弾を撃つ影や板や家・黄色の球など）
+  charge:     ['c', 1], // チャージ（6面・3面「勝手口からお暇」）・1面「鬼の視線」のレーザーの点滅
+  powerup:    ['c', 1], // パワーアップ
+  laserHand:  ['h', 3], // 手・柱のレーザー
+  laserBoss4: ['f', 2], // 4面のボス（栂尾）のレーザー
+  spread:     ['f', 2], // 6面：惹きつけた弾が花のように開く（「誰もが振り向く福の神」と最後のスペル。2.19.0 でユーザーの指定）
+  summon:     ['g', 2], // 4面「百間継ぎの建て増し」の四角が建つ
+  bonus:      ['a', 1], // ボーナス（スペルカード取得・面のクリア）
+  spell:      ['b', 1], // スペルカードの宣言
+  bossdie:    ['d', 1], // ボスを倒した（エキストラで栂尾が撃ち落とされたときも。逃げていく中ボスは鳴らさない）
+  extend:     ['e', 1], // 1UP
+  bomb:       ['i', 2], // ボム
+  pichuun:    ['j', 1], // 被弾
 };
 // もらった音がまだデコードできていないときに、代わりに鳴らす合成音（書いていない名前は、同じ名前の合成音）
 const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', spread: 'kira', summon: 'kira' };
@@ -477,7 +481,28 @@ const SE_GAP = {
 };
 
 const SE_DEFS = {
-  shot: (S, t, d) => S.noise(t, 0.04, 0.035, d, 'highpass', 5000),
+  // 自機の弾「シュッ」（2.20.5 でユーザーの指定「自機の弾発射音を”チチチチ”から”シュシュシュシュ”に変更」。前は 5000Hz より上の雑音を 0.04 秒の「チッ」）：
+  // 「シ」の息の音にあたる 2〜6kHz の雑音を、少しやわらかく立ち上げ（0.012 秒）、0.1 秒で消す。帯の高さを 4200 → 2400Hz に下げて「シュ」にする
+  shot: (S, t, d) => {
+    const ctx = S.ctx, src = ctx.createBufferSource();
+    src.buffer = S.noiseBuf;
+    src.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.8;
+    bp.frequency.setValueAtTime(4200, t);
+    bp.frequency.exponentialRampToValueAtTime(2400, t + 0.09);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 7000;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+    src.connect(bp); bp.connect(lp); lp.connect(g); g.connect(d);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + 0.12);
+  },
   // 前の弾の音。2.17.0 からは、もらった音がデコードできていないときの代わりにだけ使う
   tan: (S, t, d) => { S.osc('sine', 1500, 520, t, 0.07, 0.09, d); S.noise(t, 0.03, 0.04, d, 'bandpass', 3200, 0, 1); },
   // 手鞠（6面）：前の弾の音「ピヨン」を大きくしたもの（2.17.0 でユーザーの指定）

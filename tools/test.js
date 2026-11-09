@@ -856,6 +856,7 @@ test('2.20.1：BGM を 1 として効果音は 0.8（c・k・o・f は 1.3）。
     }
     out.ratioBy = SE_TO_BGM_BY;
     out.base = SE_TO_BGM;
+    out.mul = SE_NAME_MUL;
     // BGM_LOUD は曲のならした大きさ。MML の曲を 3 つ鳴らして、ずれていないか見る（30 秒）
     out.songs = {};
     for (const id of ['title', 'boss1', 'stageEx']) {
@@ -879,14 +880,61 @@ test('2.20.1：BGM を 1 として効果音は 0.8（c・k・o・f は 1.3）。
   const dB = v => 20 * Math.log10(v);
   const bad = [];
   for (const [name, [k, v]] of Object.entries(r.sample)) {
-    const want = r.ratioBy[k] || r.base;
+    const want = (r.ratioBy[k] || r.base) * (r.mul[name] ?? 1);
     if (Math.abs(dB(v / want)) > 1) bad.push(`${name}（${k}）${v.toFixed(2)}（予定 ${want}）`);
   }
   // 合成音は雑音でぶれるので ±1.5dB まで
-  for (const [name, v] of Object.entries(r.synth)) if (Math.abs(dB(v / r.base)) > 1.5) bad.push(`${name}（合成音）${v.toFixed(2)}（予定 ${r.base}）`);
+  for (const [name, v] of Object.entries(r.synth)) {
+    const want = r.base * (r.mul[name] ?? 1);
+    if (Math.abs(dB(v / want)) > 1.5) bad.push(`${name}（合成音）${v.toFixed(2)}（予定 ${want.toFixed(2)}）`);
+  }
   assert(!bad.length, `BGM を 1 としたときの効果音の大きさがちがう: ${bad.join(' / ')}`);
   const songBad = Object.entries(r.songs).filter(([, v]) => v < 0.09 || v > 0.16).map(([k, v]) => `${k} ${v.toFixed(3)}`);
   assert(!songBad.length, `曲のならした大きさが BGM_LOUD（0.133）から大きくずれている: ${songBad}`);
+});
+
+test('2.20.5：自機の弾は「シュッ」・アイテム／敵を倒した音／自機の弾は 0.7 倍・「o」は高い音を持ち上げた', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const sr = 44100, out = {};
+    out.mul = SE_NAME_MUL;
+    // 自機の弾の音：長さ（-40dB まで下がるまで）と、音の力の重心（「チッ」は 5000Hz より上だけ、「シュッ」は 2〜6kHz）
+    const ctx = new OfflineAudioContext(1, sr * 0.4, sr);
+    const S = Object.create(Sound); S.ctx = ctx;
+    S.noiseBuf = ctx.createBuffer(1, sr, sr); const d = S.noiseBuf.getChannelData(0); for (let i = 0; i < sr; i++) d[i] = Math.random() * 2 - 1;
+    S.echoIn = ctx.destination;
+    SE_DEFS.shot(S, 0.01, ctx.destination);
+    const x = (await ctx.startRendering()).getChannelData(0);
+    let pk = 0; for (const v of x) pk = Math.max(pk, Math.abs(v));
+    let last = 0; for (let i = 0; i < x.length; i++) if (Math.abs(x[i]) > pk * 0.01) last = i;
+    let first = 0; while (Math.abs(x[first]) < pk * 0.01) first++;
+    out.shotLen = (last - first) / sr;
+    // 0 交差の数から、だいたいの高さ（Hz）
+    let zc = 0; for (let i = first + 1; i < last; i++) if ((x[i - 1] < 0) !== (x[i] < 0)) zc++;
+    out.shotHz = zc / 2 / ((last - first) / sr);
+    // 「o」：埋めこむ前に高い音を持ち上げた（eq）。400Hz より上の音の力の割合
+    const f = SE_FILES.o, bin = atob(f.data), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const buf = await new OfflineAudioContext(1, sr, sr).decodeAudioData(bytes.buffer);
+    const energy = async hp => {
+      const c = new OfflineAudioContext(1, buf.length, sr);
+      const s = c.createBufferSource(); s.buffer = buf;
+      let node = s;
+      if (hp) { const h = c.createBiquadFilter(); h.type = 'highpass'; h.frequency.value = 400; s.connect(h); node = h; }
+      node.connect(c.destination); s.start();
+      const y = (await c.startRendering()).getChannelData(0);
+      let e = 0; for (const v of y) e += v * v; return e;
+    };
+    out.oHigh = (await energy(true)) / (await energy(false));
+    out.oEq = f.eq || '';
+    let opk = 0; for (const v of buf.getChannelData(0)) opk = Math.max(opk, Math.abs(v));
+    out.oPeak = opk;
+    out.appear = SE_SAMPLE.appear[0];
+    return out;
+  });
+  assert(r.mul.item === 0.7 && r.mul.kill === 0.7 && r.mul.shot === 0.7 && !('fire' in r.mul) && !('graze' in r.mul), `0.7 倍にする音: ${JSON.stringify(r.mul)}`);
+  assert(r.shotLen > 0.07 && r.shotLen < 0.13, `自機の弾の音の長さ ${r.shotLen.toFixed(3)} 秒（予定 0.1 秒くらいの「シュッ」）`);
+  assert(r.shotHz > 1500 && r.shotHz < 5000, `自機の弾の音の高さ ${r.shotHz.toFixed(0)}Hz（予定 2〜4kHz くらい。前の「チッ」は 5000Hz より上）`);
+  assert(r.appear === 'o' && r.oEq.includes('treble') && r.oHigh > 0.4 && r.oPeak < 1, `「o」の高い音: ${JSON.stringify(r)}（400Hz より上が 4 割より多く、振幅は 1 未満）`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
