@@ -7,7 +7,11 @@
 
 ## あそびかた
 
-`index.html` をブラウザ（Chrome / Edge / Firefox / Safari）で開くだけで遊べます。インストールやビルドは不要です。
+**ブラウザで https://kawaharagai202526-sudo.github.io/tohounizisousaku/ を開くと、すぐ遊べます**（スマホ・パソコン。ログインもインストールも不要。
+このURLを送れば、ほかの人も遊べます）。GitHub Pages で、このリポジトリの作業ブランチ（`claude/touhou-fan-shooting-game-a9rra5`）をそのまま配信しているので、
+ブランチにプッシュすると1分ほどで新しい版になります。1ファイル版は https://kawaharagai202526-sudo.github.io/tohounizisousaku/dist/zashiki.html です。
+
+手元では、`index.html` をブラウザ（Chrome / Edge / Firefox / Safari）で開くだけで遊べます。インストールやビルドは不要です。
 最初に画面をクリック（またはキーを押す）と音が鳴り始めます。
 
 ### 1ファイル版

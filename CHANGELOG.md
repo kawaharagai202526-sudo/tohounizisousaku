@@ -2,6 +2,12 @@
 
 版の番号は `js/util.js` の `GAME_VERSION` と `package.json` の `version` に書く（2つは同じにする）。
 
+## 2.19.2
+
+- ボムの音を半分の大きさ（-6dB）にした（ユーザーの指定）
+- ゲームを URL で遊べることを README に書いた（ユーザーの指定「ゲームをURL化する」）：https://kawaharagai202526-sudo.github.io/tohounizisousaku/
+  （GitHub Pages で作業ブランチをそのまま配信している。プッシュすると1分ほどで新しい版になる。ログインなしで誰でも開ける）
+
 ## 2.19.1
 
 - 効果音（もらった音 a〜o）の大きさを、すべて 1.5 倍にした（ユーザーの指定。前は 2 倍で、o・c・f は 3 倍）
