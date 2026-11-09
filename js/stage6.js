@@ -6,14 +6,9 @@
 //  中ボスを倒すと、すぐボス戦になる（2.17.0 でユーザーの指定「中ボスを倒すと、即6面戦開始」。前は中ボスのあとにも道中があった）
 // ============================================================
 
-// チャージの演出（2.17.0 でユーザーの指定で足した）：まわりから光の粒が集まり、輪が縮んでいく。毎フレーム呼ぶ（f はチャージを始めてからのフレーム）
-// チャージは CHARGE_FRAMES フレーム。音「c」はその長さで止め、終わったら「k」で弾けさせる
+// チャージ（2.17.0 でユーザーの指定で足した。演出は js/effects.js の chargeFx）は CHARGE_FRAMES フレーム。
+// 音「c」はその長さで止め、終わったら弾けさせる（手鞠唄は「k」、惹きつけは「f」）
 const CHARGE_FRAMES = 60;
-function chargeFx(x, y, color, size, f) {
-  Fx.charge(x, y, color, size, f % 2 ? 1 : 2);
-  if (f % 12 === 0) Fx.ring(x, y, color, 36 * size, -1.4 * size, 24, 2);
-  if (f % 6 === 0) Fx.flash(x, y, color, (8 + f * 0.25) * size, 10);
-}
 
 // ------------------------------------------------------------
 //  座敷 宿美の攻撃の部品（最後のスペル「座敷童子のいる家」でも重ねて使う）
@@ -85,7 +80,7 @@ function* attraction(b, o = {}) {
     // 集めたあとのチャージ（2.17.0 でユーザーの指定で足した。音は「c」）：ボスのまわりに光の粒が集まる
     Sound.se('charge', { dur: CHARGE_FRAMES / 60 });
     for (let f = 0; f < CHARGE_FRAMES; f++) { chargeFx(b.x, b.y, 'rgba(255,220,120,0.9)', 1.5, f); yield; }
-    // 花のように開く（散らばるときは「k」）
+    // 花のように開く（2.19.0 でユーザーの指定「誰もが振り向く福の神のチャージ時を c、弾拡時に f」で、散らばるときの音を「k」から「f」にした）
     for (const bl of pulled) if (bl.alive) { bl.script = null; bl.angle = angleTo(b.x, b.y, bl.x, bl.y) + rand(-0.3, 0.3); bl.speed = 0.5; bl.accel = 0.03; bl.maxSpeed = 2.0; }
     const petals = dv(5, 5, 6, 7);
     for (let ring = 0; ring < (DIFF >= 2 ? 2 : 1); ring++) {
@@ -96,7 +91,7 @@ function* attraction(b, o = {}) {
         }
       }
     }
-    Sound.se('burst');
+    Sound.se('spread');
     yield o.rest ?? 60;
   }
 }
@@ -168,15 +163,16 @@ const YANARI6_PHASES = [
 // ------------------------------------------------------------
 const ZASHIKI_PHASES = [
   {
-    // 通常1：手鞠の弾（お手玉）を、跳ねるような軌道でばら撒く
+    // 通常1：手鞠の弾（お手玉）を、跳ねるような軌道でばら撒く。
+    // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの小弾の扇をやめ、全方位ワインダーにした
     type: 'non', hp: 1300, time: 30,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
+      b.tasks.add(omniWinder(b, { way: dv(3, 3, 3, 4), every: dv(24, 22, 20, 18), swing: 0.6, period: 160, speed: dv(1.4, 1.55, 1.7, 1.85), type: 'small', color: 'pink' }));
       for (let loop = 0; ; loop++) {
         // 手鞠の数は 2.14.0 でユーザーの指定「通常弾（お手玉）の数を2/3にする」で 3/4/5/6 → 2/3/3/4 にした
         for (let i = 0; i < Math.round((dv(3, 4, 5, 6) * 2) / 3); i++) temari(b.x, b.y, rand(-2.2, 2.2), rand(-3.2, -1.6), { color: pick(['red', 'pink', 'orange']) });
         Sound.se('temari'); // 手鞠は前の「ピヨン」という音を大きくしたもの（2.17.0 でユーザーの指定）
-        if (loop % 2) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.2, type: 'small', color: 'pink' });
         yield dv(40, 34, 28, 24);
         if (loop % 4 === 3) b.wander(50, 50);
       }
@@ -244,6 +240,8 @@ const ZASHIKI_PHASES = [
       yield* b.moveTo(FIELD_W / 2, 50, 40);
       b.tasks.add(footsteps(b, { color: 'pink' }));
       if (DIFF >= 2) b.tasks.add(footsteps(b, { color: 'yellow', x: FIELD_W - 80 }));
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：ボスから小判のリング弾を、少しずつ回しながら撃つ
+      b.tasks.add(omniRings(b, { n: dv(8, 8, 9, 10), every: dv(100, 90, 80, 72), speed: dv(1.2, 1.3, 1.45, 1.6), type: 'koban', color: ['gold', 'orange'], wait: 50 }));
       for (let f = 0; ; f++) {
         if (f % dv(90, 80, 70, 60) === 0) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.4, angle: b.aim(), speed: 2.0, type: 'koban', color: 'gold' });
         yield;
@@ -251,9 +249,11 @@ const ZASHIKI_PHASES = [
     },
   },
   {
-    // 通常3：足跡の形の弾を残しながら、画面をゆっくり歩き回る
+    // 通常3：足跡の形の弾を残しながら、画面をゆっくり歩き回る。
+    // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：歩き終わりの自機狙いの小判の扇をやめ、歩きながら全方位ワインダーを撃つ
     type: 'non', hp: 1300, time: 30,
     *script(b) {
+      b.tasks.add(omniWinder(b, { way: dv(3, 3, 3, 4), every: dv(26, 24, 22, 20), swing: 0.7, period: 180, speed: dv(1.3, 1.45, 1.6, 1.75), type: 'koban', color: 'gold', wait: 30 }));
       for (let loop = 0; ; loop++) {
         b.move(rand(60, FIELD_W - 60), rand(60, 160), 90, Ease.linear);
         const iv = dv(10, 9, 8, 7);
@@ -265,7 +265,6 @@ const ZASHIKI_PHASES = [
           }
           yield;
         }
-        fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.6, angle: b.aim(), speed: 2.2, type: 'koban', color: 'gold' });
       }
     },
   },
@@ -352,6 +351,8 @@ const ZASHIKI_PHASES = [
     type: 'spell', name: '傾符「去りゆく家の没落」', hp: 1800, time: 50,
     *script(b, g) {
       yield* b.moveTo(FIELD_W / 2, 70, 40);
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：小判のリング弾を回しながら撃つ（ほかの弾と同じく、傾きで流される）
+      b.tasks.add(omniRings(b, { n: dv(7, 8, 9, 10), every: dv(96, 88, 80, 72), speed: dv(1.1, 1.2, 1.35, 1.5), type: 'koban', color: 'gold', wait: 40 }));
       let tilt = 0, target = 0, dir = randSign();
       for (let loop = 0; ; loop++) {
         // 去る：端へ下がると、傾きが大きくなる
@@ -380,6 +381,9 @@ const ZASHIKI_PHASES = [
     *script(b, g) {
       yield* b.moveTo(FIELD_W / 2, 90, 40);
       g.shake = 30;
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：はじめから終わりまで、ゆっくりした全方位ワインダーを重ねる
+      // （ユーザーの指定には「追尾弾を削除」もあったが、このスペルに自機を狙う弾はもとからない）
+      b.tasks.add(omniWinder(b, { way: 3, every: dv(30, 28, 26, 24), swing: 0.5, period: 200, speed: dv(1.1, 1.2, 1.35, 1.5), type: 'small', color: 'pink', wait: 60 }));
       // 手鞠
       b.tasks.add((function* () {
         for (;;) {

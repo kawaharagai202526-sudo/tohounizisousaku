@@ -10,12 +10,15 @@ const MAIN_STAGE_COUNT = 6;
 // エキストラステージ。本編の面と同じ形で EXTRA_STAGES.push({ ... }) と書く（js/extra.js。2.8.0 で金神の面を作った）。
 // 難易度は Extra（EXTRA_DIFF）で、コンティニューはできない
 const EXTRA_STAGES = [];
-// エキストラステージが遊べるようになる条件。本編の最後の面（MAIN_STAGE_COUNT 面）をクリアしたときに調べる
+// エキストラステージが遊べるようになる条件
+//   open：はじめから遊べる（2.19.0 でユーザーの指定「ノーマルクリアしなくても、ＥＸに挑戦できるようにする」）。
+//         false にすると、下の条件で本編の最後の面（MAIN_STAGE_COUNT 面）をクリアしたときに解放する（2.18.x まで）
 //   minDiff：この難易度以上（1 = Normal）  noContinue：コンティニューしていない
 //   練習（プラクティス）や管理者ページのキーを使ったプレイでは解放しない
-const EXTRA_UNLOCK = { minDiff: 1, noContinue: true };
+const EXTRA_UNLOCK = { open: true, minDiff: 1, noContinue: true };
 const EXTEND_POINTS = [50, 125, 250, 400, 600];
-const Settings = { lives: Store.get('lives', 3) };
+// lives：初期残機  bulletSprites：弾の見た目をスプライト（img/bullets.png）にするか（試験用。2.19.0）
+const Settings = { lives: Store.get('lives', 3), bulletSprites: Store.get('bulletSprites', false) };
 const PRACTICE_POWER = [100, 250, 400, 400, 400, 400]; // プラクティス開始時の霊力（面ごと）
 const EXTRA_POWER = 400;                               // エキストラステージ開始時の霊力
 const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
@@ -48,8 +51,8 @@ function allStages() {
     ...EXTRA_STAGES.map((st, i) => ({ st, i, extra: true, label: 'Extra Stage', short: 'Extra' })),
   ];
 }
-// エキストラステージを遊べるか（解放ずみか管理者ページのキー「E」で、面のデータもある）
-function extraPlayable() { return EXTRA_STAGES.length > 0 && (Store.get('extraUnlocked', false) || !!Cheats.on.extraOpen); }
+// エキストラステージを遊べるか（はじめから遊べるか、解放ずみか管理者ページのキー「E」で、面のデータもある）
+function extraPlayable() { return EXTRA_STAGES.length > 0 && (EXTRA_UNLOCK.open || Store.get('extraUnlocked', false) || !!Cheats.on.extraOpen); }
 
 // 開発用：ボスの攻撃をすぐ試す（プラクティス扱いなので記録されない）
 //   startBossTest({ boss: 'toganoo', phase: 3, diff: 3, char: 'marisa', only: true })
@@ -254,6 +257,7 @@ class GameScene {
   // 本編をクリアしたとき：条件（EXTRA_UNLOCK）を満たしていれば、エキストラステージを遊べるようにする。
   // 本編の面が MAIN_STAGE_COUNT 面そろうまでは、最後までクリアしても解放しない
   unlockExtra() {
+    if (EXTRA_UNLOCK.open) return false; // はじめから遊べるので、解放の知らせは出さない
     const ok = !this.extra && !this.practice && !this.cheat && !this.usedKeys
       && this.stageIndex + 1 >= MAIN_STAGE_COUNT
       && DIFF >= EXTRA_UNLOCK.minDiff

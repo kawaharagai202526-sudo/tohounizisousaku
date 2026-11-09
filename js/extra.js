@@ -276,7 +276,8 @@ function* konjinFusagari(b, g, frames) {
 // 八将神の行列：八方から、色と速さのちがう弾の列が画面を通り過ぎる。通る道は細い線で予告する
 const GYORETSU_COLORS = ['red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'pink'];
 const GYORETSU_SPEEDS = [1.5, 2.0, 1.7, 2.3, 1.6, 2.1, 1.8, 2.4];
-function* konjinGyoretsu(b, g, frames, k = 1, setK = true) {
+//   aim：自機狙いの扇も撃つか（八将神の行列は 2.19.0 でユーザーの指定「追尾弾を削除」で撃たない。七殺の波では撃つ）
+function* konjinGyoretsu(b, g, frames, k = 1, setK = true, aim = true) {
   if (setK) b.zodiacLit = null;
   for (let f = 0, c = 0; f < frames; c++) {
     const i = (c * 3) % 8, a = dirAngle(i), travel = a + Math.PI;
@@ -293,7 +294,7 @@ function* konjinGyoretsu(b, g, frames, k = 1, setK = true) {
       }
     })());
     const wait = Math.round(46 / Math.max(0.4, k));
-    if (k >= 0.8 && c % 2) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.4, angle: b.aim(), speed: 2.0, type: 'small', color: 'white' });
+    if (aim && k >= 0.8 && c % 2) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.4, angle: b.aim(), speed: 2.0, type: 'small', color: 'white' });
     yield wait;
     f += wait;
   }
@@ -388,6 +389,8 @@ const KONJIN_RUBBLE_PHASES = [
     *script(b, g) {
       setKyou(g, 1);
       yield* b.moveTo(FIELD_W - 90, 70, 50);
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：札が貼り付くあいだの自機狙いの小弾をやめ、全方位ワインダーにした
+      b.tasks.add(omniWinder(b, { way: 4, every: 18, swing: 0.6, period: 150, speed: 1.6, type: 'small', color: 'red' }));
       for (let loop = 0; ; loop++) {
         const n = 24, frames = 46;
         for (let i = 0; i < n; i++) {
@@ -412,10 +415,7 @@ const KONJIN_RUBBLE_PHASES = [
           if (i % 6 === 0) Sound.se('fire');
           yield 3;
         }
-        for (let f = 0; f < 110; f++) {
-          if (f % 30 === 0) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.4, type: 'small', color: 'red' });
-          yield;
-        }
+        yield 110;
       }
     },
   },
@@ -456,7 +456,8 @@ const KONJIN_PHASES = [
     },
   },
   {
-    // 通常2：方位盤の光線（放射状のレーザー）を回転させながら、小弾をばら撒く
+    // 通常2：方位盤の光線（放射状のレーザー）を回転させながら、小弾をばら撒く。
+    // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの札の扇をやめ、札のリング弾を回しながら撃つ
     type: 'non', hp: 1300, time: 30,
     *script(b, g) {
       yield* konjinIn(b, g, 'boss', FIELD_W / 2, 110);
@@ -465,7 +466,7 @@ const KONJIN_PHASES = [
         for (let k = 0; k < n; k++) fireLaser({ x: b.x, y: b.y, angle: off + (k * TAU) / n, length: 560, width: 12, warn: 50, dur: 130, angVel: dir * 0.0055, color: 'yellow' });
         for (let f = 0; f < 190; f++) {
           if (f % 7 === 0) fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.1, 2.0), type: 'small', color: 'orange', silent: f % 14 !== 0 });
-          if (f % 45 === 30) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.3, angle: b.aim(), speed: 2.4, type: 'card', color: 'gold' });
+          if (f % 45 === 30) fireRing({ x: b.x, y: b.y, n: 8, angle: f * 0.05, speed: 1.9, type: 'card', color: 'gold' });
           yield;
         }
       }
@@ -565,7 +566,9 @@ const KONJIN_PHASES = [
     type: 'spell', name: '遊符「八将神の行列」', hp: 1900, time: 45,
     *script(b, g) {
       yield* konjinIn(b, g, null, FIELD_W / 2, 90);
-      yield* konjinGyoretsu(b, g, Infinity);
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの扇をやめ、ゆっくりした全方位ワインダーを重ねる
+      b.tasks.add(omniWinder(b, { way: 4, every: 22, swing: 0.5, period: 180, speed: 1.4, type: 'small', color: 'white' }));
+      yield* konjinGyoretsu(b, g, Infinity, 1, true, false);
     },
   },
   {
@@ -681,6 +684,7 @@ const TOGANOO_EX_PHASES = [
     ...TOGANOO_IE,
     *script(b, g) {
       yield* untilLowHp(b, TOGANOO_IE.script(b, g), TOGANOO_EX_LOW);
+      b.layersOff = true; // 重ねて撃っている全方位の弾（2.19.0）を止める
       yield* konjinStrike(b, g);
     },
   },

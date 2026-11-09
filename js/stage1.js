@@ -161,7 +161,8 @@ const NOKIBA_PHASES = [
         Sound.se('fire'); // 瓦の弾（通常弾）は「m」
         // 生まれたてらしく、間隔が少し不揃い
         yield dv(70, 56, 44, 36) + randInt(-8, 8);
-        if (loop % 2) b.wander(60, 60);
+        // 2.19.0 でユーザーの指定「１面の動きを減らす」：動くのは4回に1回、左右は半分、上下はほとんど動かない（前は2回に1回・60px）
+        if (loop % 4 === 3) b.wander(60, 30, 10);
       }
     },
   },
@@ -188,7 +189,7 @@ const NOKIBA_PHASES = [
           yield dv(30, 24, 18, 14);
         }
         yield dv(60, 50, 40, 34);
-        b.wander(50, 50);
+        if (loop % 2) b.wander(50, 25, 10); // 2.19.0「１面の動きを減らす」（前は毎回・50px）
       }
     },
   },
@@ -198,7 +199,8 @@ const NOKIBA_PHASES = [
     *script(b) {
       yield 30;
       for (let loop = 0; ; loop++) {
-        b.move(FIELD_W / 2 + (loop % 2 ? 1 : -1) * dv(60, 70, 80, 90), 90 + rand(-15, 15), 50);
+        // 2.19.0 でユーザーの指定「１面の動きを減らす」：左右の揺れを半分にし、上下はほとんど動かない（前は ±60〜90px・上下 ±15px）
+        b.move(FIELD_W / 2 + (loop % 2 ? 1 : -1) * dv(30, 35, 40, 45), 90 + rand(-5, 5), 50);
         yield 20;
         for (let k = 0; k < 3; k++) {
           // 弾の数は 2.14.0 でユーザーの指定で半分にした
@@ -215,6 +217,8 @@ const NOKIBA_PHASES = [
     type: 'spell', name: '屋符「屋根の上から失礼」', hp: 1100, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 70, 40);
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：瓦の欠片のリング弾を、少しずつ回しながら撃つ（1面なのでゆっくり、間をあけて）
+      b.tasks.add(omniRings(b, { n: dv(10, 12, 15, 18), every: dv(110, 96, 80, 68), speed: dv(1.1, 1.25, 1.45, 1.6), type: 'tile', color: ['orange', 'brown'], wait: 30 }));
       for (let f = 0; ; f++) {
         if (f % dv(26, 20, 15, 12) === 0) {
           fire({
@@ -232,7 +236,7 @@ const NOKIBA_PHASES = [
           });
         }
         if (f % dv(100, 90, 70, 60) === 50) fireFan({ x: b.x, y: b.y, n: dv(1, 3, 3, 5), spread: 0.45, angle: b.aim(), speed: 2.2, type: 'ball', color: 'red' });
-        if (f % 240 === 200) b.wander(60, 50);
+        if (f % 480 === 440) b.wander(60, 25, 10); // 2.19.0「１面の動きを減らす」（前は4秒ごと・50px）
         yield;
       }
     },

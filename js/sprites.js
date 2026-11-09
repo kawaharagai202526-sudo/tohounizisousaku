@@ -353,17 +353,39 @@ ZODIAC_SIGNS.forEach((ch, i) => {
   };
 });
 
+// 弾のスプライト（試験用。2.19.0 でユーザーの指定「弾のスプライトを導入してみる（試験用）」）
+// オプションの「弾の見た目」をスプライトにすると（Settings.bulletSprites）、img/bullets.png から弾の絵を切り出して使う。
+// 画像の並び：行が弾の形（types の順。行の高さは BTYPES の size × SPR）、列が色（colors の順）。マスは正方形。向きのある弾は右向き。
+// 画像にない弾（瓦・虫・湯呑み・手鞠・小判など、その面だけの弾）は、いつもコードで描いた絵。画像は tools/make-bullets.py で作る
+const BULLET_SHEET = {
+  types: ['small', 'ball', 'large', 'dot', 'rice', 'kunai', 'needle', 'card', 'star', 'butterfly', 'amulet'],
+  colors: BCOLOR_NAMES,
+};
+function bulletSheetRect(type, color) {
+  const ti = BULLET_SHEET.types.indexOf(type), ci = BULLET_SHEET.colors.indexOf(color);
+  if (ti < 0 || ci < 0) return null;
+  let y = 0;
+  for (let i = 0; i < ti; i++) y += BTYPES[BULLET_SHEET.types[i]].size * SPR;
+  const s = BTYPES[type].size * SPR;
+  return { x: ci * s, y, s };
+}
+
 const spriteCache = new Map();
 function getBulletSprite(type, color) {
-  const key = type + ':' + color;
+  const sheet = typeof Settings !== 'undefined' && Settings.bulletSprites ? Images.get('bullets') : null;
+  const rect = sheet && bulletSheetRect(type, color);
+  const key = (rect ? 'sheet:' : '') + type + ':' + color;
   let c = spriteCache.get(key);
   if (!c) {
     const def = BTYPES[type];
     c = makeCanvas(def.size * SPR, def.size * SPR);
     const x = c.getContext('2d');
-    x.scale(SPR, SPR);
-    x.translate(def.size / 2, def.size / 2);
-    def.draw(x, BCOL[color] || BCOL.white);
+    if (rect) x.drawImage(sheet, rect.x, rect.y, rect.s, rect.s, 0, 0, rect.s, rect.s);
+    else {
+      x.scale(SPR, SPR);
+      x.translate(def.size / 2, def.size / 2);
+      def.draw(x, BCOL[color] || BCOL.white);
+    }
     spriteCache.set(key, c);
   }
   return c;

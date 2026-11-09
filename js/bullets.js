@@ -282,3 +282,39 @@ function fireLaser(o) {
   return l;
 }
 function aimAt(x, y) { return angleTo(x, y, G.player.x, G.player.y); }
+
+// ------------------------------------------------------------
+//  全方位ワインダーと、回る全方位弾（2.19.0 でユーザーの指定「全方位弾やワインダーを追加し、弾幕を構成」で足した）
+//  どちらもボスの tasks に入れて、もとの攻撃に重ねる（b.tasks.add(omniWinder(b, {...}))）。攻撃が終わると止まる。
+//  攻撃の途中で止めるときは src.layersOff = true（エキストラで栂尾が金神の弾に撃たれるところ）
+// ------------------------------------------------------------
+// 全方位ワインダー：way 本の弾の流れを src（ボスなど）のまわりに等間隔に並べ、向きを振り子のように左右に振りながら撃ち続ける。
+//   way：流れの数（リング弾と同じく難易度と面の密度の倍率がかかる）  every：何フレームごとに撃つか
+//   swing：振れ幅（ラジアン）  period：一往復のフレーム  spin：全体を回す速さ（1フレームのラジアン）  wait：始めるまでのフレーム
+//   speed・type・color・accel・maxSpeed：弾。音はボスから直接撃つ弾なので「m」（何回かに1回）
+function* omniWinder(src, o) {
+  if (o.wait) yield o.wait;
+  const way = Math.max(2, Math.round(o.way * ringDensityK()));
+  const base = o.angle ?? rand(TAU), swing = o.swing ?? 0.5, period = o.period || 150, every = o.every || 10;
+  for (let f = 0; !src.layersOff; f++) {
+    if (f % every === 0) {
+      const a0 = base + (o.spin || 0) * f + swing * Math.sin((f / period) * TAU);
+      for (let i = 0; i < way; i++) {
+        fire({ x: src.x, y: src.y, angle: a0 + (i * TAU) / way, speed: o.speed ?? 1.6, accel: o.accel, maxSpeed: o.maxSpeed, type: o.type || 'small', color: o.color || 'white', silent: true });
+      }
+      if (f % (every * 3) === 0) Sound.se(o.se || 'fire');
+    }
+    yield;
+  }
+}
+// 回る全方位弾：every フレームごとに n 発のリング弾を撃ち、撃つたびに step（ラジアン。書かなければ弾の間の半分）ずつ回す
+function* omniRings(src, o) {
+  if (o.wait) yield o.wait;
+  let a = o.angle ?? rand(TAU);
+  for (let k = 0; !src.layersOff; k++) {
+    const ring = fireRing({ x: src.x, y: src.y, n: o.n, angle: a, speed: o.speed ?? 1.4, type: o.type || 'small', color: Array.isArray(o.color) ? o.color[k % o.color.length] : o.color || 'white', silent: true });
+    Sound.se(o.se || 'fire');
+    a += o.step ?? Math.PI / Math.max(3, ring.length);
+    yield o.every || 60;
+  }
+}

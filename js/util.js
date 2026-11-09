@@ -53,13 +53,13 @@ function frand(a = 1, b) { if (b === undefined) { b = a; a = 0; } return a + Mat
 // ゲームの名前（タイトル画面・右のパネルのロゴ・ブラウザのタブに出る）
 // index.html の <title> と README にも同じ名前が書いてあるので、変えるときはそちらも直す
 const GAME_INFO = {
-  title: '東方奥座敷', // 2.12.0 でユーザーの指定（前は『東方座敷幕』。保存データの頭 zashiki. と1ファイル版の名前 dist/zashiki.html はそのまま）
+  title: '東方座神邸', // 2.19.0 でユーザーの指定（「東方座神鄭」の「鄭」は「邸」の変換ちがいと読んだ。2.12.0〜2.18.x は『東方奥座敷』、その前は『東方座敷幕』。保存データの頭 zashiki. と1ファイル版の名前 dist/zashiki.html はそのまま）
   subtitle: '〜 Mansion of Borrowed Rooms.',
   genre: '東方Project 二次創作弾幕シューティング',
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.18.1';
+const GAME_VERSION = '2.19.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;

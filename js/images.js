@@ -33,6 +33,8 @@ const IMAGE_FILES = {
   zashikiDot: 'img/zashiki_dot.png',
   konjin: 'img/konjin.png',        // エキストラの中ボス・ボス 金神（2.10.0 でもらったイラスト）
   konjinDot: 'img/konjin_dot.png',
+  // 弾のスプライト（試験用。2.19.0）。オプションの「弾の見た目」をスプライトにしたときだけ使う（tools/make-bullets.py で作る。並びは js/sprites.js の BULLET_SHEET）
+  bullets: 'img/bullets.png',
 };
 // 使っていない絵（ファイルだけ残して読み込まない）：前のゲーム『東方星降夜』の img/boss3・midboss3（と _dot）、
 // 2.0.0 まで2面中ボスだった img/midboss2（と _dot）

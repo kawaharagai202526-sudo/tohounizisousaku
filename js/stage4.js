@@ -90,6 +90,8 @@ const TOGANOO_PHASES = [
     type: 'spell', name: '柱符「大黒柱の屋台骨」', hp: 1500, time: 45,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 60, 40);
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの扇をやめ、回る全方位弾にした
+      b.tasks.add(omniRings(b, { n: dv(8, 9, 10, 10), every: dv(80, 72, 64, 56), speed: dv(1.3, 1.45, 1.6, 1.75), type: 'rice', color: 'orange', wait: 60 }));
       for (let loop = 0; ; loop++) {
         const cw = dv(128, 112, 96, 88), ch = dv(130, 116, 104, 96);
         const ox = rand(0, cw), oy = 90 + rand(0, ch);
@@ -125,7 +127,6 @@ const TOGANOO_PHASES = [
               });
             }
           }
-          if (f % 50 === 0) fireFan({ x: b.x, y: b.y, n: 3, spread: 0.5, angle: b.aim(), speed: 2, type: 'rice', color: 'orange' });
           // Hard/Lunatic：途中で組み替え（予告線から始め直す）
           if (DIFF >= 2 && f === Math.floor(hold / 2)) break;
           yield;
@@ -162,6 +163,8 @@ const TOGANOO_PHASES = [
     type: 'spell', name: '戸符「玄関から入れ」', hp: 1500, time: 45,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 40, 40);
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：ボスから全方位ワインダーを、ゆっくり撃ち続ける（壁の玄関を探すじゃまにならないよう、まばらに）
+      b.tasks.add(omniWinder(b, { way: dv(3, 3, 4, 4), every: dv(24, 22, 20, 18), swing: 0.5, period: 180, speed: dv(1.1, 1.25, 1.4, 1.55), type: 'small', color: 'orange', wait: 60 }));
       const walls = [];
       let lastGap = FIELD_W / 2;
       for (let f = 0; ; f++) {
@@ -313,6 +316,8 @@ const TOGANOO_PHASES = [
     type: 'spell', name: '家符「家を支える者の意地」', hp: 1900, time: 55,
     *script(b, g) {
       yield* b.moveTo(FIELD_W / 2, 60, 40);
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの扇をやめ、全方位ワインダーにした（エキストラの栂尾も同じ）
+      b.tasks.add(omniWinder(b, { way: dv(4, 4, 5, 5), every: dv(22, 20, 18, 16), swing: 0.6, period: 150, speed: dv(1.5, 1.7, 1.9, 2.0), type: 'rice', color: 'orange', wait: 40 }));
       for (let loop = 0; ; loop++) {
         const lost = 1 - b.hp / b.maxHp;
         const n = Math.round(dv(2, 3, 3, 4) + lost * dv(2, 3, 4, 4));
@@ -344,7 +349,6 @@ const TOGANOO_PHASES = [
             }
           }
         }
-        fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.8, angle: b.aim(), speed: 2.2, type: 'rice', color: 'orange' });
         yield Math.max(30, dv(90, 80, 70, 60) - lost * 30);
       }
     },

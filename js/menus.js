@@ -614,7 +614,7 @@ class OptionScene {
   update() {
     this.frame++;
     menuBG().update();
-    this.sel = menuMove(this.sel, 4);
+    this.sel = menuMove(this.sel, 5);
     const tap = menuTapIndex(this.rects);
     let delta = 0;
     if (Input.repeat('left')) delta = -1;
@@ -622,15 +622,18 @@ class OptionScene {
     if (tap >= 0) {
       const t = Input.taps[0];
       this.sel = tap;
-      if (tap < 3) delta = t.x > 400 ? 1 : -1;
+      if (tap < 4) delta = t.x > 400 ? 1 : -1;
     }
-    if (delta && this.sel < 3) {
+    if (this.sel === 3 && Input.pressed('shot')) delta = 1; // 弾の見た目は Z でも切りかえられる
+    if (delta && this.sel < 4) {
       Sound.se('cursor');
       if (this.sel === 0) Sound.setVolumes(clamp(Math.round((Sound.bgmVolume + delta * 0.1) * 10) / 10, 0, 1), Sound.seVolume);
       if (this.sel === 1) Sound.setVolumes(Sound.bgmVolume, clamp(Math.round((Sound.seVolume + delta * 0.1) * 10) / 10, 0, 1));
       if (this.sel === 2) { Settings.lives = clamp(Settings.lives + delta, 0, 5); Store.set('lives', Settings.lives); }
+      // 弾の見た目（2.19.0。スプライトは試験用）：これから撃たれる弾から変わる
+      if (this.sel === 3) { Settings.bulletSprites = !Settings.bulletSprites; Store.set('bulletSprites', Settings.bulletSprites); }
     }
-    if ((this.sel === 3 && (Input.pressed('shot') || tap === 3)) || backPressed()) {
+    if ((this.sel === 4 && (Input.pressed('shot') || tap === 4)) || backPressed()) {
       Sound.se('cancel');
       Game.setScene(new TitleScene('option'));
     }
@@ -640,14 +643,14 @@ class OptionScene {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     drawHeading(ctx, 'オプション', 'Option');
-    const items = ['BGM 音量', '効果音 音量', '初期残機', '戻る'];
-    this.rects = drawMenuList(ctx, items, this.sel, 150, 150, 56, { size: 20, hitW: 420 });
-    const vals = [`${Math.round(Sound.bgmVolume * 100)}%`, `${Math.round(Sound.seVolume * 100)}%`, `${Settings.lives}`];
+    const items = ['BGM 音量', '効果音 音量', '初期残機', '弾の見た目', '戻る'];
+    this.rects = drawMenuList(ctx, items, this.sel, 150, 140, 54, { size: 20, hitW: 420 });
+    const vals = [`${Math.round(Sound.bgmVolume * 100)}%`, `${Math.round(Sound.seVolume * 100)}%`, `${Settings.lives}`, Settings.bulletSprites ? 'スプライト（試験）' : '標準'];
     ctx.textAlign = 'center';
     vals.forEach((v, i) => {
       const on = i === this.sel;
-      ctx.font = `700 20px ${FONT_EN}`;
-      strokeText(ctx, `◀  ${v}  ▶`, 460, 150 + i * 56, on ? '#fff3c8' : '#a8a0cc', 'rgba(0,0,0,0.8)', 3);
+      ctx.font = i === 3 ? `700 17px ${FONT_JP}` : `700 20px ${FONT_EN}`;
+      strokeText(ctx, `◀  ${v}  ▶`, 460, 140 + i * 54, on ? '#fff3c8' : '#a8a0cc', 'rgba(0,0,0,0.8)', 3);
     });
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = 'rgba(220,210,255,0.8)';

@@ -77,7 +77,7 @@ const Sound = {
 
   applyVolume() {
     if (!this.ctx) return;
-    this.bgmBus.gain.value = this.muted ? 0 : this.bgmVolume * 0.85;
+    this.bgmBus.gain.value = this.muted ? 0 : this.bgmVolume * BGM_BUS_LEVEL;
     this.seBus.gain.value = this.muted ? 0 : this.seVolume * 0.9;
   },
   setVolumes(bgm, se) {
@@ -95,14 +95,24 @@ const Sound = {
 
   // ---------------- 効果音 ----------------
   // name：SE_SAMPLE（もらった音）か SE_DEFS（合成音）の名前。opt.dur：その秒数で小さくして止める（チャージの音など）
-  se(name, opt = null) { if (opt || !this.pending.has(name)) this.pending.set(name, opt); },
+  se(name, opt = null) {
+    if (name === 'graze') this.grazeN++; // グレイズは重なった数だけ大きく鳴らす（playGraze）
+    if (opt || !this.pending.has(name)) this.pending.set(name, opt);
+  },
+  grazeN: 0, // 前にグレイズの音を鳴らしてから、たまったグレイズの数
   // 1フレームに同じ効果音は1回だけ鳴らす
   flush() {
-    if (!this.ctx || this.ctx.state !== 'running') { this.pending.clear(); return; }
+    if (!this.ctx || this.ctx.state !== 'running') { this.pending.clear(); this.grazeN = 0; return; }
     const t = this.ctx.currentTime + 0.005;
+    let grazeLater = false;
     for (const [name, opt] of this.pending) {
       const gap = SE_GAP[name] || 0;
-      if (gap && t - (this.lastPlayed[name] || 0) < gap) continue;
+      if (gap && t - (this.lastPlayed[name] || 0) < gap) {
+        // グレイズは捨てずに、間があいたらまとめて（重なった数だけ大きく）鳴らす
+        if (name === 'graze') grazeLater = true;
+        continue;
+      }
+      if (name === 'graze') { this.lastPlayed[name] = t; this.playGraze(t); continue; }
       const smp = SE_SAMPLE[name];
       if (smp && this.seBuf[smp[0]]) {
         this.lastPlayed[name] = t;
@@ -116,6 +126,7 @@ const Sound = {
       f(this, t, this.seBus);
     }
     this.pending.clear();
+    if (grazeLater) this.pending.set('graze', null);
   },
   lastPlayed: {},
   seBuf: {},    // もらった音をデコードしたもの（文字 → AudioBuffer）
@@ -129,6 +140,16 @@ const Sound = {
       for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
       this.ctx.decodeAudioData(bytes.buffer, buf => { this.seBuf[k] = trimSilence(this.ctx, buf); }, () => {});
     }
+  },
+  // グレイズの音（2.19.0 でユーザーの指定）：アイテムの「カッ」と同じ音を GRAZE_SE.base 倍の大きさで鳴らす。
+  // 前に鳴らしてから重なったグレイズが多いほど大きくする（同じフレームのグレイズや、SE_GAP で鳴らさなかったあいだのグレイズ）
+  playGraze(t) {
+    const n = Math.max(1, this.grazeN);
+    this.grazeN = 0;
+    const g = this.ctx.createGain();
+    g.gain.value = GRAZE_SE.base * Math.min(GRAZE_SE.max, 1 + GRAZE_SE.step * (n - 1));
+    g.connect(this.seBus);
+    SE_DEFS.item(this, t, g);
   },
   playSample(name, [k, vol, max], t, opt) {
     const ctx = this.ctx, buf = this.seBuf[k];
@@ -357,6 +378,7 @@ const SE_SAMPLE = {
   powerup:    ['c', 0.158, 1], // パワーアップ（-30dB）
   laserHand:  ['h', 0.158, 3], // 手・柱のレーザー（-30dB）
   laserBoss4: ['f', 0.178, 2], // 4面のボス（栂尾）のレーザー（-29dB）
+  spread:     ['f', 0.178, 2], // 6面：惹きつけた弾が花のように開く（「誰もが振り向く福の神」と最後のスペル。2.19.0 でユーザーの指定）（-29dB）
   summon:     ['g', 0.200, 2], // 4面「百間継ぎの建て増し」の四角が建つ（-28dB）
   bonus:      ['a', 0.251, 1], // ボーナス（スペルカード取得・面のクリア）（-26dB）
   spell:      ['b', 0.316, 1], // スペルカードの宣言（-24dB）
@@ -366,7 +388,7 @@ const SE_SAMPLE = {
   pichuun:    ['j', 0.398, 1], // 被弾（-22dB）
 };
 // もらった音がまだデコードできていないときに、代わりに鳴らす合成音（書いていない名前は、同じ名前の合成音）
-const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', summon: 'kira' };
+const SE_FALLBACK = { fire: 'tan', needle: 'tan', oni: 'tan', burst: 'kira', appear: 'kira', laserHand: 'laser', laserBoss4: 'laser', spread: 'kira', summon: 'kira' };
 
 // 入りのある曲（BGM_FILES の intro。2.18.0）：はじめから loopEnd までを1回流し、そのあとは loopStart〜loopEnd をくり返す。
 // loopStart / loopEnd は、はじめの無音を切ったあとの秒（AAC のはじめに入る無音の扱いがブラウザでちがっても、ずれないように）。
@@ -404,9 +426,17 @@ function makeIntroLoopBuffer(ctx, buf, f) {
 //  効果音定義
 // ------------------------------------------------------------
 // 連続で鳴りやすい音の最短間隔（秒）
+// BGM の大きさ（オプションの BGM 音量にかける倍率）。2.19.0 でユーザーの指定「背景ＢＧＭの音量は効果音以下にする」により 0.85 → 0.28（-9.6dB）。
+// 曲はならした大きさ（RMS）が 0.15 くらいにそろえてあり（SONGS の vol）、いちばんよく鳴る弾の音「m」はいちばん大きいところが
+// 0.126 × 2 × -14dB × 0.9（効果音のバス）＝ 0.045 くらい。0.15 × 0.28 ＝ 0.042 で、BGM がそれ以下になる（オプションの音量が同じとき）
+const BGM_BUS_LEVEL = 0.28;
+// グレイズの音（2.19.0 でユーザーの指定「グレイズがたまるとき、他の効果音より２割減少させた”カッ”という音を導入する。
+// ただし、グレイズ音に限り、グレイズが重なった場合、音も大きくなる」）：アイテムの「カッ」の 0.8 倍。重なったグレイズ1つごとに +30%、2倍まで
+const GRAZE_SE = { base: 0.8, step: 0.3, max: 2.0 };
+
 const SE_GAP = {
   tan: 0.05, hit: 0.06, graze: 0.035, shot: 0.07, item: 0.03, kill: 0.03, kira: 0.08,
-  fire: 0.07, needle: 0.06, oni: 0.08, burst: 0.08, appear: 0.06, laserHand: 0.08, laserBoss4: 0.08, summon: 0.05, temari: 0.05,
+  fire: 0.07, needle: 0.06, oni: 0.08, burst: 0.08, appear: 0.06, laserHand: 0.08, laserBoss4: 0.08, spread: 0.08, summon: 0.05, temari: 0.05,
 };
 
 const SE_DEFS = {
@@ -417,7 +447,6 @@ const SE_DEFS = {
   temari: (S, t, d) => { S.osc('sine', 1500, 520, t, 0.08, 0.2, d); S.noise(t, 0.03, 0.085, d, 'bandpass', 3200, 0, 1); },
   hit: (S, t, d) => S.noise(t, 0.045, 0.06, d, 'bandpass', 1700, 0, 0.9),
   kill: (S, t, d) => { S.noise(t, 0.3, 0.2, d, 'lowpass', 3500, 180); S.osc('square', 520, 80, t, 0.18, 0.05, d); },
-  graze: (S, t, d) => { S.noise(t, 0.035, 0.09, d, 'highpass', 7000); S.osc('triangle', 3300, 2500, t, 0.03, 0.03, d); },
   // アイテムを取ったときの「カッ」（2.18.0 でユーザーの指定）：ごく短い、乾いた硬い音（はじめの「カ」の雑音と、すぐ消える低めの四角い音）
   item: (S, t, d) => { S.noise(t, 0.024, 0.17, d, 'bandpass', 3200, 0, 1.2); S.osc('square', 1400, 900, t, 0.045, 0.05, d, 0.001); },
   powerup: (S, t, d) => [0, 4, 7, 12].forEach((n, i) => S.osc('pulse', 660 * Math.pow(2, n / 12), 0, t + i * 0.045, 0.08, 0.06, d)),

@@ -519,12 +519,12 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
       if (speedAtCharge !== null && !log.some(x => x[1] === 'burst')) speedBeforeBurst = sp;
     }
     out.temari = { names: names(), charge: at('charge'), burst: at('burst'), speedAtCharge, speedBeforeBurst };
-    // 6面 惹符：集めたあとにチャージ（c）、散らばるときは k
+    // 6面 惹符：集めたあとにチャージ（c）、散らばるときは f（2.19.0 でユーザーの指定。2.17.0〜2.18.x は k）
     startBossTest({ boss: 'zashiki', phase: 6, diff: 3, only: true });
     G.cheat = true;
     log.length = 0;
-    for (let f = 0; f < 800 && !log.some(x => x[1] === 'burst'); f++) T.step(1, 30);
-    out.attract = { names: names(), charge: at('charge'), burst: at('burst') };
+    for (let f = 0; f < 800 && !log.some(x => x[1] === 'spread'); f++) T.step(1, 30);
+    out.attract = { names: names(), charge: at('charge'), spread: at('spread'), burst: at('burst') };
     // エキストラ：栂尾が撃たれるとき、上に現れる黄色の球は o、その球が撃つと m、倒されると d
     startBossTest({ stage: 'extra', boss: 'toganooEx', phase: 2, only: true });
     G.cheat = true;
@@ -578,8 +578,8 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
   assert(r.temari.charge !== null && r.temari.burst !== null && Math.abs(r.temari.burst - r.temari.charge - 60) <= 3,
     `手鞠唄の数え歌：チャージ（c）のあとに弾けない（k）: ${JSON.stringify(r.temari)}`);
   assert(r.temari.speedAtCharge > 1 && r.temari.speedBeforeBurst < r.temari.speedAtCharge * 0.1, `手鞠唄の数え歌：チャージのあいだに手鞠が止まらない: ${JSON.stringify(r.temari)}`);
-  assert(r.attract.charge !== null && r.attract.burst !== null && Math.abs(r.attract.burst - r.attract.charge - 60) <= 3,
-    `惹符：集めたあとにチャージ（c）して散らばらない（k）: ${JSON.stringify(r.attract)}`);
+  assert(r.attract.charge !== null && r.attract.spread !== null && r.attract.burst === null && Math.abs(r.attract.spread - r.attract.charge - 60) <= 3,
+    `惹符：集めたあとにチャージ（c）して散らばらない（f）: ${JSON.stringify(r.attract)}`);
   assert(r.strike.join() === 'appear,fire,bossdie', `エキストラ：黄色の球の音の順番がちがう: ${r.strike}（予定 appear,fire,bossdie）`);
   assert(r.stage6.sawMid && r.stage6.bossAt !== null && r.stage6.bossAt - r.stage6.midGone <= 5 && r.stage6.spawnedAfterMid === 0,
     `6面：中ボスのあと、すぐボス戦にならない: ${JSON.stringify(r.stage6)}`);
@@ -658,6 +658,146 @@ test('道中の曲（2.18.1）：ループのあいだに小さくならない�
   assert(r.stage6.intro, `stage6：入りのあとループしていない: ${JSON.stringify(r.stage6)}`);
 });
 
+test('2.19.0：タイトル・BGM と効果音の大きさ・グレイズの音・攻撃ごとの音・追尾弾をなくした攻撃', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const out = {};
+    // タイトル（ユーザーの指定「東方座神鄭」。「鄭」は「邸」の変換ちがいと読んだ）
+    out.title = GAME_INFO.title;
+    out.docTitle = document.title;
+    // BGM は効果音以下：ならした曲の大きさ（RMS 0.15）× BGM の倍率 ≦ 弾の音「m」のいちばん大きいところ（-14dB にそろえた音 × 大きさ × 倍率 × 効果音のバス 0.9）
+    out.bgm = 0.15 * BGM_BUS_LEVEL;
+    out.fire = SE_SAMPLE.fire[1] * (SE_SAMPLE_BOOST_BY.m || SE_SAMPLE_BOOST) * Math.pow(10, -14 / 20) * 0.9;
+    // グレイズの音：アイテムの「カッ」の 0.8 倍。重なると大きくなる（2倍まで）
+    Sound.unlock();
+    const gains = [];
+    const cg = Sound.ctx.createGain.bind(Sound.ctx);
+    Sound.ctx.createGain = () => { const g = cg(); gains.push(g); return g; };
+    const level = n => { gains.length = 0; Sound.grazeN = n; Sound.playGraze(Sound.ctx.currentTime + 0.01); return +gains[0].gain.value.toFixed(3); };
+    out.graze = [level(1), level(2), level(3), level(10)];
+    Sound.ctx.createGain = cg;
+    Sound.grazeN = 0;
+    Sound.se('graze'); Sound.se('graze'); Sound.se('graze');
+    out.grazeCount = Sound.grazeN;
+    Sound.pending.clear(); Sound.grazeN = 0;
+    out.oldGraze = 'graze' in SE_DEFS;
+    // 攻撃ごとの音：鳴らした効果音を記録する
+    const log = [];
+    const se = Sound.se;
+    Sound.se = function (name, opt) { log.push([G ? G.frame : 0, name]); return se.call(this, name, opt); };
+    const run = (id, name, diff, frames, each) => {
+      const meta = allStages().flatMap(({ st }) => st.bosses).find(x => x.id === id);
+      const k = meta.phases.filter(ph => diff >= (ph.minDiff || 0)).findIndex(ph => ph.name === name) + 1;
+      startBossTest({ boss: id, phase: k, diff, only: true });
+      G.cheat = true;
+      log.length = 0;
+      for (let f = 0; f < frames; f++) { Game.update(); if (each) each(f); }
+      return log.map(x => x[1]);
+    };
+    // 2面「軒下の誘蛾灯」：弾ける前に「k」、弾けたときの黄色の円は Hard 4・Lunatic 5
+    const ringOrig = window.fireRing;
+    for (const diff of [2, 3]) {
+      // 弾けたときに灯りの位置から撃つ黄色のリング弾を数える（最初に弾けたときだけ）
+      let rings = 0, firstAt = -1;
+      window.fireRing = o => {
+        if (o.type === 'small' && o.color === 'yellow' && o.x === FIELD_W / 2 && o.y === 210 && (firstAt < 0 || firstAt === G.frame)) { firstAt = G.frame; rings++; }
+        return ringOrig(o);
+      };
+      const names = run('kuraishiro', '灯符「軒下の誘蛾灯」', diff, 420);
+      const burstAt = (log.find(x => x[1] === 'burst') || [-1])[0];
+      out['yuga' + diff] = { rings, kBefore: burstAt > 0 && burstAt < firstAt, kira: names.includes('kira') };
+    }
+    window.fireRing = ringOrig;
+    // 3面「勝手口からお暇」：移動するたびにチャージ（c）してから撃つ
+    out.katte = run('namesawa', '逃符「勝手口からお暇」', 1, 600).filter(n => n === 'charge').length;
+    // 6面「誰もが振り向く福の神」：チャージは c、弾が広がるときは f（spread）
+    const fuku = run('zashiki', '惹符「誰もが振り向く福の神」', 1, 600);
+    out.fuku = { charge: fuku.includes('charge'), spread: fuku.includes('spread'), burst: fuku.includes('burst'), f: SE_SAMPLE.spread[0] };
+    Sound.se = se;
+    // 追尾弾（自機狙いの弾）を削除した攻撃：台本に自機狙い（aim・aimAt）がなく、全方位弾かワインダーがある
+    const phaseOf = (id, name) => allStages().flatMap(({ st }) => st.bosses).find(x => x.id === id).phases.find(ph => ph.name === name);
+    const nonOf = (id, n, diff = 3) => allStages().flatMap(({ st }) => st.bosses).find(x => x.id === id).phases.filter(ph => ph.type === 'non' && diff >= (ph.minDiff || 0))[n - 1];
+    const noAim = {
+      'トカゲの尻尾切り': phaseOf('kuraishiro', '尾符「トカゲの尻尾切り」').script.toString() + cutTail.toString(),
+      '3面の通常1': nonOf('namesawa', 1).script.toString(),
+      '百鬼夜行の先頭': phaseOf('namesawa', '総大将「百鬼夜行の先頭」').script.toString(),
+      '大黒柱の屋台骨': phaseOf('toganoo', '柱符「大黒柱の屋台骨」').script.toString(),
+      '家を支える者の意地': phaseOf('toganoo', '家符「家を支える者の意地」').script.toString(),
+      '天井裏の大行進の前の通常': nonOf('yanari', 3).script.toString(),
+      '天井裏の大行進の後の通常': nonOf('yanari', 4).script.toString(),
+      '6面の最初の通常': nonOf('zashiki', 1).script.toString(),
+      '足音の次の通常': nonOf('zashiki', 3).script.toString(),
+      '座敷童子のいる家': phaseOf('zashiki', '家符「座敷童子のいる家」').script.toString(),
+      '艮の鬼門封じ': phaseOf('konjin', '鬼門「艮の鬼門封じ」').script.toString(),
+      '金神の遊行の次の通常': nonOf('konjin', 3).script.toString(),
+      '八将神の行列': phaseOf('konjin', '遊符「八将神の行列」').script.toString(),
+    };
+    out.aimLeft = Object.entries(noAim).filter(([, src]) => /\baim\(\)|aimAt\(/.test(src)).map(([k]) => k);
+    out.noOmni = Object.entries(noAim).filter(([, src]) => !/omniWinder|omniRings|fireRing/.test(src)).map(([k]) => k);
+    // 「全方位弾やワインダーを追加」した攻撃（追尾弾はそのまま）
+    const addOmni = {
+      '屋根の上から失礼': phaseOf('nokiba', '屋符「屋根の上から失礼」'), '湧き放題の天井裏': phaseOf('kuraishiro', '虫符「湧き放題の天井裏」'),
+      '表札の掛け替え': phaseOf('namesawa', '札符「表札の掛け替え」'), '玄関から入れ': phaseOf('toganoo', '戸符「玄関から入れ」'),
+      '座敷わらしの足音': phaseOf('zashiki', '福符「座敷わらしの足音」'), '去りゆく家の没落': phaseOf('zashiki', '傾符「去りゆく家の没落」'),
+    };
+    out.noOmni2 = Object.entries(addOmni).filter(([, ph]) => !/omniWinder|omniRings|ways/.test(ph.script.toString())).map(([k]) => k);
+    // 2面の通常3（湧き放題の次）：円に広がったあと、自機を追わない
+    out.non3Aim = /aimAt\(/.test(nonOf('kuraishiro', 3).script.toString());
+    // 表札の掛け替えは全方位（自機の向きで撃たない）
+    out.hyosatsuAim = /\baim\(\)/.test(phaseOf('namesawa', '札符「表札の掛け替え」').script.toString());
+    return out;
+  });
+  assert(r.title === '東方座神邸' && r.docTitle === '東方座神邸', `タイトル: ${JSON.stringify([r.title, r.docTitle])}`);
+  assert(r.bgm <= r.fire, `BGM（${r.bgm.toFixed(4)}）が弾の音「m」（${r.fire.toFixed(4)}）より大きい`);
+  assert(JSON.stringify(r.graze) === JSON.stringify([0.8, 1.04, 1.28, 1.6]) && r.grazeCount === 3 && !r.oldGraze, `グレイズの音: ${JSON.stringify(r)}`);
+  assert(r.yuga2.rings === 4 && r.yuga3.rings === 5 && r.yuga2.kBefore && r.yuga3.kBefore && !r.yuga3.kira, `誘蛾灯: ${JSON.stringify([r.yuga2, r.yuga3])}`);
+  assert(r.katte >= 2, `勝手口からお暇：移動のたびのチャージが ${r.katte} 回`);
+  assert(r.fuku.charge && r.fuku.spread && !r.fuku.burst && r.fuku.f === 'f', `福の神の音: ${JSON.stringify(r.fuku)}`);
+  assert(!r.aimLeft.length, `自機狙いが残っている: ${r.aimLeft.join('・')}`);
+  assert(!r.noOmni.length && !r.noOmni2.length, `全方位弾・ワインダーがない: ${[...r.noOmni, ...r.noOmni2].join('・')}`);
+  assert(!r.non3Aim && !r.hyosatsuAim, `2面の通常3か表札の掛け替えが自機を狙う: ${JSON.stringify(r)}`);
+});
+
+test('弾のスプライト（試験用。2.19.0）：オプションの「弾の見た目」で img/bullets.png の絵に切りかわる', async ({ page }) => {
+  const r = await page.evaluate(async () => {
+    const out = {};
+    for (let i = 0; i < 200 && !Images.get('bullets'); i++) await new Promise(res => setTimeout(res, 25));
+    const img = Images.get('bullets');
+    out.loaded = !!img;
+    // 画像の大きさが BULLET_SHEET の並びと合っている（行：弾の形、列：色）
+    const sizes = BULLET_SHEET.types.map(t => BTYPES[t].size * SPR);
+    out.want = [Math.max(...sizes) * BULLET_SHEET.colors.length, sizes.reduce((a, b) => a + b, 0)];
+    out.got = img ? [img.naturalWidth, img.naturalHeight] : null;
+    // オプション：弾の見た目を Z で切りかえると保存される
+    Settings.bulletSprites = false;
+    Game.setScene(new OptionScene());
+    T.step(5);
+    Game.scene.sel = 3;
+    Input.just.shot = true;
+    T.step(2);
+    out.toggled = Settings.bulletSprites;
+    out.saved = Store.get('bulletSprites', false);
+    // スプライトのときは画像から切り出した絵、標準のときはコードの絵。画像にない弾（瓦など）はいつもコードの絵
+    Settings.bulletSprites = false;
+    const off = getBulletSprite('ball', 'red'), tileOff = getBulletSprite('tile', 'blue');
+    Settings.bulletSprites = true;
+    const on = getBulletSprite('ball', 'red'), tileOn = getBulletSprite('tile', 'blue');
+    out.differs = off !== on && on.width === off.width;
+    out.tileSame = tileOff === tileOn;
+    out.sheetKey = spriteCache.has('sheet:ball:red');
+    // 撃った弾も切りかわる
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0, practice: true }));
+    T.step(3);
+    out.bulletUsesSheet = fire({ x: 100, y: 100, angle: 1, speed: 1, type: 'rice', color: 'blue', silent: true }).sprite === spriteCache.get('sheet:rice:blue');
+    Settings.bulletSprites = false;
+    Store.remove('bulletSprites');
+    return out;
+  });
+  assert(r.loaded, 'img/bullets.png が読めない');
+  assert(JSON.stringify(r.got) === JSON.stringify(r.want), `img/bullets.png の大きさ ${JSON.stringify(r.got)}（並びから ${JSON.stringify(r.want)}）`);
+  assert(r.toggled && r.saved, `オプションで切りかわらない: ${JSON.stringify(r)}`);
+  assert(r.differs && r.tileSame && r.sheetKey && r.bulletUsesSheet, `弾の絵が切りかわらない: ${JSON.stringify(r)}`);
+});
+
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
   // 開発用の startBossTest で、すべてのボス・中ボスの攻撃を1つずつ7秒間動かす（無敵）
   const r = await page.evaluate(() => {
@@ -718,6 +858,9 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
     const bossId = STAGES[0].bosses.filter(bs => !bs.mid).pop().id;
     // 本物のエキストラの面は、しくみを確かめるあいだ外しておく（最後に戻す）
     const realExtra = EXTRA_STAGES.splice(0);
+    // 2.19.0 からエキストラははじめから遊べる（EXTRA_UNLOCK.open）。解放の条件のしくみは、open を切って確かめる（最後に戻す）
+    const openWas = EXTRA_UNLOCK.open;
+    EXTRA_UNLOCK.open = false;
     const mini = name => ({
       name, nameEn: name, bg: STAGES[0].bg, bgm: STAGES[0].bgm,
       bosses: [{ id: bossId, phases: [{ type: 'non', hp: 50, time: 3, *script() { for (;;) yield; } }] }],
@@ -807,6 +950,15 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
     out.bossTestExtra = startBossTest({ stage: 'extra' }) && G.extra && DIFF === EXTRA_DIFF;
     // 管理者ページの一覧もエキストラを含めて作れる
     out.all = allStages().map(x => x.short).join(',');
+    // はじめから遊べる（2.19.0）：解放していなくてもタイトルで選べ、6面をクリアしても「遊べるようになりました」は出ない
+    EXTRA_UNLOCK.open = openWas;
+    Store.remove('extraUnlocked');
+    Game.setScene(new TitleScene('extra'));
+    T.step(12);
+    out.openTitle = !Game.scene.items[1].disabled;
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: MAIN_STAGE_COUNT - 1 }));
+    out.openNotice = G.unlockExtra() || G.extraUnlockedNow;
+    out.openFlag = EXTRA_UNLOCK.open;
     EXTRA_STAGES.splice(0, EXTRA_STAGES.length, ...realExtra);
     return out;
   });
@@ -816,6 +968,7 @@ test('本編6面とエキストラステージのしくみ', async ({ page }) =>
     fullClear: 'EndingScene', reached: 6, unlocked: true, unlockedNow: true, titleNoStage: true,
     titleReady: true, afterTitle: 'CharacterScene:extra', extraEnd: 'ResultScene:extra', extraHi: true,
     extraOut: 'ResultScene:gameover', bossTestExtra: true,
+    openFlag: true, openTitle: true, openNotice: false,
   };
   for (const [k, v] of Object.entries(want)) assert(r[k] === v, `${k} が ${JSON.stringify(r[k])}（予定 ${JSON.stringify(v)}）\n${JSON.stringify(r)}`);
   assert(r.real.main === 6 && r.real.stages <= 6, `本編の面の数: ${JSON.stringify(r.real)}`);
@@ -1225,7 +1378,10 @@ test('キーの効果', async ({ page }) => {
     res.d1 = Game.canvas.style.filter !== '';
     Cheats.toggle('D'); T.step(1);
     res.d2 = Game.canvas.style.filter === '';
-    // E：はじめからエキストラ（面があるときだけ遊べる。解放したことは保存しない）
+    // E：はじめからエキストラ（面があるときだけ遊べる。解放したことは保存しない）。
+    // 2.19.0 からエキストラははじめから遊べる（EXTRA_UNLOCK.open）ので、キーの効果は open を切って確かめる
+    const openWas = EXTRA_UNLOCK.open;
+    EXTRA_UNLOCK.open = false;
     const realExtra = EXTRA_STAGES.length;
     EXTRA_STAGES.push({ name: '仮', nameEn: 'test', bg: STAGES[0].bg, bgm: STAGES[0].bgm, bosses: [], *script() {}, *boss() {} });
     res.e0 = extraPlayable();
@@ -1235,6 +1391,7 @@ test('キーの効果', async ({ page }) => {
     Cheats.toggle('E');
     res.e2 = extraPlayable();
     EXTRA_STAGES.length = realExtra;
+    EXTRA_UNLOCK.open = openWas;
     // F：すべて
     Cheats.toggle('F');
     res.f1 = Cheats.allOn();

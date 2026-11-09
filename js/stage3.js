@@ -71,10 +71,13 @@ const NAMESAWA_PHASES = [
   //   いつの間にか現れる弾と、正体のすり替えがテーマ。見た目と動きが一致しない弾で惑わせる
   //   流れ：通常1 → スペル1 → 通常2 → スペル2 → 通常3 → スペル3（Hard/Lunatic：→ スペル4）
   {
-    // 通常1：気付くと画面のあちこちに弾が「上がり込んで」いる。前触れなく現れた小弾が、ゆっくり動き出す
+    // 通常1：気付くと画面のあちこちに弾が「上がり込んで」いる。前触れなく現れた小弾が、ゆっくり動き出す。
+    // 2.19.0 でユーザーの指定「３の最初の通常弾幕の追尾弾の追尾機能を廃止し、代わりに全方位にワインダー上に放つ」：
+    // 自機狙いの湯呑みの扇をやめ、湯呑みを全方位ワインダーで撃ち続ける
     type: 'non', hp: 1000, time: 30,
     *script(b) {
       yield 30;
+      b.tasks.add(omniWinder(b, { way: dv(4, 4, 4, 5), every: dv(26, 22, 18, 16), swing: 0.6, period: 150, speed: dv(1.4, 1.6, 1.8, 2.0), type: 'cup', color: 'blue' }));
       for (let loop = 0; ; loop++) {
         for (let i = 0; i < dv(6, 8, 11, 14); i++) {
           let x, y, tries = 0;
@@ -85,9 +88,7 @@ const NAMESAWA_PHASES = [
           });
         }
         Sound.se('appear'); // ボスから出ていない小弾が現れるときは「o」（2.17.0 でユーザーの指定。前は「キラ」）
-        yield 30;
-        fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.4, angle: b.aim(), speed: 2.4, type: 'cup', color: 'blue' });
-        yield dv(70, 60, 48, 40);
+        yield 30 + dv(70, 60, 48, 40);
         if (loop % 2) b.wander(50, 60);
       }
     },
@@ -141,6 +142,7 @@ const NAMESAWA_PHASES = [
   },
   {
     // 表札の形の札弾が、赤と青の二種類飛んでくる（赤はまっすぐ、青は曲がる）。一定時間ごとに表札が「掛け替え」られ、赤と青の動き方が入れ替わる。
+    // 2.19.0 でユーザーの指定「表札の掛け替えを全方位にする」：札は自機のほうではなく、回りながら全方位へ撃つ（前は自機の向きの前後 1 ラジアンにばらまいた）
     // 掛け替えの合図（札が一瞬裏返る）を見て位置を取る。Hard/Lunatic は間隔が短く、Lunatic では裏返るふりだけして入れ替わらないことがある
     type: 'spell', name: '札符「表札の掛け替え」', hp: 1300, time: 45,
     *script(b) {
@@ -153,16 +155,22 @@ const NAMESAWA_PHASES = [
         bl.angVel = curve ? (bl.x < G.player.x ? 0.016 : -0.016) * (bl.angle > Math.PI / 2 ? -1 : 1) : 0;
         bl.curveUntil = now + 45;
       };
+      const ways = dv(2, 2, 3, 3), every = dv(18, 16, 14, 12);
+      let spin = rand(TAU);
       for (let f = 0; ; f++) {
         for (const bl of cards) if (bl.alive && bl.angVel && f > bl.curveUntil) bl.angVel = 0;
-        if (f % dv(14, 11, 9, 7) === 0) {
-          // 赤と青を1枚ずつ
-          for (const red of [true, false]) {
-            const bl = fire({ x: b.x, y: b.y, angle: b.aim() + rand(-1.0, 1.0), speed: dv(1.5, 1.7, 1.9, 2.1), type: 'card', color: red ? 'red' : 'blue', data: red ? 'red' : 'blue', silent: true });
-            behave(bl, f);
-            cards.push(bl);
+        if (f % every === 0) {
+          // 赤と青を、全方位に ways 組ずつ（赤と青は半分ずらす）。撃つたびに少し回す
+          for (let w = 0; w < ways; w++) {
+            for (const red of [true, false]) {
+              const a = spin + (w * TAU) / ways + (red ? 0 : Math.PI / ways);
+              const bl = fire({ x: b.x, y: b.y, angle: a, speed: dv(1.5, 1.7, 1.9, 2.1), type: 'card', color: red ? 'red' : 'blue', data: red ? 'red' : 'blue', silent: true });
+              behave(bl, f);
+              cards.push(bl);
+            }
           }
-          if (f % 28 === 0) Sound.se('fire');
+          spin += 0.23;
+          if (f % (every * 2) === 0) Sound.se('fire');
         }
         const period = dv(240, 210, 170, 140);
         if (f % period === period - 30) {
@@ -226,7 +234,10 @@ const NAMESAWA_PHASES = [
           }
           yield;
         }
-        Sound.se('kira');
+        // 移動するたびにチャージしてから撃つ（2.19.0 でユーザーの指定。音は「c」。前は着いたときに「キラ」）
+        const charge = dv(36, 32, 28, 24);
+        Sound.se('charge', { dur: charge / 60 });
+        for (let f = 0; f < charge; f++) { chargeFx(b.x, b.y, 'rgba(190,255,210,0.95)', 1.2, f); yield; }
         fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.5, angle: b.aim(), speed: 2.2, type: 'cup', color: 'green' });
         yield dv(30, 24, 18, 14);
       }
@@ -238,6 +249,8 @@ const NAMESAWA_PHASES = [
     type: 'spell', name: '総大将「百鬼夜行の先頭」', hp: 1400, time: 45, minDiff: 2,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 60, 40);
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：列のあいだを埋める小弾を、自機狙いから全方位ワインダーにした
+      b.tasks.add(omniWinder(b, { way: 4, every: dv(18, 17, 16, 15), swing: 0.7, period: 140, speed: 1.8, type: 'small', color: 'white' }));
       const lanes = [130, 210, 290, 370];
       for (let loop = 0; ; loop++) {
         const lane = lanes[loop % lanes.length] + rand(-15, 15), dir = loop % 2 ? 1 : -1;
@@ -248,10 +261,7 @@ const NAMESAWA_PHASES = [
           fire({ x: x0, y: lane, angle: dir > 0 ? 0 : Math.PI, speed: dv(1.4, 1.5, 1.7, 1.9), type: 'large', color: i % 3 === 0 ? 'red' : 'purple', silent: true, margin: 520 });
         }
         Sound.se('kira');
-        for (let f = 0; f < 70; f++) {
-          if (f % dv(14, 12, 10, 8) === 0) fire({ x: b.x, y: b.y, angle: b.aim() + rand(-0.6, 0.6), speed: 1.8, type: 'small', color: 'white' });
-          yield;
-        }
+        yield 70;
       }
     },
   },

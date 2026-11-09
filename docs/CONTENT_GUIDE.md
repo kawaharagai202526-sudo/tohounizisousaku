@@ -125,9 +125,15 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
   - `type: 'spell'` がスペルカード（名前とカットインが出る）、`survival: true` は時間切れまで耐える攻撃
   - `minDiff` を付けると、その難易度以上だけに出る（例：`minDiff: 2` は Hard と Lunatic）
 - 弾は `fire` / `fireRing` / `fireFan`（js/bullets.js）。難易度ごとの値は `dv(Easy, Normal, Hard, Lunatic)`
+- 全方位ワインダー `omniWinder(b, { way, every, swing, period, speed, type, color })` と、回る全方位弾 `omniRings(b, { n, every, speed, type, color })`（2.19.0）は、
+  攻撃の始めに `b.tasks.add(...)` で重ねる（攻撃が終わると止まる。途中で止めるときは `b.layersOff = true`）。
+  2.19.0 でユーザーの指定により、多くのスペルカードと通常攻撃に足し、指定された攻撃では自機狙いの弾（ユーザーの言葉では「追尾弾」）をなくした
 - 弾の形は js/sprites.js の `BTYPES`、色は `BCOL`。2.8.0 で資料「化物屋敷異変 スペルカード・弾幕案」に合わせて
   瓦 `tile`・鬼の顔 `oni`・虫 `bug`・湯呑み `cup`・針 `needle`・札 `card`・小判 `koban`・手鞠 `temari`・足跡 `foot`・餅 `mochi`・小鬼 `kobun`・
   瓦礫 `rubble`・十二支の印 `zodiac0`〜`zodiac11` と、色 `gold`・`brown`・`soot` を足した
+- 弾の絵をコードではなく画像にする試験（2.19.0）：`img/bullets.png`（`tools/make-bullets.py` で作る）。オプションの「弾の見た目」を
+  「スプライト（試験）」にすると、js/sprites.js の `BULLET_SHEET` の並び（行が弾の形、列が色）で切り出して使う。画像にない弾はコードの絵のまま。
+  自分で描いた絵に差しかえるときは、同じ並び・同じ大きさで描く（マスの大きさは `BTYPES` の size × 2 ピクセル。向きのある弾は右向き）
 - 弾は使い回さない（2.8.0）。攻撃の中で弾を覚えておき、あとで `alive` を見て動かしたり消したりしてよい
 - 1〜6面のボスとエキストラのスペルカードは、資料「化物屋敷異変 スペルカード・弾幕案」をもとにしている（2.8.0）。
   それぞれの攻撃のコメントに、資料の「弾幕」「避け方」「テーマ」を短く書いてある
@@ -165,7 +171,7 @@ index.html?stage=2&phase=1&only=1
 | 本編の面の数 | js/game.js の `MAIN_STAGE_COUNT`（6） | プラクティスはこの数だけ並び、まだない面は「準備中」で選べない |
 | 本編の面 | `STAGES`（js/stage1〜6.js） | 最後の面（6面）をクリアするとエンディング |
 | エキストラステージ | js/game.js の `EXTRA_STAGES`（js/extra.js が足す） | 本編の面と同じ形。難易度は Extra、コンティニューはできない |
-| 解放の条件 | js/game.js の `EXTRA_UNLOCK` | いまは Normal 以上・コンティニューなしで、本編の最後（6面）をクリア |
+| 解放の条件 | js/game.js の `EXTRA_UNLOCK` | 2.19.0 から `open: true` で、はじめから遊べる（ユーザーの指定「ノーマルクリアしなくても、ＥＸに挑戦できるようにする」）。`open: false` にすると、Normal 以上・コンティニューなしで本編の最後（6面）をクリアしたときに解放（2.18.x まで） |
 | 解放したかどうか | 保存データ `extraUnlocked` | 管理者ページのデータベースで見られる |
 
 ### 本編の面を足すとき（参考）
@@ -173,7 +179,7 @@ index.html?stage=2&phase=1&only=1
 1. `js/stageN.js` を作り、ほかの面と同じように `STAGES.push({ name, nameEn, bg, bgm, bosses, *script(g), *boss(g) })` と書く
 2. `index.html` の最後の面の次に `<script src="js/stageN.js"></script>` を足す（1ファイル版は自動で入る）
 3. `js/story.js` に `STORY.stageN`、`README.md` のステージの表を書く
-4. 面の数を変えるときは `MAIN_STAGE_COUNT` も直す。最後の面をクリアするとエンディングになり、条件を満たせばエキストラが解放される
+4. 面の数を変えるときは `MAIN_STAGE_COUNT` も直す。最後の面をクリアするとエンディングになる（`EXTRA_UNLOCK.open` が false なら、条件を満たせばエキストラが解放される）
 
 ### エキストラステージを作るとき
 
@@ -181,11 +187,11 @@ index.html?stage=2&phase=1&only=1
    （`index.html` で `game.js` より後に読む）。会話は `STORY.extra` を作って `g.talk(STORY.extra[g.charId].before)` のように使う
 2. 弾の値は `dv(Easy, Normal, Hard, Lunatic, Extra)` の5つ目に書ける（書かなければ Lunatic と同じ）。
    全体の倍率は `BULLET_SPEED_SCALE` / `RING_DENSITY_SCALE` の5つ目
-3. 面ができると、タイトルの「エキストラスタート」が解放ずみのときだけ選べるようになる（キャラクター選択 → エキストラ → リザルト）
+3. 面ができると、タイトルの「エキストラスタート」が選べるようになる（`EXTRA_UNLOCK.open` が false なら解放ずみのときだけ。キャラクター選択 → エキストラ → リザルト）
 4. ボスの攻撃は `index.html?stage=extra&phase=2` か、`?boss=ボスのID` ですぐ試せる
 5. エキストラのハイスコアは難易度 4（Extra）として `hi_4_自機のID` に保存される
 
-テストの「本編6面とエキストラステージのしくみ」は、本物のエキストラの面をいったん外し、仮の面を足して、解放の条件と流れを確かめている。
+テストの「本編6面とエキストラステージのしくみ」は、本物のエキストラの面をいったん外し、仮の面を足して、解放の条件（`open` を切って）と流れ、はじめから遊べることを確かめている。
 
 ### エキストラの方違え（凶方）
 
@@ -238,11 +244,15 @@ js/extra.js の `setKyou(g, 方角, { next, power })` で凶方を決める。�
 ## 効果音
 
 - 2.17.0 から、効果音の多くは、ユーザーがくれた音（`audio/a-o` の a〜o。一覧は `audio/README.md`）をそのまま鳴らす。
-  ほかの音（グレイズ・アイテム・敵を倒した音・メニューの音など）は、前のとおり `js/audio.js` の `SE_DEFS` で合成する
+  ほかの音（アイテム・敵を倒した音・メニューの音など）は、前のとおり `js/audio.js` の `SE_DEFS` で合成する
+- グレイズの音（2.19.0）：アイテムの「カッ」（`SE_DEFS.item`）と同じ音を `GRAZE_SE.base`（0.8）倍で鳴らす。重なったグレイズが多いほど大きい
+  （1つ増えるごとに `GRAZE_SE.step`（+30%）、`GRAZE_SE.max`（2倍）まで。`Sound.playGraze`）
+- BGM の大きさ（2.19.0）：`BGM_BUS_LEVEL`（0.28）をオプションの BGM 音量にかける。ユーザーの指定「背景ＢＧＭの音量は効果音以下にする」で、
+  ならした曲の大きさ（0.15）× 0.28 が、弾の音「m」のいちばん大きいところ以下になるようにした（テストで確かめている）
 - どの場面でどの音を鳴らすか：コードでは名前で `Sound.se('名前')` と書き、名前と音の文字の対応は `js/audio.js` の `SE_SAMPLE`
   （`名前: [音の文字, 大きさ, 重ねて鳴らせる数]`）。たとえば「弾を撃つ音を o にする」なら `fire: ['o', …]` にするだけ。
-  いまの対応：`fire`（弾）m、`needle`（針）n、`oni`（1面の鬼面）k、`burst`（6面の弾ける・散らばる）k、`appear`（出てくる）o、
-  `charge`（チャージ・1面のレーザーの点滅）と `powerup` c、`laserHand`（手・柱のレーザー）h、`laserBoss4`（4面のボスのレーザー）f、
+  いまの対応：`fire`（弾）m、`needle`（針）n、`oni`（1面の鬼面）k、`burst`（弾ける・散らばる。6面・2面「軒下の誘蛾灯」）k、`spread`（6面の惹きつけた弾が開く）f、`appear`（出てくる）o、
+  `charge`（チャージ・1面のレーザーの点滅・3面「勝手口からお暇」）と `powerup` c、`laserHand`（手・柱のレーザー）h、`laserBoss4`（4面のボスのレーザー）f、
   `summon`（4面の四角）g、`bonus` a、`spell` b、`bossdie` d、`extend` e、`bomb` i、`pichuun` j
 - 大きさは、いちばん大きいところの 50ms の音量（dB）で決めてある（`SE_SAMPLE` の行の終わり）。音は `js/sefiles.js` の `norm` で
   -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。鳴らすときは全体をさらに `SE_SAMPLE_BOOST` 倍にする（2.17.1 でユーザーの指定「音は２倍」で 2）。

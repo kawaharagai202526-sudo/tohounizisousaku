@@ -318,12 +318,13 @@ class Boss {
   }
   // 移動を別枠で走らせる（攻撃と並行して動く）
   move(x, y, frames, ease) { this.moveTask = this.moveTo(x, y, frames, ease); }
-  wander(frames = 50, range = 70) {
+  // 自機の側へ（ときどき反対へ）少し動く。yRange を書くと、上下は今の高さから ±yRange だけ（1面。2.19.0）
+  wander(frames = 50, range = 70, yRange = null) {
     const p = G.player;
     let dir = Math.sign(p.x - this.x) || randSign();
     if (rng.next() < 0.35) dir = -dir;
     const tx = clamp(this.x + dir * rand(range * 0.5, range), 56, FIELD_W - 56);
-    const ty = clamp(rand(70, 130), 50, 150);
+    const ty = yRange == null ? clamp(rand(70, 130), 50, 150) : clamp(this.y + rand(-yRange, yRange), 50, 150);
     this.move(tx, ty, frames);
   }
   get moving() { return !!this.moveTask; }

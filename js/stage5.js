@@ -175,13 +175,14 @@ const YANARI_PHASES = [
     },
   },
   {
-    // 通常3（Hard/Lunatic）：煤をばら撒き、視界を少し狭める
+    // 通常3（Hard/Lunatic）：煤をばら撒き、視界を少し狭める。
+    // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：自機狙いの瓦礫の扇をやめ、瓦礫を全方位ワインダーで撃つ
     type: 'non', hp: 1200, time: 30, minDiff: 2,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 80, 40);
+      b.tasks.add(omniWinder(b, { way: dv(4, 4, 4, 5), every: dv(16, 16, 15, 14), swing: 0.5, period: 140, speed: dv(1.7, 1.8, 1.9, 2.0), type: 'rubble', color: 'orange' }));
       for (let f = 0; ; f++) {
         if (f % 8 === 0) fire({ x: b.x, y: b.y, angle: Math.PI / 2 + rand(-1.3, 1.3), speed: rand(0.4, 0.9), type: 'ball', color: 'soot', scale: 1.8, hitR: 6, life: 420, silent: f % 24 !== 0 });
-        if (f % dv(50, 44, 36, 30) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 5, 5, 7), spread: 0.7, angle: b.aim(), speed: 2.3, type: 'rubble', color: 'orange' });
         yield;
       }
     },
@@ -218,14 +219,15 @@ const YANARI_PHASES = [
     },
   },
   {
-    // 通常4：崩れかけた廊下を背に、扇状の弾を連射する
+    // 通常4：崩れかけた廊下を背に、全方位弾を少しずつ回しながら連射する（渦のように重なる）。
+    // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」で、自機狙いの扇の連射から、全方位弾の連射にした
     type: 'non', hp: 1300, time: 30,
     *script(b, g) {
       yield* b.moveTo(FIELD_W / 2, 70, 40);
       for (let loop = 0; ; loop++) {
-        const a = b.aim();
+        const a = rand(TAU), dir = loop % 2 ? 1 : -1;
         for (let k = 0; k < dv(4, 5, 6, 7); k++) {
-          fireFan({ x: b.x, y: b.y, n: dv(5, 5, 7, 7), spread: 1.0, angle: a + (k % 2 ? 0.08 : -0.08), speed: 2.0 + k * 0.15, type: 'rubble', color: 'brown' });
+          fireRing({ x: b.x, y: b.y, n: dv(6, 6, 7, 7), angle: a + dir * k * 0.09, speed: 1.6 + k * 0.15, type: 'rubble', color: 'brown', silent: k > 0 });
           yield dv(9, 8, 7, 6);
         }
         if (loop % 2) g.shake = 10;

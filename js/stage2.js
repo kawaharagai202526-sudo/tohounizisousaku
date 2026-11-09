@@ -138,6 +138,8 @@ const KURAISHIRO_PHASES = [
     type: 'spell', name: '虫符「湧き放題の天井裏」', hp: 1200, time: 40,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 60, 40);
+      // 2.19.0 でユーザーの指定「全方位弾やワインダーを追加」：ボスから全方位ワインダーの虫弾を、ゆっくり撃ち続ける
+      b.tasks.add(omniWinder(b, { way: 3, every: dv(22, 20, 17, 15), swing: 0.55, period: 170, speed: dv(1.2, 1.35, 1.5, 1.65), type: 'bug', color: 'yellow', wait: 40 }));
       const home = dv(1.0, 1.2, 1.5, 1.8);
       for (let f = 0; ; f++) {
         if (f % dv(44, 36, 28, 22) === 0) {
@@ -163,18 +165,20 @@ const KURAISHIRO_PHASES = [
     },
   },
   {
-    // 通常3：中央に戻り、虫弾の群れを放射状に撃つ。群れは少し遅れて自機の方へ寄ってくる
+    // 通常3：中央に戻り、虫弾の群れを放射状に撃つ。群れはいったん円に広がって止まり、そのまま全方位へ広がっていく
+    // （2.19.0 でユーザーの指定「円に展開した後、自機を追わず、全方位に広がる」。前は少し遅れて自機の方へ寄ってきた）
     type: 'non', hp: 1100, time: 30,
     *script(b) {
       yield* b.moveTo(FIELD_W / 2, 100, 40);
       for (let loop = 0; ; loop++) {
-        const k = dv(5, 6, 7, 8), off = rand(TAU);
+        const k = dv(5, 6, 7, 8), off = rand(TAU), cx = b.x, cy = b.y;
         for (let j = 0; j < k; j++) {
           const a = off + (j * TAU) / k;
           for (let i = 0; i < 3; i++) {
             fire({
               x: b.x, y: b.y, angle: a + rand(-0.12, 0.12), speed: 2.2 + i * 0.2, accel: -0.04, minSpeed: 0.3, type: 'bug', color: 'yellow', silent: true,
-              script: function* (bl) { yield 70; bl.angle = aimAt(bl.x, bl.y) + rand(-0.15, 0.15); bl.accel = 0.025; bl.maxSpeed = dv(1.1, 1.3, 1.6, 1.9); },
+              // 円の中心（撃ったところ）から外へ向かって、また速くなる。少しずつ回りながら広がる
+              script: function* (bl) { yield 70; bl.angle = angleTo(cx, cy, bl.x, bl.y); bl.angVel = (loop % 2 ? 1 : -1) * 0.003; bl.accel = 0.025; bl.maxSpeed = dv(1.1, 1.3, 1.6, 1.9); },
             });
           }
         }
@@ -198,6 +202,8 @@ const KURAISHIRO_PHASES = [
       };
       let tail = makeTail();
       Sound.se('appear'); // しっぽが出てくるときは「o」（2.17.0 でユーザーの指定）
+      // 2.19.0 でユーザーの指定「追尾弾を削除」「全方位弾やワインダーを追加」：ボスの自機狙いの扇をやめ、全方位ワインダーにした
+      b.tasks.add(omniWinder(b, { way: dv(3, 3, 4, 4), every: dv(24, 20, 16, 14), swing: 0.6, period: 160, speed: dv(1.4, 1.6, 1.8, 2.0), type: 'bug', color: 'yellow', wait: 30 }));
       let lastHp = b.hp;
       const cutAt = b.maxHp * 0.18;
       for (let f = 0; ; f++) {
@@ -217,7 +223,6 @@ const KURAISHIRO_PHASES = [
           tail = makeTail();
           Sound.se('appear'); // 新しいしっぽが出てくる（前は切れたときの「キラ」）
         }
-        if (f % dv(70, 56, 46, 38) === 0) fireFan({ x: b.x, y: b.y, n: dv(3, 3, 5, 5), spread: 0.35, angle: b.aim(), speed: 2.4, type: 'bug', color: 'yellow' });
         yield;
       }
     },
@@ -227,6 +232,7 @@ const KURAISHIRO_PHASES = [
     // 灯りから離れた位置で虫の流れを見て、弾ける直前に、虫が通り過ぎたあとの灯りの近くへ入る
     type: 'spell', name: '灯符「軒下の誘蛾灯」', hp: 1400, time: 45, minDiff: 2,
     *script(b) {
+      const BURST_CUE = 6; // 弾ける何フレーム前に「k」を鳴らすか
       yield* b.moveTo(FIELD_W / 2, 60, 40);
       const lx = FIELD_W / 2, ly = 210;
       for (let loop = 0; ; loop++) {
@@ -242,19 +248,25 @@ const KURAISHIRO_PHASES = [
               script: function* (bl) { while (dist(bl.x, bl.y, lx, ly) > rand(18, 40)) yield; bl.speed = 0; },
             }));
           }
+          // 弾ける前に「k」（2.19.0 でユーザーの指定）。灯りが白く光って合図する
+          if (f === 150 - BURST_CUE) Sound.se('burst');
+          if (f >= 150 - BURST_CUE && f % 2 === 0) Fx.flash(lx, ly, 'rgba(255,250,210,0.9)', 26 + (f - 150 + BURST_CUE) * 3, 6);
           yield;
         }
         // 弾ける
         light.alive = false;
         Fx.explosion(lx, ly, 'rgba(255,230,120,0.8)', 1.4);
-        Sound.se('kira');
         for (const bl of moths) {
           if (!bl.alive) continue;
           bl.script = null;
           bl.angle = angleTo(lx, ly, bl.x, bl.y) + rand(-0.3, 0.3);
           bl.speed = 0.5; bl.accel = 0.04; bl.maxSpeed = dv(1.6, 1.9, 2.2, 2.6);
         }
-        fireRing({ x: lx, y: ly, n: dv(12, 16, 20, 24), angle: rand(TAU), speed: 1.6, type: 'small', color: 'yellow', silent: true });
+        // 弾けるときの黄色の円：2.19.0 でユーザーの指定「円一こから３個にする（ハードは４、ルナは５）」。速さを変えて重ねる
+        const rings = dv(3, 3, 4, 5), n = dv(10, 12, 14, 16), off = rand(TAU); // 円が増えたぶん、1つの円の弾は少し減らした（前は 12/16/20/24）
+        for (let r = 0; r < rings; r++) {
+          fireRing({ x: lx, y: ly, n, angle: off + (r % 2) * (Math.PI / n), speed: 1.1 + r * 0.32, type: 'small', color: 'yellow', silent: true });
+        }
         yield 70;
       }
     },
@@ -278,7 +290,8 @@ function* cutTail(segs, life) {
       const p = trail[Math.min(trail.length - 1, i * 5)];
       if (bl.alive) { bl.x = p[0]; bl.y = p[1]; }
     });
-    if (f % 50 === 25 && segs.some(bl => bl.alive)) fire({ x: hx, y: hy, angle: aimAt(hx, hy), speed: 1.8, type: 'small', color: 'green', silent: true });
+    // 2.19.0 でユーザーの指定「追尾弾を削除」：自機狙いの弾をやめ、全方位の小さなリング弾にした
+    if (f % 60 === 30 && segs.some(bl => bl.alive)) fireRing({ x: hx, y: hy, n: dv(5, 6, 6, 7), angle: rand(TAU), speed: 1.4, type: 'small', color: 'green', silent: true });
     if (!segs.some(bl => bl.alive)) return;
     yield;
   }
