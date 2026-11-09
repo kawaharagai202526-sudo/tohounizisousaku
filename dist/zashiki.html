@@ -445,7 +445,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.19.0';
+const GAME_VERSION = '2.19.1';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -1066,31 +1066,34 @@ const Sound = {
   flush() {
     if (!this.ctx || this.ctx.state !== 'running') { this.pending.clear(); this.grazeN = 0; return; }
     const t = this.ctx.currentTime + 0.005;
+    // 同じ音の連打を止める間隔（SE_GAP）は、実際の時間で測る（2.19.1。重くて音の処理が詰まり、音の時計が進まないあいだも、
+    // 効果音がまとめて捨てられないように。前は音の時計で測っていた）
+    const real = performance.now() / 1000;
     let grazeLater = false;
     for (const [name, opt] of this.pending) {
       const gap = SE_GAP[name] || 0;
-      if (gap && t - (this.lastPlayed[name] || 0) < gap) {
+      if (gap && real - (this.lastPlayed[name] ?? -1e9) < gap) {
         // グレイズは捨てずに、間があいたらまとめて（重なった数だけ大きく）鳴らす
         if (name === 'graze') grazeLater = true;
         continue;
       }
-      if (name === 'graze') { this.lastPlayed[name] = t; this.playGraze(t); continue; }
+      if (name === 'graze') { this.lastPlayed[name] = real; this.playGraze(t); continue; }
       const smp = SE_SAMPLE[name];
       if (smp && this.seBuf[smp[0]]) {
-        this.lastPlayed[name] = t;
+        this.lastPlayed[name] = real;
         this.playSample(name, smp, t, opt);
         continue;
       }
       // もらった音がまだデコードできていないとき（読みこんだ直後など）は、前の合成音で代わりに鳴らす
       const f = SE_DEFS[smp ? SE_FALLBACK[name] || name : name];
       if (!f) continue;
-      this.lastPlayed[name] = t;
+      this.lastPlayed[name] = real;
       f(this, t, this.seBus);
     }
     this.pending.clear();
     if (grazeLater) this.pending.set('graze', null);
   },
-  lastPlayed: {},
+  lastPlayed: {}, // 名前 → 最後に鳴らした実際の時間（秒。performance.now）
   seBuf: {},    // もらった音をデコードしたもの（文字 → AudioBuffer）
   seVoices: {}, // 鳴っているもらった音（名前 → [{ src, g, end }]）。SE_SAMPLE の数より多くは重ねない
 
@@ -1257,7 +1260,7 @@ const Sound = {
     const c = s.c;
     if (!c.events.length) return;
     const now = this.ctx.currentTime;
-    const horizon = now + 0.2;
+    const horizon = now + BGM_LOOKAHEAD;
     let guard = 0;
     while (guard++ < 2000) {
       if (s.idx >= c.events.length) {
@@ -1323,13 +1326,14 @@ function trimSilence(ctx, buf, th = 0.002) {
 //  名前: [音の文字, 大きさ, 重ねて鳴らせる数]。大きさは、いちばん大きいところの 50ms の音量（行の終わりの dB）で決めた。
 //  前の合成音の音量（弾 -33・スペル宣言 -28・被弾 -27・ボム -13・ボス撃破 -11dB など）と同じくらいか、少し大きめ。
 //  音は js/sefiles.js の norm で -14dB にそろえてあるので、大きさ＝10^((dB+14)/20)。
-//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍（o・c・f は SE_SAMPLE_BOOST_BY の 3 倍）にする（行の終わりの dB は、その前の値。実際は +6dB、3 倍は +9.5dB）
+//  鳴らすときは、さらに SE_SAMPLE_BOOST 倍にする（行の終わりの dB は、その前の値。1.5 倍なので実際は +3.5dB）
 //  どの場面でどの名前を鳴らすかは、それぞれのコードに書いてある（Sound.se('名前')。弾の音は fire() の se。ふつうは 'fire'）
 // ------------------------------------------------------------
-// もらった音を、表の大きさの何倍で鳴らすか（2.17.1 でユーザーの指定「音は２倍」。2.17.0 の大きさの2倍）
-const SE_SAMPLE_BOOST = 2;
-// 音の文字ごとの倍率（書いていない文字は SE_SAMPLE_BOOST）。2.18.1 でユーザーの指定「「o」、「ｃ」、「ｆ」の音を２倍から３倍へ上昇」
-const SE_SAMPLE_BOOST_BY = { o: 3, c: 3, f: 3 };
+// もらった音を、表の大きさの何倍で鳴らすか。2.19.1 でユーザーの指定「3倍したもの、２倍したものをすべて１．５倍に変更する」で 1.5
+// （2.17.1 でユーザーの指定「音は２倍」で 2 にし、2.18.1 で o・c・f だけ 3 にしていた）
+const SE_SAMPLE_BOOST = 1.5;
+// 音の文字ごとの倍率（書いていない文字は SE_SAMPLE_BOOST）。2.18.1〜2.19.0 は o・c・f が 3。2.19.1 からはすべて SE_SAMPLE_BOOST なので空
+const SE_SAMPLE_BOOST_BY = {};
 const SE_SAMPLE = {
   fire:       ['m', 0.126, 4], // 弾を撃つ（ボス・中ボス・体力がほどほどの敵。弱くて数の多い敵の弾は鳴らさない）（-32dB）
   needle:     ['n', 0.126, 3], // 針のような細い弾を撃つ（3面・エキストラ）（-32dB）
@@ -1387,15 +1391,19 @@ function makeIntroLoopBuffer(ctx, buf, f) {
 // ------------------------------------------------------------
 //  効果音定義
 // ------------------------------------------------------------
-// 連続で鳴りやすい音の最短間隔（秒）
 // BGM の大きさ（オプションの BGM 音量にかける倍率）。2.19.0 でユーザーの指定「背景ＢＧＭの音量は効果音以下にする」により 0.85 → 0.28（-9.6dB）。
 // 曲はならした大きさ（RMS）が 0.15 くらいにそろえてあり（SONGS の vol）、いちばんよく鳴る弾の音「m」はいちばん大きいところが
-// 0.126 × 2 × -14dB × 0.9（効果音のバス）＝ 0.045 くらい。0.15 × 0.28 ＝ 0.042 で、BGM がそれ以下になる（オプションの音量が同じとき）
-const BGM_BUS_LEVEL = 0.28;
+// 0.126 × SE_SAMPLE_BOOST × -14dB × 0.9（効果音のバス）。2.19.1 で効果音の倍率を 2 → 1.5 にしたので、BGM も同じ割合で 0.28 → 0.21 にした
+// （0.126 × 1.5 × 0.2 × 0.9 ＝ 0.034、0.15 × 0.21 ＝ 0.0315 で、BGM がそれ以下になる。オプションの音量が同じとき）
+const BGM_BUS_LEVEL = 0.21;
+// MML の曲を何秒先まで予約しておくか（2.19.1 でユーザーの指定「重くなった時に音が消える問題を解決」で 0.2 → 1.0。
+// 処理が重くてメインの処理がしばらく止まると、予約より先に進んだ音は鳴らせずに抜けていた。0.3 秒止まると 8 秒で 26 音ほど抜けた）
+const BGM_LOOKAHEAD = 1.0;
 // グレイズの音（2.19.0 でユーザーの指定「グレイズがたまるとき、他の効果音より２割減少させた”カッ”という音を導入する。
 // ただし、グレイズ音に限り、グレイズが重なった場合、音も大きくなる」）：アイテムの「カッ」の 0.8 倍。重なったグレイズ1つごとに +30%、2倍まで
 const GRAZE_SE = { base: 0.8, step: 0.3, max: 2.0 };
 
+// 連続で鳴りやすい音の最短間隔（秒）
 const SE_GAP = {
   tan: 0.05, hit: 0.06, graze: 0.035, shot: 0.07, item: 0.03, kill: 0.03, kira: 0.08,
   fire: 0.07, needle: 0.06, oni: 0.08, burst: 0.08, appear: 0.06, laserHand: 0.08, laserBoss4: 0.08, spread: 0.08, summon: 0.05, temari: 0.05,

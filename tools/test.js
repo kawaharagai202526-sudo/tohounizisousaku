@@ -431,8 +431,8 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     const out = {};
     // ユーザーの指定した割り当て（名前 → 音の文字）
     out.map = Object.fromEntries(Object.entries(SE_SAMPLE).map(([k, v]) => [k, v[0]]));
-    out.boost = SE_SAMPLE_BOOST; // 2.17.1 でユーザーの指定「音は２倍」
-    out.boostBy = Object.fromEntries('abcdefghijkmno'.split('').map(k => [k, SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST])); // 2.18.1：o・c・f は3倍
+    out.boost = SE_SAMPLE_BOOST; // 2.19.1 でユーザーの指定「3倍したもの、２倍したものをすべて１．５倍に変更する」（2.17.1〜2.19.0 は 2、o・c・f は 3）
+    out.boostBy = Object.fromEntries('abcdefghijkmno'.split('').map(k => [k, SE_SAMPLE_BOOST_BY[k] || SE_SAMPLE_BOOST]));
     // もらった音がすべてデコードでき、始まりに無音がない（鳴らしたときに遅れない）
     Sound.unlock();
     const want = Object.keys(SE_FILES).length;
@@ -562,9 +562,9 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     summon: 'g', bonus: 'a', spell: 'b', bossdie: 'd', extend: 'e', bomb: 'i', pichuun: 'j',
   };
   for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
-  assert(r.boost === 2, `もらった音の大きさの倍率が ${r.boost}（予定 2。ユーザーの指定「音は２倍」）`);
-  const boostBad = Object.entries(r.boostBy).filter(([k, v]) => v !== ('ocf'.includes(k) ? 3 : 2)).map(([k, v]) => `${k}=${v}`);
-  assert(!boostBad.length, `音ごとの倍率がちがう：${boostBad.join(' ')}（予定 o・c・f は 3、ほかは 2。2.18.1 でユーザーの指定）`);
+  assert(r.boost === 1.5, `もらった音の大きさの倍率が ${r.boost}（予定 1.5。2.19.1 でユーザーの指定）`);
+  const boostBad = Object.entries(r.boostBy).filter(([, v]) => v !== 1.5).map(([k, v]) => `${k}=${v}`);
+  assert(!boostBad.length, `音ごとの倍率がちがう：${boostBad.join(' ')}（予定 すべて 1.5。2.19.1 でユーザーの指定）`);
   assert(r.decoded === r.files && r.files.length === 14, `デコードできない音がある: ${r.decoded}（予定 ${r.files}）`);
   assert(!r.lateStart.length, `始まりに無音が残っている音: ${r.lateStart}`);
   assert(!r.weak.includes('fire') && !r.swarm.includes('fire'), `弱いザコの弾が鳴る: ${r.weak} / ${r.swarm}`);
@@ -796,6 +796,29 @@ test('弾のスプライト（試験用。2.19.0）：オプションの「弾�
   assert(JSON.stringify(r.got) === JSON.stringify(r.want), `img/bullets.png の大きさ ${JSON.stringify(r.got)}（並びから ${JSON.stringify(r.want)}）`);
   assert(r.toggled && r.saved, `オプションで切りかわらない: ${JSON.stringify(r)}`);
   assert(r.differs && r.tileSame && r.sheetKey && r.bulletUsesSheet, `弾の絵が切りかわらない: ${JSON.stringify(r)}`);
+});
+
+test('2.19.1：重くて処理が止まっても曲の音が抜けない（MML の曲を1秒先まで予約）・効果音の連打の間隔は実際の時間で測る', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    Sound.unlock();
+    // MML の曲（1〜3面のボス・タイトル・エキストラの道中）は、いまの時刻から BGM_LOOKAHEAD 秒先までの音を予約する
+    const times = [];
+    const pi = window.playInstrument;
+    window.playInstrument = (S, inst, midi, t, ...rest) => { times.push(t); return pi(S, inst, midi, t, ...rest); };
+    Sound.stopBgm(0);
+    Sound.playBgm('boss1');
+    Sound.schedule();
+    window.playInstrument = pi;
+    out.lookahead = BGM_LOOKAHEAD;
+    out.ahead = times.length ? +(Math.max(...times) - Sound.ctx.currentTime).toFixed(2) : -1;
+    Sound.stopBgm(0);
+    // 効果音の連打の間隔：音の時計ではなく実際の時間（performance.now）
+    out.gapReal = /performance\.now\(\)/.test(Sound.flush.toString()) && !/t - \(this\.lastPlayed/.test(Sound.flush.toString());
+    return out;
+  });
+  assert(r.lookahead >= 1 && r.ahead >= 0.85, `MML の曲の予約が短い（${r.ahead} 秒先まで。予定 ${r.lookahead} 秒）`);
+  assert(r.gapReal, '効果音の連打の間隔を、実際の時間で測っていない');
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
