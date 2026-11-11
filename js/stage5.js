@@ -317,8 +317,10 @@ const YANARI_PHASES = [
 // ------------------------------------------------------------
 
 // 落ちてくる梁：横いっぱいの予告線のあと、梁（横のレーザー）が落ちる
+// 音は「h」（2.20.6 でユーザーの指定「５面道中におけるレーザーに効果音を付与する」。5面の柱のレーザーと同じ音にした。
+// 前は合成音の 'laser'。150Hz の低い音がほとんどで、スマホなどでは聞こえなかった）
 function fallingBeam(y, fromLeft = true) {
-  return fireLaser({ x: fromLeft ? -10 : FIELD_W + 10, y, angle: fromLeft ? 0 : Math.PI, length: FIELD_W + 20, width: 18, warn: 60, dur: 26, color: 'orange' });
+  return fireLaser({ x: fromLeft ? -10 : FIELD_W + 10, y, angle: fromLeft ? 0 : Math.PI, length: FIELD_W + 20, width: 18, warn: 60, dur: 26, color: 'orange', sound: 'laserHand' });
 }
 
 STAGES.push({

@@ -463,7 +463,9 @@ const KONJIN_PHASES = [
       yield* konjinIn(b, g, 'boss', FIELD_W / 2, 110);
       for (let loop = 0; ; loop++) {
         const n = 6, off = rand(TAU), dir = loop % 2 ? 1 : -1;
-        for (let k = 0; k < n; k++) fireLaser({ x: b.x, y: b.y, angle: off + (k * TAU) / n, length: 560, width: 12, warn: 50, dur: 130, angVel: dir * 0.0055, color: 'yellow' });
+        // 光線の音は「f」（2.20.6 でユーザーの指定「EXにおけるレーザーに効果音を付与する」。4面のボスのレーザーと同じ、ボスのレーザーの音にした。
+        // 前は合成音の 'laser'。低い音がほとんどで、スマホなどでは聞こえなかった）
+        for (let k = 0; k < n; k++) fireLaser({ x: b.x, y: b.y, angle: off + (k * TAU) / n, length: 560, width: 12, warn: 50, dur: 130, angVel: dir * 0.0055, color: 'yellow', sound: 'laserBoss4' });
         for (let f = 0; f < 190; f++) {
           if (f % 7 === 0) fire({ x: b.x, y: b.y, angle: rand(TAU), speed: rand(1.1, 2.0), type: 'small', color: 'orange', silent: f % 14 !== 0 });
           if (f % 45 === 30) fireRing({ x: b.x, y: b.y, n: 8, angle: f * 0.05, speed: 1.9, type: 'card', color: 'gold' });

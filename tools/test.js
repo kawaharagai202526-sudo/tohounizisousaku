@@ -556,7 +556,7 @@ test('効果音（2.17.0）：もらった音 a〜o の割り当て・弱いザ�
     return out;
   });
   const mapWant = {
-    fire: 'm', needle: 'n', oni: 'k', burst: 'k', appear: 'o', charge: 'c', powerup: 'c', laserHand: 'h', laserBoss4: 'f',
+    fire: 'm', needle: 'n', oni: 'k', burst: 'k', appear: 'o', charge: 'c', laserHand: 'h', laserBoss4: 'f',
     summon: 'g', bonus: 'a', spell: 'b', bossdie: 'd', extend: 'e', bomb: 'i', pichuun: 'j',
   };
   for (const [k, v] of Object.entries(mapWant)) assert(r.map[k] === v, `効果音 ${k} が「${r.map[k]}」（予定「${v}」）`);
@@ -935,6 +935,45 @@ test('2.20.5：自機の弾は「シュッ」・アイテム／敵を倒した�
   assert(r.shotLen > 0.07 && r.shotLen < 0.13, `自機の弾の音の長さ ${r.shotLen.toFixed(3)} 秒（予定 0.1 秒くらいの「シュッ」）`);
   assert(r.shotHz > 1500 && r.shotHz < 5000, `自機の弾の音の高さ ${r.shotHz.toFixed(0)}Hz（予定 2〜4kHz くらい。前の「チッ」は 5000Hz より上）`);
   assert(r.appear === 'o' && r.oEq.includes('treble') && r.oHigh > 0.4 && r.oPeak < 1, `「o」の高い音: ${JSON.stringify(r)}（400Hz より上が 4 割より多く、振幅は 1 未満）`);
+});
+
+test('2.20.6：5面道中の梁とエキストラのレーザーに音・霊力が上がったときの音はなし', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = { ex: {}, defaultLaser: [] };
+    // エキストラ（栂尾・八重 神世羅）のすべての攻撃で撃つレーザーの音（予告の細い線 silent は除く）
+    const orig = window.fireLaser;
+    let rec = null;
+    window.fireLaser = o => { if (rec && !o.silent) rec.push(o.sound === undefined ? 'laser' : o.sound); return orig(o); };
+    for (const id of ['toganooEx', 'konjin']) {
+      const meta = allStages().flatMap(({ st }) => st.bosses).find(x => x.id === id);
+      meta.phases.forEach((ph, i) => {
+        startBossTest({ boss: id, phase: i + 1, diff: 3, only: true });
+        G.cheat = true;
+        rec = [];
+        for (let f = 0; f < 420; f++) Game.update();
+        if (rec.length) out.ex[`${id} ${ph.name || '通常' + (i + 1)}`] = [...new Set(rec)];
+        if (rec.includes('laser')) out.defaultLaser.push(ph.name || i + 1);
+      });
+    }
+    rec = null;
+    window.fireLaser = orig;
+    // 5面の道中の落ちてくる梁
+    out.beam = fallingBeam(200, true).sound;
+    // 霊力が上がる（100 ごと）ときに音を鳴らさない
+    const log = [];
+    const se = Sound.se;
+    Sound.se = function (name, o) { log.push(name); return se.call(this, name, o); };
+    G.power = 90; G.addPower(20); G.power = 390; G.addPower(20);
+    Sound.se = se;
+    out.powerLog = log;
+    out.power = G.power;
+    out.powerupDefined = 'powerup' in SE_SAMPLE || 'powerup' in SE_DEFS;
+    return out;
+  });
+  assert(r.beam === 'laserHand', `5面の落ちてくる梁の音: ${r.beam}（予定 laserHand ＝ h）`);
+  const exSounds = Object.values(r.ex).flat();
+  assert(!r.defaultLaser.length && exSounds.includes('laserBoss4'), `エキストラのレーザーの音: ${JSON.stringify(r.ex)}（聞こえにくい合成音 'laser' が残っている: ${r.defaultLaser}）`);
+  assert(!r.powerLog.length && r.power === 400 && !r.powerupDefined, `霊力が上がったときに音が鳴る: ${JSON.stringify(r.powerLog)}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {

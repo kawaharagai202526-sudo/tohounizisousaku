@@ -492,7 +492,7 @@ class GameScene {
     const before = Math.floor(this.power / 100);
     this.power = Math.min(400, this.power + n);
     if (Math.floor(this.power / 100) > before) {
-      Sound.se('powerup');
+      // 霊力が上がったときの音は鳴らさない（2.20.6 でユーザーの指定「霊力上昇時の効果音はすべて削除」。2.17.0〜2.20.5 は「c」、その前は合成音。Full Power のときも）
       if (this.power >= 400) {
         this.msg('Full Power Mode!!', '#ffd060');
         this.bullets.cancelAll(true);
