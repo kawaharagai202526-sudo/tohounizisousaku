@@ -752,6 +752,8 @@ class GameScene {
       drawSpellBG(ctx, this.lastSpellBg, this.frame);
       ctx.globalAlpha = 1;
     }
+    // 背景を暗く・色をうすくして、弾と見分けやすくする（2.21.0。js/backgrounds.js の drawBgVeil）
+    drawBgVeil(ctx, this.bg, this.lastSpellBg, this.spellBgAlpha);
     if (this.kyou) drawKyouEdge(ctx, this);
     drawPlayerCutin(ctx, this);
     if (this.boss) this.boss.draw(ctx);

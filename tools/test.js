@@ -976,6 +976,60 @@ test('2.20.6：5面道中の梁とエキストラのレーザーに音・霊力�
   assert(!r.powerLog.length && r.power === 400 && !r.powerupDefined, `霊力が上がったときに音が鳴る: ${JSON.stringify(r.powerLog)}`);
 });
 
+test('2.21.0：背景は暗く色がうすい（弾と見分けやすい）・暗くする層は背景のあと弾の前', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const cv = document.createElement('canvas'); cv.width = FIELD_W; cv.height = FIELD_H;
+    const c = cv.getContext('2d');
+    // 明るさ（平均・上から5%）・明るい点（0.45 より明るい）の割合・色の濃さ（平均）
+    const stats = draw => {
+      let L = 0, S = 0, n = 0, bright = 0; const Ls = [];
+      for (const fr of [200, 900, 1700]) {
+        c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+        c.fillStyle = '#000'; c.fillRect(0, 0, FIELD_W, FIELD_H);
+        draw(fr);
+        const d = c.getImageData(0, 0, FIELD_W, FIELD_H).data;
+        for (let i = 0; i < d.length; i += 16) {
+          const R = d[i] / 255, Gc = d[i + 1] / 255, B = d[i + 2] / 255, mx = Math.max(R, Gc, B), mn = Math.min(R, Gc, B);
+          const l = 0.2126 * R + 0.7152 * Gc + 0.0722 * B;
+          L += l; S += mx ? (mx - mn) / mx : 0; n++; Ls.push(l); if (l > 0.45) bright++;
+        }
+      }
+      Ls.sort((a, b) => a - b);
+      return { mean: +(L / n).toFixed(3), p95: +Ls[Math.floor(Ls.length * 0.95)].toFixed(3), bright: +(bright / n).toFixed(4), sat: +(S / n).toFixed(3) };
+    };
+    const out = { stage: {}, spell: {} };
+    const stages = [[0, false], [1, false], [2, false], [3, false], [4, false], [5, false], [0, true]];
+    for (const [i, ex] of stages) {
+      Game.setScene(new GameScene({ difficulty: 1, character: 'reimu', stage: i, extra: ex, practice: true, seed: 3 }));
+      const bg = G.bg; let f0 = 0;
+      const draw = fr => { while (f0 < fr) { bg.update(); f0++; } bg.draw(c); drawBgVeil(c, bg); };
+      out.stage[ex ? 'EX' : `${i + 1}面`] = stats(draw);
+      if (ex) { bg.event('compass'); for (let k = 0; k < 300; k++) bg.update(); f0 = 0; out.stage['EX 方位盤'] = stats(draw); }
+    }
+    for (const kind of Object.keys(SPELL_BG_VEIL)) out.spell[kind] = stats(t => { drawSpellBG(c, kind, t); drawBgVeil(c, null, kind, 1); });
+    // ゲームの描画の順番：背景 → 暗くする層 → 弾
+    startBossTest({ boss: 'toganoo', phase: 2, diff: 3, only: true });
+    G.cheat = true;
+    for (let f = 0; f < 120; f++) Game.update();
+    const order = [];
+    const wrap = (obj, key, name) => { const f = obj[key]; obj[key] = function (...a) { order.push(name); return f.apply(this, a); }; return () => { obj[key] = f; }; };
+    const undo = [wrap(G.bg, 'draw', 'bg'), wrap(window, 'drawSpellBG', 'spellBg'), wrap(window, 'drawBgVeil', 'veil'), wrap(G.bullets, 'draw', 'bullets')];
+    Game.draw();
+    undo.forEach(u => u());
+    out.order = order.join(',');
+    return out;
+  });
+  const bad = [];
+  for (const [k, v] of Object.entries(r.stage)) {
+    if (v.mean > 0.16 || v.p95 > 0.27 || v.bright > 0.003 || v.sat > 0.34) bad.push(`${k} ${JSON.stringify(v)}`);
+  }
+  for (const [k, v] of Object.entries(r.spell)) {
+    if (v.mean > 0.15 || v.p95 > 0.32 || v.bright > 0.003 || v.sat > 0.68) bad.push(`スペル ${k} ${JSON.stringify(v)}`);
+  }
+  assert(!bad.length, `背景が明るすぎる・色が濃すぎる（弾と見分けにくい）:\n    ${bad.join('\n    ')}`);
+  assert(r.order === 'bg,spellBg,veil,bullets', `描く順番: ${r.order}（予定 bg,spellBg,veil,bullets）`);
+});
+
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
   // 開発用の startBossTest で、すべてのボス・中ボスの攻撃を1つずつ7秒間動かす（無敵）
   const r = await page.evaluate(() => {

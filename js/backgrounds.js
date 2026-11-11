@@ -6,6 +6,63 @@
 //  event(名前) があれば、会話の { event: '名前' } で呼ばれる（3面で屋敷が姿を現す演出など）
 // ============================================================
 
+// ------------------------------------------------------------
+//  弾と見分けやすくする層（2.21.0 でユーザーの指定「背景の再構築。背景と弾の見分けがつかない問題を解決する」）
+//  背景（とスペルカードの背景）を描いたあと、弾やボスを描く前に、色をうすくして（灰色に近づけて）暗くする（GameScene.draw）。
+//  弾は色が濃く明るい（白い芯もある）ので、背景を「暗く・色がうすい」側にそろえると、弾だけが浮いて見える。
+//  desat：色をうすくする割合（0〜1。1 で灰色）、dark：黒を重ねる割合。
+//  面ごとに、背景の明るさの平均が 0.13 くらい・明るいところ（上から5%）が 0.25 くらい・色の濃さが 0.3 より下になるように決めた（測った）
+// ------------------------------------------------------------
+const BG_VEIL = {
+  VillageRoofBG: { desat: 0.45, dark: 0.3 },   // 1面
+  BugHouseBG: { desat: 0.5, dark: 0.5 },       // 2面
+  BackstreetBG: { desat: 0.45, dark: 0.42 },   // 3面
+  RoomsBG: { desat: 0.5, dark: 0.6 },         // 4面
+  CollapseBG: { desat: 0.45, dark: 0.4 },      // 5面
+  RubbleSkyBG: { desat: 0.6, dark: 0.3 },      // 6面
+  DuskRubbleBG: { desat: 0.62, dark: 0.32 },   // エキストラ（西日の人里と瓦礫）
+  CompassRealm: { desat: 0.55, dark: 0.12 },    // エキストラ（方位盤の異界）
+};
+// スペルカードの背景は、もとから暗い（明るさの平均 0.05〜0.17）ので、色の濃さを主におさえる（面の色はうすく残す）
+const SPELL_BG_VEIL = {
+  kawara: { desat: 0.5, dark: 0.12 }, yamori: { desat: 0.45, dark: 0.1 }, nurari: { desat: 0.45, dark: 0.1 },
+  hashira: { desat: 0.5, dark: 0.35 }, yanari: { desat: 0.5, dark: 0.1 }, ruri: { desat: 0.55, dark: 0.1 },
+  konjin: { desat: 0.5, dark: 0.25 }, zashiki: { desat: 0.45, dark: 0.12 }, ichimatsu: { desat: 0.5, dark: 0.1 },
+};
+const BG_VEIL_DEFAULT = { desat: 0.45, dark: 0.35 };
+// いまの背景の層の強さ（エキストラは方位盤の異界に移るあいだ、だんだん変える）
+function bgVeilOf(bg) {
+  if (!bg) return BG_VEIL_DEFAULT;
+  if (bg instanceof CompassRealmBG) {
+    const a = BG_VEIL.DuskRubbleBG, b = BG_VEIL.CompassRealm, k = bg.shift || 0;
+    return { desat: a.desat + (b.desat - a.desat) * k, dark: a.dark + (b.dark - a.dark) * k };
+  }
+  return BG_VEIL[bg.constructor.name] || BG_VEIL_DEFAULT;
+}
+// spellKind・spellAlpha：スペルカードの背景が出ているときは、その背景の強さへ、出ている割合だけ近づける
+function drawBgVeil(ctx, bg, spellKind = null, spellAlpha = 0) {
+  let v = bgVeilOf(bg);
+  if (spellKind && spellAlpha > 0) {
+    const s = SPELL_BG_VEIL[spellKind] || BG_VEIL_DEFAULT, k = Math.min(1, spellAlpha);
+    v = { desat: v.desat + (s.desat - v.desat) * k, dark: v.dark + (s.dark - v.dark) * k };
+  }
+  ctx.save();
+  if (v.desat > 0) {
+    // 灰色を「彩度」の重ね方で重ねると、明るさはそのままで色だけがうすくなる
+    ctx.globalCompositeOperation = 'saturation';
+    ctx.globalAlpha = v.desat;
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(-16, -16, FIELD_W + 32, FIELD_H + 32);
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  if (v.dark > 0) {
+    ctx.globalAlpha = v.dark;
+    ctx.fillStyle = '#05040a';
+    ctx.fillRect(-16, -16, FIELD_W + 32, FIELD_H + 32);
+  }
+  ctx.restore();
+}
+
 function makeFogTile(w, h, count, alpha, seed, rgb = '220,230,255') {
   const c = makeCanvas(w, h);
   const x = c.getContext('2d');
@@ -157,7 +214,8 @@ class VillageRoofBG {
     this.tile = this.makeTile();
     this.fog = makeFogTile(FIELD_W, 448, 10, 0.05, 11);
     this.dust = [];
-    for (let i = 0; i < 22; i++) this.dust.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), s: frand(0.4, 1.0), leaf: Math.random() < 0.4 });
+    // 舞う葉（2.21.0：弾に似た明るい粒はなくし、葉も少なく暗くした。前は 22 個で、4割が葉・残りは明るい粒）
+    for (let i = 0; i < 10; i++) this.dust.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), s: frand(0.4, 1.0), leaf: true });
   }
   static streetX(y, h) { return FIELD_W / 2 + Math.sin((y / h) * TAU) * 26 + Math.sin((y / h) * TAU * 3) * 6; }
   makeTile() {
@@ -202,9 +260,10 @@ class VillageRoofBG {
       const ly = i * rowH + rowH - 5, lx = VillageRoofBG.streetX(ly, h) + (i % 2 ? 30 : -30);
       this.lanterns.push({ x: lx, y: ly, p: r.next() * TAU });
       for (const oy of [-h, 0, h]) {
-        x.fillStyle = '#c0402a';
+        // 提灯（2.21.0：赤い粒に明るい芯で、弾に見えたので暗くした。前は #c0402a と #ffd890）
+        x.fillStyle = '#5a2a20';
         x.beginPath(); x.ellipse(lx, ly + oy, 3.5, 4.5, 0, 0, TAU); x.fill();
-        x.fillStyle = '#ffd890';
+        x.fillStyle = 'rgba(200,150,90,0.45)';
         x.fillRect(lx - 1, ly + oy - 2, 2, 4);
       }
     }
@@ -229,11 +288,12 @@ class VillageRoofBG {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, FIELD_W, FIELD_H);
     ctx.globalCompositeOperation = 'lighter';
-    const glow = glowSprite('255,150,70', 28);
+    // 提灯のあかり（2.21.0：丸く明るい光が橙の大玉に見えたので、大きくうすくした。前は半径 28・0.32）
+    const glow = glowSprite('255,150,70', 44);
     for (const l of this.lanterns) {
       for (const y of tileYs(l.y, this.scroll, this.tile.height)) {
-        ctx.globalAlpha = 0.32 + 0.08 * Math.sin(this.t * 0.18 + l.p) + 0.05 * Math.sin(this.t * 0.53 + l.p * 2);
-        ctx.drawImage(glow, l.x - 28, y - 28);
+        ctx.globalAlpha = 0.12 + 0.03 * Math.sin(this.t * 0.18 + l.p) + 0.02 * Math.sin(this.t * 0.53 + l.p * 2);
+        ctx.drawImage(glow, l.x - 44, y - 44);
       }
     }
     ctx.globalAlpha = 1;
@@ -244,7 +304,7 @@ class VillageRoofBG {
         ctx.save();
         ctx.translate(d.x, d.y);
         ctx.rotate(d.p);
-        ctx.fillStyle = 'rgba(150,110,60,0.6)';
+        ctx.fillStyle = 'rgba(90,66,38,0.45)';
         ctx.beginPath(); ctx.ellipse(0, 0, 3, 1.5, 0, 0, TAU); ctx.fill();
         ctx.restore();
       } else {
@@ -502,9 +562,10 @@ class BackstreetBG {
       const px = BackstreetBG.pathX(y, h) + (i % 2 ? 12 : -12);
       x.fillStyle = 'rgba(0,0,0,0.4)';
       x.beginPath(); x.ellipse(px + 2, y + 3, 15, 10, 0, 0, TAU); x.fill();
-      x.fillStyle = '#7a756a';
+      // 飛び石（2.21.0：明るい灰色の丸が丸い弾に見えたので、暗くした。前は #7a756a・つや 0.12）
+      x.fillStyle = '#4a463e';
       x.beginPath(); x.ellipse(px, y, 15, 10, 0, 0, TAU); x.fill();
-      x.fillStyle = 'rgba(255,255,255,0.12)';
+      x.fillStyle = 'rgba(255,255,255,0.05)';
       x.beginPath(); x.ellipse(px - 3, y - 3, 8, 4, 0, 0, TAU); x.fill();
     }
     // 板塀（路地の両側）
@@ -545,7 +606,7 @@ class BackstreetBG {
           x.strokeStyle = '#2a1a0c'; x.lineWidth = 1.5; x.beginPath(); x.arc(ix, y, 6, 0, TAU); x.stroke();
         } else if (it.kind === 'pot') {
           x.fillStyle = '#5a3a24'; x.beginPath(); x.arc(ix, y, 6, 0, TAU); x.fill();
-          x.fillStyle = '#3e6a34'; for (let k = 0; k < 5; k++) { x.beginPath(); x.arc(ix + Math.cos(k * 1.3) * 4, y + Math.sin(k * 1.3) * 4, 3.5, 0, TAU); x.fill(); }
+          x.fillStyle = '#2c4226'; for (let k = 0; k < 5; k++) { x.beginPath(); x.arc(ix + Math.cos(k * 1.3) * 4, y + Math.sin(k * 1.3) * 4, 3.5, 0, TAU); x.fill(); }
         } else {
           for (let k = 0; k < 4; k++) { x.fillStyle = k % 2 ? '#7a5634' : '#5c3e22'; x.fillRect(ix - 10, y - 6 + k * 3, 20, 3); }
         }
@@ -565,7 +626,8 @@ class BackstreetBG {
         const yy = y + oy;
         x.strokeStyle = 'rgba(30,20,10,0.9)'; x.lineWidth = 1;
         x.beginPath(); x.moveTo(px - 52, yy); x.lineTo(px + 52, yy + 6); x.stroke();
-        ['#a04a4a', '#4a6aa0', '#d8d0b8'].forEach((col, k) => {
+        // 干してある布（2.21.0：赤・青・白の四角が弾に見えたので、くすんだ暗い色にした。前は #a04a4a・#4a6aa0・#d8d0b8）
+        ['#583434', '#34405a', '#6a6658'].forEach((col, k) => {
           x.fillStyle = 'rgba(0,0,0,0.3)'; x.fillRect(px - 36 + k * 26 + 4, yy + k * 2 + 6, 18, 12);
           x.fillStyle = col; x.fillRect(px - 36 + k * 26, yy + k * 2 + 1, 18, 12);
         });
@@ -595,11 +657,12 @@ class BackstreetBG {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, FIELD_W, FIELD_H);
     ctx.globalCompositeOperation = 'lighter';
-    const glow = glowSprite('255,170,90', 24);
+    // 提灯のあかり（2.21.0：大きくうすくした。前は半径 24・0.3）
+    const glow = glowSprite('255,170,90', 40);
     for (const l of this.lanterns) {
       for (const y of tileYs(l.y, this.scroll, this.tile.height)) {
-        ctx.globalAlpha = 0.3 + 0.1 * Math.sin(this.t * 0.15 + l.p);
-        ctx.drawImage(glow, l.x - 24, y - 24);
+        ctx.globalAlpha = 0.12 + 0.04 * Math.sin(this.t * 0.15 + l.p);
+        ctx.drawImage(glow, l.x - 40, y - 40);
       }
     }
     ctx.globalAlpha = 1;
@@ -905,7 +968,8 @@ class RoomsBG {
       ctx.save();
       ctx.translate(s.x, s.y);
       ctx.rotate(s.rot);
-      ctx.globalAlpha = Math.min(1, s.life / 20);
+      // 紙と木のかけら（2.21.0：明るい紙のかけらが白い弾に見えたので、うすくした。前は 1）
+      ctx.globalAlpha = Math.min(1, s.life / 20) * 0.4;
       ctx.fillStyle = s.color;
       ctx.fillRect(-s.w / 2, -s.h / 2, s.w, s.h);
       ctx.restore();
@@ -934,7 +998,7 @@ class CollapseBG {
     this.debris = [];
     this.puffs = [];
     this.dust = [];
-    for (let i = 0; i < 40; i++) this.dust.push({ x: frand(FIELD_W), y: frand(FIELD_H), s: frand(0.3, 1.2), p: frand(TAU) });
+    for (let i = 0; i < 20; i++) this.dust.push({ x: frand(FIELD_W), y: frand(FIELD_H), s: frand(0.3, 1.2), p: frand(TAU) }); // 2.21.0 で 40 → 20
     this.rumble = 0;
   }
   static makeTile() {
@@ -1075,11 +1139,11 @@ class CollapseBG {
       ctx.restore();
     }
     for (const p of this.puffs) {
-      ctx.fillStyle = `rgba(170,160,145,${(p.life / 40) * 0.35})`;
+      ctx.fillStyle = `rgba(170,160,145,${(p.life / 40) * 0.13})`; // 土ぼこり（2.21.0：丸い弾に見えたので、うすくした。前は 0.35）
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, TAU); ctx.fill();
     }
     for (const d of this.dust) {
-      ctx.fillStyle = 'rgba(200,190,170,0.4)';
+      ctx.fillStyle = 'rgba(200,190,170,0.13)'; // ほこり（2.21.0：前は 0.4）
       ctx.fillRect(d.x, d.y, 1.5, 1.5);
     }
     // 家鳴の気配：むらさきの暗がり
@@ -1119,7 +1183,7 @@ function drawRubble(ctx, p) {
       break;
     }
     case 'tatami': {
-      ctx.fillStyle = '#9c9a5c';
+      ctx.fillStyle = '#6e6c44'; // 2.21.0：明るいがれきが弾にまぎれるので、暗くした（前は #9c9a5c）
       ctx.fillRect(-26, -13, 52, 26);
       ctx.fillStyle = '#26301c';
       ctx.fillRect(-26, -13, 52, 3); ctx.fillRect(-26, 10, 52, 3);
@@ -1130,7 +1194,7 @@ function drawRubble(ctx, p) {
       break;
     }
     case 'fusuma': {
-      ctx.fillStyle = '#e6dcc0';
+      ctx.fillStyle = '#9a927e'; // 2.21.0：白っぽいふすまが白い弾にまぎれるので、暗くした（前は #e6dcc0）
       ctx.fillRect(-15, -22, 30, 44);
       ctx.strokeStyle = '#4a3018';
       ctx.lineWidth = 2;
@@ -1175,7 +1239,7 @@ class RubbleSkyBG {
     this.clouds = makeFogTile(FIELD_W, 448, 12, 0.08, 66, '255,200,230');
     this.clouds2 = makeFogTile(FIELD_W, 448, 9, 0.06, 67, '190,180,255');
     this.stars = [];
-    for (let i = 0; i < 40; i++) this.stars.push({ x: frand(FIELD_W), y: frand(0, 220), p: frand(TAU) });
+    for (let i = 0; i < 24; i++) this.stars.push({ x: frand(FIELD_W), y: frand(0, 220), p: frand(TAU) }); // 2.21.0 で 40 → 24
     this.pieces = [];
     for (let i = 0; i < 28; i++) this.pieces.push(this.newPiece(true));
     this.glints = [];
@@ -1213,7 +1277,7 @@ class RubbleSkyBG {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, FIELD_W, FIELD_H);
     for (const st of this.stars) {
-      ctx.fillStyle = `rgba(255,255,255,${0.25 + 0.25 * Math.sin(this.t * 0.04 + st.p)})`;
+      ctx.fillStyle = `rgba(255,255,255,${0.1 + 0.08 * Math.sin(this.t * 0.04 + st.p)})`; // 星（2.21.0：小さな白い弾に見えたので、暗くした。前は 0.25±0.25）
       ctx.fillRect(st.x, st.y, 1.5, 1.5);
     }
     // 三日月
@@ -1236,7 +1300,7 @@ class RubbleSkyBG {
     }
     ctx.globalCompositeOperation = 'lighter';
     for (const gl of this.glints) {
-      const a = Math.sin((gl.life / 50) * Math.PI) * 0.7;
+      const a = Math.sin((gl.life / 50) * Math.PI) * 0.22; // きらめき（2.21.0：前は 0.7）
       ctx.fillStyle = `rgba(255,230,150,${a})`;
       ctx.fillRect(gl.x - 0.5, gl.y - 3, 1, 6);
       ctx.fillRect(gl.x - 3, gl.y - 0.5, 6, 1);
@@ -1335,7 +1399,7 @@ class DuskRubbleBG {
     ];
     // 光の中を舞うほこり
     this.motes = [];
-    for (let i = 0; i < 36; i++) this.motes.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), v: frand(0.15, 0.45), s: frand(0.8, 1.8) });
+    for (let i = 0; i < 20; i++) this.motes.push({ x: frand(FIELD_W), y: frand(FIELD_H), p: frand(TAU), v: frand(0.15, 0.45), s: frand(0.8, 1.8) }); // 2.21.0 で 36 → 20
   }
   // 道のまん中（縦にくり返す絵の高さ h で、ひとまわりする）
   static roadX(y, h) { return FIELD_W * 0.44 + Math.sin((y / h) * TAU) * 34 + Math.sin((y / h) * TAU * 2 + 1) * 10; }
@@ -1446,7 +1510,7 @@ class DuskRubbleBG {
     }
     // 光の中を舞うほこり
     for (const m of this.motes) {
-      ctx.fillStyle = `rgba(255,210,140,${0.18 + 0.18 * Math.sin(this.t * 0.06 + m.p * 3)})`;
+      ctx.fillStyle = `rgba(255,210,140,${0.07 + 0.06 * Math.sin(this.t * 0.06 + m.p * 3)})`; // 2.21.0：前は 0.18±0.18
       ctx.fillRect(m.x, m.y, m.s, m.s);
     }
     ctx.globalCompositeOperation = 'source-over';
@@ -1543,9 +1607,10 @@ class CompassRealmBG {
       ctx.translate(c.x, c.y);
       ctx.rotate(c.r);
       ctx.scale(c.s, c.s);
-      ctx.fillStyle = 'rgba(255,214,120,0.22)';
+      // 流れていく札（2.21.0：金色の札の弾とまぎれるので、ごくうすくした。前は 0.22・0.25）
+      ctx.fillStyle = 'rgba(255,214,120,0.06)';
       ctx.fillRect(-5, -9, 10, 18);
-      ctx.fillStyle = 'rgba(200,60,40,0.25)';
+      ctx.fillStyle = 'rgba(200,60,40,0.07)';
       ctx.fillRect(-2, -6, 4, 12);
       ctx.restore();
     }
@@ -1581,7 +1646,7 @@ function drawSpellBG(ctx, kind, t) {
       for (let i = 0; i < 40; i++) {
         const x = (i * 53.7 + Math.sin(t * 0.03 + i) * 14) % FIELD_W;
         const y = FIELD_H - ((t * (0.7 + (i % 4) * 0.3) + i * 41) % (FIELD_H + 20));
-        ctx.fillStyle = `rgba(255,${120 + (i % 3) * 40},60,${0.3 + 0.3 * Math.sin(t * 0.1 + i)})`;
+        ctx.fillStyle = `rgba(255,${120 + (i % 3) * 40},60,${0.1 + 0.08 * Math.sin(t * 0.1 + i)})`; // 火の粉（2.21.0：前は 0.3±0.3）
         ctx.fillRect(x, y, 2, 2);
       }
       break;
@@ -1636,7 +1701,7 @@ function drawSpellBG(ctx, kind, t) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(t * 0.02 + i);
-        ctx.fillStyle = 'rgba(210,40,60,0.45)';
+        ctx.fillStyle = 'rgba(210,40,60,0.15)'; // 椿の花びら（2.21.0：赤い米粒の弾に見えたので、うすくした。前は 0.45）
         ctx.beginPath(); ctx.ellipse(0, 0, 6, 3.5, 0, 0, TAU); ctx.fill();
         ctx.restore();
       }
@@ -1700,7 +1765,7 @@ function drawSpellBG(ctx, kind, t) {
         ctx.rotate(sw * 0.3);
         ctx.strokeStyle = 'rgba(160,120,200,0.25)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 70); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,150,220,0.25)';
+        ctx.fillStyle = 'rgba(255,150,220,0.12)'; // 2.21.0：前は 0.25
         ctx.beginPath(); ctx.ellipse(0, 80, 8, 11, 0, 0, TAU); ctx.fill();
         ctx.restore();
       }
@@ -1751,7 +1816,7 @@ function drawSpellBG(ctx, kind, t) {
       drawCompassDisc(ctx, FIELD_W / 2, 200, 110, -t * 0.008, 0.22);
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 14; i++) {
-        const a = 0.25 + 0.25 * Math.sin(t * 0.06 + i * 2.1);
+        const a = 0.08 + 0.06 * Math.sin(t * 0.06 + i * 2.1); // きらめき（2.21.0：前は 0.25±0.25）
         const x = (i * 83.3 + t * 0.2) % FIELD_W, y = (i * 61.7 + t * (0.5 + (i % 3) * 0.2)) % FIELD_H;
         ctx.fillStyle = `rgba(255,210,110,${a})`;
         ctx.fillRect(x - 0.5, y - 5, 1, 10);
@@ -1784,7 +1849,7 @@ function drawSpellBG(ctx, kind, t) {
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(t * 0.01 + i);
-        ctx.fillStyle = 'rgba(250,230,190,0.32)';
+        ctx.fillStyle = 'rgba(250,230,190,0.13)'; // 梅の花（2.21.0：丸い粒が弾に見えたので、うすくした。前は 0.32）
         for (let k = 0; k < 5; k++) {
           const a = (k / 5) * TAU;
           ctx.beginPath(); ctx.arc(Math.cos(a) * 4, Math.sin(a) * 4, 3.2, 0, TAU); ctx.fill();
@@ -1795,7 +1860,7 @@ function drawSpellBG(ctx, kind, t) {
       }
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 12; i++) {
-        const a = 0.3 + 0.3 * Math.sin(t * 0.08 + i * 1.7);
+        const a = 0.1 + 0.08 * Math.sin(t * 0.08 + i * 1.7); // 鈴のきらめき（2.21.0：前は 0.3±0.3）
         const x = (i * 97.1) % FIELD_W, y = (i * 53.9 + 30) % FIELD_H;
         ctx.fillStyle = `rgba(255,220,120,${a})`;
         ctx.fillRect(x - 0.5, y - 4, 1, 8);

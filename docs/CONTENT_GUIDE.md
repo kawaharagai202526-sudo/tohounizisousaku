@@ -140,6 +140,10 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
 - スペルカードの背景は js/backgrounds.js の `drawSpellBG`（ボスの `def.spellBg` で選ぶ）
 - ステージの背景は js/backgrounds.js のクラス（1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`・4面 `RoomsBG`・5面 `CollapseBG`・6面 `RubbleSkyBG`・エキストラ `CompassRealmBG`）。
   `update()` と `draw(ctx)` を持ち、ステージの `bg` に書く。会話の `{ event }` を受けるときは `event(名前)` も書く
+- 背景と弾の見分けやすさ（2.21.0）：背景（とスペルカードの背景）を描いたあと、弾を描く前に `drawBgVeil` で色をうすくして暗くする。
+  強さは js/backgrounds.js の `BG_VEIL`（クラスの名前ごと）と `SPELL_BG_VEIL`（`spellBg` ごと）。背景を足したり変えたりしたら、ここに書いて、
+  テスト「2.21.0：背景は暗く色がうすい」が通るようにする（明るさの平均 0.16 以下・明るいところ 0.27 以下・色の濃さ 0.34 以下など）。
+  背景には、弾に似たもの（小さく明るい粒・丸い光・白い紙のかけら・金色の札・赤い花びらなど、動くものは特に）を置かない。置くならごくうすく
 - 道中の敵の出し方は各ステージの `script(g)`。`yield n` で n フレーム待つ
 
 ### 攻撃をすぐ試す
