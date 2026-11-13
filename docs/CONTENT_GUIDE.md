@@ -140,6 +140,9 @@ python3 tools/make-sprite.py 17.jpg reimu --crop 125,136,942,1313 --dot 0
 - スペルカードの背景は js/backgrounds.js の `drawSpellBG`（ボスの `def.spellBg` で選ぶ）
 - ステージの背景は js/backgrounds.js のクラス（1面 `VillageRoofBG`・2面 `BugHouseBG`・3面 `BackstreetBG`・4面 `RoomsBG`・5面 `CollapseBG`・6面 `RubbleSkyBG`・エキストラ `CompassRealmBG`）。
   `update()` と `draw(ctx)` を持ち、ステージの `bg` に書く。会話の `{ event }` を受けるときは `event(名前)` も書く
+- ちょこっとプレイ（2.22.0）：道中の長さは js/game.js の `CHOKOTTO_ROAD`、ボス戦で省く攻撃は `CHOKOTTO_CUT`（ボスの ID ごとに、
+  Normal で数えた n 回目の通常弾幕 `{ non: n }` と、スペルカードの名前の一部 `{ spell: '名前' }`）。ボスの攻撃を足したり並べかえたりしたら、ここも見なおす。
+  道中を飛ばしているあいだは `G.roadSkip` が立ち、`spawnEnemy`・`fire`・`fireLaser` は何も出さない（倒れた敵・消えた弾を返す）。会話は演出の行（曲・ボスの名前・背景）だけ起こす
 - 背景と弾の見分けやすさ（2.21.0）：背景（とスペルカードの背景）を描いたあと、弾を描く前に `drawBgVeil` で色をうすくして暗くする。
   強さは js/backgrounds.js の `BG_VEIL`（クラスの名前ごと）と `SPELL_BG_VEIL`（`spellBg` ごと）。背景を足したり変えたりしたら、ここに書いて、
   テスト「2.21.0：背景は暗く色がうすい」が通るようにする（明るさの平均 0.16 以下・明るいところ 0.27 以下・色の濃さ 0.34 以下など）。

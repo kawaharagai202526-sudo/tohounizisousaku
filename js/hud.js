@@ -108,10 +108,10 @@ function drawSidePanel(ctx, g) {
   ctx.font = `italic 700 22px ${FONT_EN}`;
   ctx.textAlign = 'center';
   strokeText(ctx, DIFF_NAMES[DIFF], 522, 38, DIFF_COLORS[DIFF], 'rgba(0,0,0,0.8)', 3);
-  if (g.practice) {
+  if (g.practice || g.chokotto) {
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = '#b8a8e0';
-    ctx.fillText('― プラクティス ―', 522, 58);
+    ctx.fillText(g.chokotto ? '― ちょこっとプレイ ―' : '― プラクティス ―', 522, 58);
   }
 
   const label = (t, y) => {
@@ -369,9 +369,13 @@ function drawMessages(ctx, g) {
   if (g.bgmTitle && g.bgmTitle.frame < 300) {
     const f = g.bgmTitle.frame;
     ctx.globalAlpha = f < 20 ? f / 20 : f > 240 ? (300 - f) / 60 : 1;
-    ctx.font = `600 12px ${FONT_JP}`;
     ctx.textAlign = 'right';
-    strokeText(ctx, '♪ ' + g.bgmTitle.text, FIELD_W - 8, g.dialogue ? 338 : FIELD_H - 20, '#e8e0ff', 'rgba(0,0,0,0.9)', 3);
+    // 曲名が長いとき（もとの曲の名前を（）で添えた曲。2.22.0）は、フィールドの幅に入るように文字を小さくする（9px まで。それでも長ければ横にちぢめる）
+    const text = '♪ ' + g.bgmTitle.text, maxW = FIELD_W - 16;
+    ctx.font = `600 12px ${FONT_JP}`;
+    const w = ctx.measureText(text).width;
+    if (w > maxW) ctx.font = `600 ${Math.max(9, Math.floor((12 * maxW) / w))}px ${FONT_JP}`;
+    strokeText(ctx, text, FIELD_W - 8, g.dialogue ? 338 : FIELD_H - 20, '#e8e0ff', 'rgba(0,0,0,0.9)', 3, maxW);
     ctx.globalAlpha = 1;
   }
   if (g.bombName && g.bombName.frame < 150) {

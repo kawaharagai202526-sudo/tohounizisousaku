@@ -252,6 +252,8 @@ let SHOOTER = null;
 
 // 弾を撃つ。o.silent なら音を鳴らさない。o.se で音を選べる（ふつうは 'fire'＝もらった音「m」。針は 'needle'、鬼面は 'oni' など。2.17.0）
 function fire(o) {
+  // ちょこっとプレイで飛ばしている道中は撃たない（台本が使えるように、消えた弾を返す。2.22.0）
+  if (G.roadSkip) { const b = new Bullet().init(o); b.alive = false; return b; }
   if (!o.silent && !(SHOOTER && SHOOTER.quiet)) Sound.se(o.se || 'fire');
   return G.bullets.spawn(o);
 }
@@ -278,6 +280,7 @@ function fireFan(o) {
 }
 function fireLaser(o) {
   const l = new Laser(o);
+  if (G.roadSkip) { l.alive = false; return l; } // ちょこっとプレイで飛ばしている道中（2.22.0）
   G.lasers.push(l);
   return l;
 }

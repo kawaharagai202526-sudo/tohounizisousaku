@@ -81,7 +81,8 @@ test('起動してタイトルが出る', async ({ page }) => {
     return { scene: Game.scene.constructor.name, items: TITLE_ITEMS.map(i => i.id), version: GAME_VERSION, save: Store.get('saveVersion', 0), saveLatest: SAVE_VERSION };
   });
   assert(r.scene === 'TitleScene', `最初の画面がタイトルではない: ${r.scene}`);
-  assert(r.items.join() === 'start,extra,practice,music,manual,option,feedback', `タイトルの項目: ${r.items}`);
+  // 2.22.0：ちょこっとプレイを足し、オプションとフィードバックを入れかえた（ユーザーの指定）
+  assert(r.items.join() === 'start,extra,practice,chokotto,music,manual,feedback,option', `タイトルの項目: ${r.items}`);
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert(r.version === pkg.version, `GAME_VERSION（${r.version}）と package.json の version（${pkg.version}）がちがう`);
   assert(r.save === r.saveLatest, `保存データの形式が最新になっていない: ${r.save}`);
@@ -90,7 +91,8 @@ test('起動してタイトルが出る', async ({ page }) => {
 test('メニュー画面をひととおり表示できる', async ({ page }) => {
   const r = await page.evaluate(() => {
     const scenes = [
-      () => new DifficultyScene('game'), () => new DifficultyScene('practice'), () => new CharacterScene('game', 1),
+      () => new DifficultyScene('game'), () => new DifficultyScene('practice'), () => new DifficultyScene('chokotto'),
+      () => new CharacterScene('game', 1), () => new CharacterScene('chokotto', 1),
       () => new StageSelectScene(1, PLAYER_IDS[0]), () => new MusicRoomScene(), () => new ManualScene(), () => new OptionScene(),
       () => new FeedbackScene(),
     ];
@@ -1020,14 +1022,77 @@ test('2.21.0：背景は暗く色がうすい（弾と見分けやすい）・�
     return out;
   });
   const bad = [];
+  // 4面・6面・エキストラ（とそのスペルカードの背景）は、2.22.0 でユーザーの指定「色彩を加えるか、前回のものにする」で色を戻したので、色の濃さは見ない
+  const colorful = new Set(['4面', '6面', 'EX', 'EX 方位盤', 'hashira', 'ichimatsu', 'zashiki', 'konjin']);
   for (const [k, v] of Object.entries(r.stage)) {
-    if (v.mean > 0.16 || v.p95 > 0.27 || v.bright > 0.003 || v.sat > 0.34) bad.push(`${k} ${JSON.stringify(v)}`);
+    const c = colorful.has(k);
+    if (v.mean > (c ? 0.18 : 0.16) || v.p95 > (c ? 0.3 : 0.27) || v.bright > 0.003 || (!c && v.sat > 0.34)) bad.push(`${k} ${JSON.stringify(v)}`);
   }
   for (const [k, v] of Object.entries(r.spell)) {
-    if (v.mean > 0.15 || v.p95 > 0.32 || v.bright > 0.003 || v.sat > 0.68) bad.push(`スペル ${k} ${JSON.stringify(v)}`);
+    if (v.mean > 0.15 || v.p95 > 0.32 || v.bright > 0.003 || (!colorful.has(k) && v.sat > 0.68)) bad.push(`スペル ${k} ${JSON.stringify(v)}`);
   }
   assert(!bad.length, `背景が明るすぎる・色が濃すぎる（弾と見分けにくい）:\n    ${bad.join('\n    ')}`);
   assert(r.order === 'bg,spellBg,veil,bullets', `描く順番: ${r.order}（予定 bg,spellBg,veil,bullets）`);
+});
+
+test('2.22.0：ちょこっとプレイ（道中 1/3・会話なし・ボスの攻撃を省く）・タイトルの並び・曲名の（）', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const out = {};
+    out.title = TITLE_ITEMS.map(it => it.id).join(',');
+    // ボス戦で残る攻撃（Normal と Lunatic）
+    out.left = {};
+    for (const st of STAGES) for (const b of st.bosses.filter(x => !x.mid)) {
+      const cut = chokottoCut(b.id, b.phases);
+      const names = d => b.phases.filter(ph => d >= (ph.minDiff || 0) && !cut.has(ph)).map(ph => ph.type === 'non' ? '通常' : ph.name.replace(/^.*「|」$/g, '')).join('/');
+      out.left[b.id] = { n: names(1), l: names(3), cut: cut.size };
+    }
+    // 道中の長さ：中ボスと会話のあいだを除いた道中のフレーム数を、ふつうとちょこっとプレイでくらべる（1面・3面・5面。Normal・無敵）
+    const roadFrames = (stage, chokotto) => {
+      Game.setScene(new GameScene({ difficulty: 1, character: 'reimu', stage, chokotto, practice: !chokotto, seed: 5 }));
+      G.cheat = true;
+      let road = 0, all = 0, dlg = 0, spawned = 0;
+      const se = spawnEnemy;
+      for (; all < 60000 && G.inRoad !== false; all++) {
+        const before = G.enemies.length;
+        Game.update();
+        if (G.dialogue) { dlg++; G.dialogue.i = G.dialogue.lines.length; G.dialogue.done = true; }
+        if (G.inRoad && !G.boss && !G.dialogue) road++;
+      }
+      return { road, all, dlg, inRoad: G.inRoad, chokotto: G.chokotto, scene: Game.scene.constructor.name };
+    };
+    out.road = {};
+    for (const st of [0, 2, 4]) out.road[st + 1] = { normal: roadFrames(st, false), chokotto: roadFrames(st, true) };
+    // 会話を飛ばす：台詞は出さず、曲などの演出だけ起こす
+    Game.setScene(new GameScene({ difficulty: 1, character: 'reimu', stage: 3, chokotto: true, seed: 5 }));
+    const it = G.talk([['reimu', 'normal', 'てすと'], { bgm: 'boss4' }, ['toganoo', 'normal', 'てすと']]);
+    const first = it.next();
+    out.talk = { done: first.done, dialogue: !!G.dialogue, bgm: Sound.songId || Sound.wantSong, bgmTitle: G.bgmTitle && G.bgmTitle.text };
+    // ハイスコアは残さない
+    G.score = 99999999; G.hiscoreSaved = null;
+    out.hi = G.saveHiScore();
+    out.songs = ['boss4', 'boss5', 'boss6', 'bossEx', 'stage4'].map(id => songTitle(id));
+    return out;
+  });
+  assert(r.title === 'start,extra,practice,chokotto,music,manual,feedback,option', `タイトルの並び: ${r.title}`);
+  const want = {
+    nokiba: '通常/屋根の上から失礼',
+    kuraishiro: '通常/家守の夜回り/通常/トカゲの尻尾切り',
+    namesawa: '通常/ぬらりくらりの上がり框/表札の掛け替え/通常',
+    toganoo: '通常/百間継ぎの建て増し/通常/家を支える者の意地',
+    yanari: '通常/夜中の家鳴り/一夜百年の煤払い/座敷様の新しいお家',
+    zashiki: '通常/手鞠唄の数え歌/通常/誰もが振り向く福の神/千客万来・家運隆盛/座敷童子のいる家',
+  };
+  for (const [id, w] of Object.entries(want)) assert(r.left[id] && r.left[id].n === w, `${id} の残る攻撃（Normal）: ${r.left[id] && r.left[id].n}（予定 ${w}）`);
+  assert(r.left.nokiba.l.includes('ここから先は私の縄張り') && r.left.zashiki.l.includes('座敷童子の隠れ鬼'), `Hard/Lunatic だけの攻撃は残す: ${JSON.stringify(r.left)}`);
+  for (const [st, v] of Object.entries(r.road)) {
+    const k = v.chokotto.road / v.normal.road;
+    assert(v.normal.inRoad === false && v.chokotto.inRoad === false && v.chokotto.chokotto, `${st}面の道中が終わらない: ${JSON.stringify(v)}`);
+    assert(k > 0.25 && k < 0.42 && v.chokotto.dlg === 0, `${st}面の道中の長さ: ふつう ${v.normal.road}・ちょこっと ${v.chokotto.road}（${(k * 100).toFixed(0)}%。予定 1/3）・会話 ${v.chokotto.dlg}`);
+  }
+  assert(r.talk.done && !r.talk.dialogue && r.talk.bgm === 'boss4' && r.talk.bgmTitle && r.talk.bgmTitle.includes('（エレクトリカルヘルステージ・ラストリモート）'), `会話を飛ばす: ${JSON.stringify(r.talk)}`);
+  assert(r.hi === false, 'ちょこっとプレイでハイスコアが残る');
+  assert(r.songs[0].endsWith('（エレクトリカルヘルステージ・ラストリモート）') && r.songs[1].endsWith('（complete darkness）') && r.songs[2].endsWith('（千年幻想郷・神さびた古戦場）')
+    && !r.songs[3].includes('（') && !r.songs[4].includes('（'), `曲名: ${r.songs}`);
 });
 
 test('ボスの攻撃をひとつずつ動かせる（Lunatic）', async ({ page }) => {
@@ -1704,6 +1769,29 @@ test('自動操縦で全ステージをクリアできる', async ({ page }) => 
     }, [ch, diff]);
     assert(r.scene === 'EndingScene', `${ch}（${['Easy', 'Normal', 'Hard', 'Lunatic'][diff]}）で最後まで行けない: ${r.scene}（${r.frames}フレーム）`);
   }
+}, { full: true });
+
+test('ちょこっとプレイも自動操縦で最後まで行ける（ふつうより短い。2.22.0）', async ({ page }) => {
+  const run = chokotto => page.evaluate(chokotto => {
+    Game.setScene(new GameScene({ difficulty: 1, character: PLAYER_IDS[0], stage: 0, seed: 12345, chokotto }));
+    let f = 0, dlg = 0;
+    while (Game.scene instanceof GameScene && f < 150000) {
+      const s = Game.scene;
+      s.cheat = true;
+      Input.debugHold.add('shot');
+      if (s.dialogue) { dlg++; if (s.frame % 8 === 0) Input.just.shot = true; }
+      const p = s.player, t = s.nearestTarget(p.x, p.y);
+      if (t && p.state === 'normal') p.x += clamp(t.x - p.x, -4, 4);
+      Game.update();
+      if (++f % 600 === 0) Game.draw();
+    }
+    Input.debugHold.delete('shot');
+    return { scene: Game.scene.constructor.name, frames: f, dlg };
+  }, chokotto);
+  const normal = await run(false), short = await run(true);
+  assert(short.scene === 'EndingScene' && short.dlg === 0, `ちょこっとプレイで最後まで行けない: ${JSON.stringify(short)}`);
+  assert(short.frames < normal.frames * 0.75, `ちょこっとプレイが短くない: ふつう ${normal.frames}・ちょこっと ${short.frames} フレーム`);
+  console.log(`      （Normal 自動操縦：ふつう ${(normal.frames / 3600).toFixed(1)} 分・ちょこっとプレイ ${(short.frames / 3600).toFixed(1)} 分）`);
 }, { full: true });
 
 // ------------------------------------------------------------

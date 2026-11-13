@@ -24,6 +24,75 @@ const EXTRA_POWER = 400;                               // エキストラステ�
 const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
 const MAX_CONTINUES = 3;                               // コンティニューできる回数（2.14.0 でユーザーの指定「上限は３回」）
 
+// ------------------------------------------------------------
+//  ちょこっとプレイ（2.22.0 でユーザーの指定。時短で遊びたい人向け。タイトルの「プラクティス」の下）
+//  本編（1〜6面）を、すべての難易度で遊べる。道中は中ボス以外の時間を 1/3 にし、会話はすべて飛ばし、
+//  ボス戦は下の攻撃を省く。ハイスコアは残さない（ふつうのプレイと比べられないため。Claude の判断）
+// ------------------------------------------------------------
+// 道中：台本の時間を play フレーム遊んで、skip フレームぶんは敵や弾を出さずに飛ばす（くり返す）。中ボスがいるあいだは飛ばさず、数えもしない。
+// 飛ばす区間では「敵がいなくなるまで待つ」ところが長引くので（敵は止まっている）、skip は 2 倍（480）より長くして、
+// 実際の道中の長さがふつうの 1/3 くらいになるように測って決めた（Normal・Lunatic で 31〜38%。テストで確かめている）
+const CHOKOTTO_ROAD = { play: 240, skip: 660, maxPerFrame: 4000 };
+// ボス戦で省く攻撃（ユーザーの指定。Normal を基準に数える：{ non: n } は Normal で n 回目の通常弾幕、{ spell: '名前' } はスペルカード）。
+// Hard・Lunatic だけの攻撃は省かない。エキストラは省かない（指定がないため）
+const CHOKOTTO_CUT = {
+  nokiba: [{ spell: '鬼の視線' }, { non: 2 }],
+  kuraishiro: [{ non: 2 }, { spell: '湧き放題の天井裏' }], // ユーザーの文では「沸き放題」
+  namesawa: [{ non: 2 }, { spell: '勝手口からお暇' }],
+  toganoo: [{ non: 2 }, { spell: '玄関から入れ' }, { non: 3 }, { spell: '大黒柱の屋台骨' }],
+  yanari: [{ non: 2 }, { spell: '崩れる廊下の時間稼ぎ' }, { non: 3 }],
+  zashiki: [{ non: 3 }, { spell: '座敷わらしの足音' }, { non: 4 }, { spell: '去りゆく家の没落' }],
+};
+// ボスの攻撃の一覧（phases）から、ちょこっとプレイで省く攻撃を選ぶ（攻撃そのものの集まりを返す）
+function chokottoCut(id, phases) {
+  const out = new Set();
+  const normal = phases.filter(ph => 1 >= (ph.minDiff || 0));
+  const nons = normal.filter(ph => ph.type === 'non');
+  for (const c of CHOKOTTO_CUT[id] || []) {
+    const ph = c.non ? nons[c.non - 1] : normal.find(x => x.type === 'spell' && x.name && x.name.includes(c.spell));
+    if (ph) out.add(ph);
+  }
+  return out;
+}
+// 道中の台本（ジェネレータ）を、ちょこっとプレイの長さで進める
+function* chokottoRoad(g, gen) {
+  const { play, skip, maxPerFrame } = CHOKOTTO_ROAD, cycle = play + skip;
+  let t = 0, pending = 0; // t：数えた台本の時間。pending：いまの待ちの残り
+  const step = () => {
+    const r = gen.next();
+    if (r.done) return false;
+    pending = typeof r.value === 'number' ? Math.max(1, r.value) : 1;
+    return true;
+  };
+  for (;;) {
+    // 中ボス（と会話）のあいだは、ふつうに進める
+    if (g.boss || g.dialogue) {
+      if (pending <= 0 && !step()) return;
+      yield; pending--;
+      continue;
+    }
+    if (t % cycle < play) {
+      if (pending <= 0 && !step()) return;
+      const w = Math.min(pending, play - (t % cycle));
+      yield w; t += w; pending -= w;
+      continue;
+    }
+    // 飛ばす区間：敵・弾・レーザーを出さずに（g.roadSkip）、台本だけを1フレームのうちに進める
+    let n = 0;
+    while (t % cycle >= play && !g.boss && n < maxPerFrame) {
+      if (pending <= 0) {
+        g.roadSkip = true;
+        const ok = step();
+        g.roadSkip = false;
+        if (!ok) return;
+      }
+      const w = Math.min(pending, cycle - (t % cycle));
+      t += w; pending -= w; n += w;
+    }
+    yield;
+  }
+}
+
 // ボスの体力の倍率（2.12.0 でユーザーの指定「全体の体力を１０％減らす（特にスペカ中）」。通常攻撃は 10%、スペルカードは 20% 減らした）
 const BOSS_HP_SCALE = { non: 0.9, spell: 0.8 };
 
@@ -88,6 +157,8 @@ class GameScene {
     this.opts = opts;
     this.charId = opts.character;
     this.practice = !!opts.practice;
+    this.chokotto = !!opts.chokotto;           // ちょこっとプレイ（2.22.0）
+    this.roadSkip = false;                     // ちょこっとプレイで道中を飛ばしているところ（敵・弾を出さない）
     this.extra = !!opts.extra;                // エキストラステージ
     this.stages = this.extra ? EXTRA_STAGES : STAGES;
     this.extraUnlockedNow = false;            // このプレイでエキストラステージが遊べるようになったか
@@ -184,7 +255,8 @@ class GameScene {
     if (Cheats.on.bossOnly) yield 150;
     else {
       this.inRoad = true;
-      yield* this.stage.script(this);
+      // ちょこっとプレイは、道中の中ボス以外の時間を 1/3 にする
+      yield* (this.chokotto ? chokottoRoad(this, this.stage.script(this)) : this.stage.script(this));
     }
     this.inRoad = false;
     yield* this.stage.boss(this);
@@ -258,7 +330,7 @@ class GameScene {
   // 本編の面が MAIN_STAGE_COUNT 面そろうまでは、最後までクリアしても解放しない
   unlockExtra() {
     if (EXTRA_UNLOCK.open) return false; // はじめから遊べるので、解放の知らせは出さない
-    const ok = !this.extra && !this.practice && !this.cheat && !this.usedKeys
+    const ok = !this.extra && !this.practice && !this.chokotto && !this.cheat && !this.usedKeys
       && this.stageIndex + 1 >= MAIN_STAGE_COUNT
       && DIFF >= EXTRA_UNLOCK.minDiff
       && !(EXTRA_UNLOCK.noContinue && this.continues > 0);
@@ -268,10 +340,10 @@ class GameScene {
     return true;
   }
 
-  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティスは保存しない）。更新したら true
+  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティス・ちょこっとプレイは保存しない）。更新したら true
   saveHiScore() {
     if (this.hiscoreSaved !== null) return this.hiscoreSaved;
-    const ok = !this.practice && !this.cheat && !this.usedKeys && this.continues === 0
+    const ok = !this.practice && !this.chokotto && !this.cheat && !this.usedKeys && this.continues === 0
       && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
     if (ok) Store.set(this.hiKey, Math.floor(this.score));
     this.hiscoreSaved = ok;
@@ -510,7 +582,7 @@ class GameScene {
     this.messages.push({ text, color, sub, frame: 0, life });
     if (this.messages.length > 3) this.messages.shift();
   }
-  showBgmTitle(id) { if (SONGS[id]) this.bgmTitle = { text: SONGS[id].title, frame: 0 }; }
+  showBgmTitle(id) { if (SONGS[id]) this.bgmTitle = { text: songTitle(id), frame: 0 }; }
   showBombName(text) { this.bombName = { text, frame: 0 }; }
 
   onPlayerDeath(x, y) {
@@ -612,6 +684,8 @@ class GameScene {
 
   *talk(lines) {
     this.bullets.cancelAll(true);
+    // ちょこっとプレイは会話を飛ばす（曲・ボスの名前・背景の演出だけは、会話の中の順に起こす）
+    if (this.chokotto) { applyDialogueEffects(lines, this); return; }
     this.dialogue = new Dialogue(lines, this);
     while (!this.dialogue.done) yield;
     this.dialogue = null;
@@ -619,6 +693,8 @@ class GameScene {
 
   *fight(boss, phases) {
     let list = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    // ちょこっとプレイは、決めた攻撃を省く（CHOKOTTO_CUT）
+    if (this.chokotto) { const cut = chokottoCut(boss.id, phases); list = list.filter(ph => !cut.has(ph)); }
     // ボスの攻撃を試すとき（opts.bossTest）は、指定した攻撃から始める
     const bt = this.opts.bossTest;
     if (bt && bt.id === boss.id) list = list.slice(bt.phase - 1, bt.only ? bt.phase : undefined);

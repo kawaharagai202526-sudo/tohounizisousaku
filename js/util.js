@@ -59,7 +59,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.21.0';
+const GAME_VERSION = '2.22.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -175,10 +175,12 @@ function wrapText(ctx, text, maxW) {
 }
 
 // 縁取り付きテキスト
-function strokeText(ctx, text, x, y, fill = '#fff', stroke = 'rgba(0,0,0,0.85)', lw = 3) {
+// maxW：この幅より長いときは横にちぢめる（なければそのまま）
+function strokeText(ctx, text, x, y, fill = '#fff', stroke = 'rgba(0,0,0,0.85)', lw = 3, maxW) {
   ctx.lineJoin = 'round';
   ctx.lineWidth = lw;
   ctx.strokeStyle = stroke;
+  if (maxW) { ctx.strokeText(text, x, y, maxW); ctx.fillStyle = fill; ctx.fillText(text, x, y, maxW); return; }
   ctx.strokeText(text, x, y);
   ctx.fillStyle = fill;
   ctx.fillText(text, x, y);

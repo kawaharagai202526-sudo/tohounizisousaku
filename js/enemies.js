@@ -261,6 +261,8 @@ function drawPillar(ctx, t, side) {
 
 function spawnEnemy(o) {
   const e = new Enemy(o);
+  // ちょこっとプレイで飛ばしている道中は出さない（台本が使えるように、倒れた敵を返す。2.22.0）
+  if (G.roadSkip) { e.alive = false; return e; }
   G.enemies.push(e);
   return e;
 }

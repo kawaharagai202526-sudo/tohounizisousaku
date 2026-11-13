@@ -445,7 +445,7 @@ const GAME_INFO = {
 };
 
 // ゲームの版（package.json の version と同じにする。テストで確かめている）
-const GAME_VERSION = '2.21.0';
+const GAME_VERSION = '2.22.0';
 
 // 難易度 0:Easy 1:Normal 2:Hard 3:Lunatic 4:Extra（エキストラステージだけの難易度。難易度選択には出ない）
 let DIFF = 1;
@@ -561,10 +561,12 @@ function wrapText(ctx, text, maxW) {
 }
 
 // 縁取り付きテキスト
-function strokeText(ctx, text, x, y, fill = '#fff', stroke = 'rgba(0,0,0,0.85)', lw = 3) {
+// maxW：この幅より長いときは横にちぢめる（なければそのまま）
+function strokeText(ctx, text, x, y, fill = '#fff', stroke = 'rgba(0,0,0,0.85)', lw = 3, maxW) {
   ctx.lineJoin = 'round';
   ctx.lineWidth = lw;
   ctx.strokeStyle = stroke;
+  if (maxW) { ctx.strokeText(text, x, y, maxW); ctx.fillStyle = fill; ctx.fillText(text, x, y, maxW); return; }
   ctx.strokeText(text, x, y);
   ctx.fillStyle = fill;
   ctx.fillText(text, x, y);
@@ -2004,6 +2006,7 @@ const SONGS = {
 
   boss4: {
     title: '朽ち果てぬ大黒柱',
+    note: 'エレクトリカルヘルステージ・ラストリモート', // 曲名の右に（）で添える、もとの曲の名前（2.22.0 でユーザーの指定。面に付けた。曲を入れかえたら、曲といっしょに動かす）
     comment: '4面ボス・栂尾 芯のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
     // 音声ファイルの曲（2.18.0 でユーザーの指定。2.4.0〜2.17.x は、もらった動画から作ったアレンジだった）。
     // はじめの入りを1回流してから、くり返しの部分をループする（js/bgmfiles.js の intro。ループの位置は Claude が拍に合わせて決めた）
@@ -2022,6 +2025,7 @@ const SONGS = {
 
   boss5: {
     title: '家鳴りの狂詩曲',
+    note: 'complete darkness', // 曲名の右に（）で添える、もとの曲の名前（2.22.0 でユーザーの指定。面に付けた。曲を入れかえたら、曲といっしょに動かす）。ユーザーの文は「（complete darkness)」で、かっこを全角にそろえた
     comment: '5面ボス・家鳴 鳴音のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
     // 音声ファイルの曲（2.18.0 でユーザーの指定。2.4.0〜2.17.x は、もらった動画から作ったアレンジだった）。入りのあとループする
     // 2.20.3 でユーザーの指定「４面とEXを入れ替える そのあと ５面とEXを入れ替える」で、エキストラボスの曲（2.20.2 からは 2.18.0 の1個目 bgm2_merged）
@@ -2039,6 +2043,7 @@ const SONGS = {
 
   boss6: {
     title: '座敷わらしの家運隆盛',
+    note: '千年幻想郷・神さびた古戦場', // 曲名の右に（）で添える、もとの曲の名前（2.22.0 でユーザーの指定。面に付けた。曲を入れかえたら、曲といっしょに動かす）
     comment: '6面ボス・座敷 宿美のテーマ（曲名は仮）。\nユーザーがくれた曲をそのまま流しています。',
     // 音声ファイルの曲（2.18.0 でユーザーの指定。すべての難易度でこの曲。入りのあとループする）。
     // 2.9.0〜2.17.x は、Lunatic だけ別の曲（boss6lunatic）だった
@@ -2088,6 +2093,13 @@ const SONGS = {
 const MUSIC_ROOM = ['title', 'stage1', 'boss1', 'stage2', 'boss2', 'stage3', 'boss3', 'stage4', 'boss4', 'stage5', 'boss5', 'stage6', 'boss6', 'stageEx', 'bossEx'];
 
 // 難易度で曲を変える（SONGS の byDiff: { 難易度: 曲ID }）。ゲーム中だけ使う（ミュージックルームでは、それぞれの曲がそのまま鳴る）
+// 画面に出す曲名：もとの曲の名前（note）がある曲は、右に（）で添える（2.22.0 でユーザーの指定。ゲーム中の曲名とミュージックルーム）
+function songTitle(id) {
+  const s = SONGS[id];
+  if (!s) return '';
+  return s.note ? `${s.title}（${s.note}）` : s.title;
+}
+
 function songForDiff(id, diff = DIFF) {
   const v = SONGS[id] && SONGS[id].byDiff;
   return (v && v[diff]) || id;
@@ -3194,17 +3206,20 @@ const BG_VEIL = {
   VillageRoofBG: { desat: 0.45, dark: 0.3 },   // 1面
   BugHouseBG: { desat: 0.5, dark: 0.5 },       // 2面
   BackstreetBG: { desat: 0.45, dark: 0.42 },   // 3面
-  RoomsBG: { desat: 0.5, dark: 0.6 },         // 4面
+  // 4面・6面・エキストラは、2.22.0 でユーザーの指定「４，６，EXの背景に色彩を加えるか、前回のものにする」で、色をうすくするのをやめて
+  // もとの色に戻し（暗くするのは残す）、暗さも少し弱めた（2.21.0 は 4面 0.5/0.6・6面 0.6/0.3・エキストラ 0.62/0.32・方位盤 0.55/0.12）
+  RoomsBG: { desat: 0, dark: 0.5 },            // 4面
   CollapseBG: { desat: 0.45, dark: 0.4 },      // 5面
-  RubbleSkyBG: { desat: 0.6, dark: 0.3 },      // 6面
-  DuskRubbleBG: { desat: 0.62, dark: 0.32 },   // エキストラ（西日の人里と瓦礫）
-  CompassRealm: { desat: 0.55, dark: 0.12 },    // エキストラ（方位盤の異界）
+  RubbleSkyBG: { desat: 0, dark: 0.24 },       // 6面
+  DuskRubbleBG: { desat: 0, dark: 0.3 },       // エキストラ（西日の人里と瓦礫）
+  CompassRealm: { desat: 0, dark: 0.1 },       // エキストラ（方位盤の異界）
 };
 // スペルカードの背景は、もとから暗い（明るさの平均 0.05〜0.17）ので、色の濃さを主におさえる（面の色はうすく残す）
 const SPELL_BG_VEIL = {
   kawara: { desat: 0.5, dark: 0.12 }, yamori: { desat: 0.45, dark: 0.1 }, nurari: { desat: 0.45, dark: 0.1 },
-  hashira: { desat: 0.5, dark: 0.35 }, yanari: { desat: 0.5, dark: 0.1 }, ruri: { desat: 0.55, dark: 0.1 },
-  konjin: { desat: 0.5, dark: 0.25 }, zashiki: { desat: 0.45, dark: 0.12 }, ichimatsu: { desat: 0.5, dark: 0.1 },
+  // 4面（hashira・ichimatsu）・6面（zashiki）・エキストラ（konjin）のスペルカードの背景も、2.22.0 で色を戻した
+  hashira: { desat: 0, dark: 0.3 }, yanari: { desat: 0.5, dark: 0.1 }, ruri: { desat: 0.55, dark: 0.1 },
+  konjin: { desat: 0, dark: 0.22 }, zashiki: { desat: 0, dark: 0.1 }, ichimatsu: { desat: 0, dark: 0.1 },
 };
 const BG_VEIL_DEFAULT = { desat: 0.45, dark: 0.35 };
 // いまの背景の層の強さ（エキストラは方位盤の異界に移るあいだ、だんだん変える）
@@ -5334,6 +5349,8 @@ let SHOOTER = null;
 
 // 弾を撃つ。o.silent なら音を鳴らさない。o.se で音を選べる（ふつうは 'fire'＝もらった音「m」。針は 'needle'、鬼面は 'oni' など。2.17.0）
 function fire(o) {
+  // ちょこっとプレイで飛ばしている道中は撃たない（台本が使えるように、消えた弾を返す。2.22.0）
+  if (G.roadSkip) { const b = new Bullet().init(o); b.alive = false; return b; }
   if (!o.silent && !(SHOOTER && SHOOTER.quiet)) Sound.se(o.se || 'fire');
   return G.bullets.spawn(o);
 }
@@ -5360,6 +5377,7 @@ function fireFan(o) {
 }
 function fireLaser(o) {
   const l = new Laser(o);
+  if (G.roadSkip) { l.alive = false; return l; } // ちょこっとプレイで飛ばしている道中（2.22.0）
   G.lasers.push(l);
   return l;
 }
@@ -6515,6 +6533,8 @@ function drawPillar(ctx, t, side) {
 
 function spawnEnemy(o) {
   const e = new Enemy(o);
+  // ちょこっとプレイで飛ばしている道中は出さない（台本が使えるように、倒れた敵を返す。2.22.0）
+  if (G.roadSkip) { e.alive = false; return e; }
   G.enemies.push(e);
   return e;
 }
@@ -6664,6 +6684,18 @@ class Boss {
 // 立ち絵の大きさ（drawPortrait の scale。高さはおよそ scale×56px。会話の枠の後ろに足もとが隠れる）
 const DIALOGUE_PORTRAIT_SCALE = 5;
 
+// 会話の中の演出の行（{ bgm } / { title } / { event }）を起こす
+function dialogueEffect(a, g) {
+  // 難易度で曲が変わることがある（SONGS の byDiff）
+  if (a.bgm) { const id = songForDiff(a.bgm); Sound.playBgm(id); g.showBgmTitle(id); }
+  if (a.title) g.bossTitle = { id: a.title, frame: 0 };
+  if (a.event && g.bg && g.bg.event) g.bg.event(a.event);
+}
+// 会話を飛ばすとき（ちょこっとプレイ。2.22.0）：台詞は出さずに、演出の行だけを順に起こす
+function applyDialogueEffects(lines, g) {
+  for (const a of lines) if (!Array.isArray(a) && !a.narration) dialogueEffect(a, g);
+}
+
 class Dialogue {
   constructor(lines, g) {
     this.lines = lines;
@@ -6681,11 +6713,7 @@ class Dialogue {
   next() {
     this.i++;
     while (this.i < this.lines.length && !Array.isArray(this.lines[this.i]) && !this.lines[this.i].narration) {
-      const a = this.lines[this.i];
-      // 難易度で曲が変わることがある（SONGS の byDiff）
-      if (a.bgm) { const id = songForDiff(a.bgm); Sound.playBgm(id); this.g.showBgmTitle(id); }
-      if (a.title) this.g.bossTitle = { id: a.title, frame: 0 };
-      if (a.event && this.g.bg && this.g.bg.event) this.g.bg.event(a.event);
+      dialogueEffect(this.lines[this.i], this.g);
       this.i++;
     }
     if (this.i >= this.lines.length) { this.done = true; return; }
@@ -6885,10 +6913,10 @@ function drawSidePanel(ctx, g) {
   ctx.font = `italic 700 22px ${FONT_EN}`;
   ctx.textAlign = 'center';
   strokeText(ctx, DIFF_NAMES[DIFF], 522, 38, DIFF_COLORS[DIFF], 'rgba(0,0,0,0.8)', 3);
-  if (g.practice) {
+  if (g.practice || g.chokotto) {
     ctx.font = `12px ${FONT_JP}`;
     ctx.fillStyle = '#b8a8e0';
-    ctx.fillText('― プラクティス ―', 522, 58);
+    ctx.fillText(g.chokotto ? '― ちょこっとプレイ ―' : '― プラクティス ―', 522, 58);
   }
 
   const label = (t, y) => {
@@ -7146,9 +7174,13 @@ function drawMessages(ctx, g) {
   if (g.bgmTitle && g.bgmTitle.frame < 300) {
     const f = g.bgmTitle.frame;
     ctx.globalAlpha = f < 20 ? f / 20 : f > 240 ? (300 - f) / 60 : 1;
-    ctx.font = `600 12px ${FONT_JP}`;
     ctx.textAlign = 'right';
-    strokeText(ctx, '♪ ' + g.bgmTitle.text, FIELD_W - 8, g.dialogue ? 338 : FIELD_H - 20, '#e8e0ff', 'rgba(0,0,0,0.9)', 3);
+    // 曲名が長いとき（もとの曲の名前を（）で添えた曲。2.22.0）は、フィールドの幅に入るように文字を小さくする（9px まで。それでも長ければ横にちぢめる）
+    const text = '♪ ' + g.bgmTitle.text, maxW = FIELD_W - 16;
+    ctx.font = `600 12px ${FONT_JP}`;
+    const w = ctx.measureText(text).width;
+    if (w > maxW) ctx.font = `600 ${Math.max(9, Math.floor((12 * maxW) / w))}px ${FONT_JP}`;
+    strokeText(ctx, text, FIELD_W - 8, g.dialogue ? 338 : FIELD_H - 20, '#e8e0ff', 'rgba(0,0,0,0.9)', 3, maxW);
     ctx.globalAlpha = 1;
   }
   if (g.bombName && g.bombName.frame < 150) {
@@ -7237,6 +7269,75 @@ const EXTRA_POWER = 400;                               // エキストラステ�
 const REVENGE_KINDS = new Set(['fairy', 'foot', 'kedama', 'hand', 'handEye', 'bug', 'bigfairy']);
 const MAX_CONTINUES = 3;                               // コンティニューできる回数（2.14.0 でユーザーの指定「上限は３回」）
 
+// ------------------------------------------------------------
+//  ちょこっとプレイ（2.22.0 でユーザーの指定。時短で遊びたい人向け。タイトルの「プラクティス」の下）
+//  本編（1〜6面）を、すべての難易度で遊べる。道中は中ボス以外の時間を 1/3 にし、会話はすべて飛ばし、
+//  ボス戦は下の攻撃を省く。ハイスコアは残さない（ふつうのプレイと比べられないため。Claude の判断）
+// ------------------------------------------------------------
+// 道中：台本の時間を play フレーム遊んで、skip フレームぶんは敵や弾を出さずに飛ばす（くり返す）。中ボスがいるあいだは飛ばさず、数えもしない。
+// 飛ばす区間では「敵がいなくなるまで待つ」ところが長引くので（敵は止まっている）、skip は 2 倍（480）より長くして、
+// 実際の道中の長さがふつうの 1/3 くらいになるように測って決めた（Normal・Lunatic で 31〜38%。テストで確かめている）
+const CHOKOTTO_ROAD = { play: 240, skip: 660, maxPerFrame: 4000 };
+// ボス戦で省く攻撃（ユーザーの指定。Normal を基準に数える：{ non: n } は Normal で n 回目の通常弾幕、{ spell: '名前' } はスペルカード）。
+// Hard・Lunatic だけの攻撃は省かない。エキストラは省かない（指定がないため）
+const CHOKOTTO_CUT = {
+  nokiba: [{ spell: '鬼の視線' }, { non: 2 }],
+  kuraishiro: [{ non: 2 }, { spell: '湧き放題の天井裏' }], // ユーザーの文では「沸き放題」
+  namesawa: [{ non: 2 }, { spell: '勝手口からお暇' }],
+  toganoo: [{ non: 2 }, { spell: '玄関から入れ' }, { non: 3 }, { spell: '大黒柱の屋台骨' }],
+  yanari: [{ non: 2 }, { spell: '崩れる廊下の時間稼ぎ' }, { non: 3 }],
+  zashiki: [{ non: 3 }, { spell: '座敷わらしの足音' }, { non: 4 }, { spell: '去りゆく家の没落' }],
+};
+// ボスの攻撃の一覧（phases）から、ちょこっとプレイで省く攻撃を選ぶ（攻撃そのものの集まりを返す）
+function chokottoCut(id, phases) {
+  const out = new Set();
+  const normal = phases.filter(ph => 1 >= (ph.minDiff || 0));
+  const nons = normal.filter(ph => ph.type === 'non');
+  for (const c of CHOKOTTO_CUT[id] || []) {
+    const ph = c.non ? nons[c.non - 1] : normal.find(x => x.type === 'spell' && x.name && x.name.includes(c.spell));
+    if (ph) out.add(ph);
+  }
+  return out;
+}
+// 道中の台本（ジェネレータ）を、ちょこっとプレイの長さで進める
+function* chokottoRoad(g, gen) {
+  const { play, skip, maxPerFrame } = CHOKOTTO_ROAD, cycle = play + skip;
+  let t = 0, pending = 0; // t：数えた台本の時間。pending：いまの待ちの残り
+  const step = () => {
+    const r = gen.next();
+    if (r.done) return false;
+    pending = typeof r.value === 'number' ? Math.max(1, r.value) : 1;
+    return true;
+  };
+  for (;;) {
+    // 中ボス（と会話）のあいだは、ふつうに進める
+    if (g.boss || g.dialogue) {
+      if (pending <= 0 && !step()) return;
+      yield; pending--;
+      continue;
+    }
+    if (t % cycle < play) {
+      if (pending <= 0 && !step()) return;
+      const w = Math.min(pending, play - (t % cycle));
+      yield w; t += w; pending -= w;
+      continue;
+    }
+    // 飛ばす区間：敵・弾・レーザーを出さずに（g.roadSkip）、台本だけを1フレームのうちに進める
+    let n = 0;
+    while (t % cycle >= play && !g.boss && n < maxPerFrame) {
+      if (pending <= 0) {
+        g.roadSkip = true;
+        const ok = step();
+        g.roadSkip = false;
+        if (!ok) return;
+      }
+      const w = Math.min(pending, cycle - (t % cycle));
+      t += w; pending -= w; n += w;
+    }
+    yield;
+  }
+}
+
 // ボスの体力の倍率（2.12.0 でユーザーの指定「全体の体力を１０％減らす（特にスペカ中）」。通常攻撃は 10%、スペルカードは 20% 減らした）
 const BOSS_HP_SCALE = { non: 0.9, spell: 0.8 };
 
@@ -7301,6 +7402,8 @@ class GameScene {
     this.opts = opts;
     this.charId = opts.character;
     this.practice = !!opts.practice;
+    this.chokotto = !!opts.chokotto;           // ちょこっとプレイ（2.22.0）
+    this.roadSkip = false;                     // ちょこっとプレイで道中を飛ばしているところ（敵・弾を出さない）
     this.extra = !!opts.extra;                // エキストラステージ
     this.stages = this.extra ? EXTRA_STAGES : STAGES;
     this.extraUnlockedNow = false;            // このプレイでエキストラステージが遊べるようになったか
@@ -7397,7 +7500,8 @@ class GameScene {
     if (Cheats.on.bossOnly) yield 150;
     else {
       this.inRoad = true;
-      yield* this.stage.script(this);
+      // ちょこっとプレイは、道中の中ボス以外の時間を 1/3 にする
+      yield* (this.chokotto ? chokottoRoad(this, this.stage.script(this)) : this.stage.script(this));
     }
     this.inRoad = false;
     yield* this.stage.boss(this);
@@ -7471,7 +7575,7 @@ class GameScene {
   // 本編の面が MAIN_STAGE_COUNT 面そろうまでは、最後までクリアしても解放しない
   unlockExtra() {
     if (EXTRA_UNLOCK.open) return false; // はじめから遊べるので、解放の知らせは出さない
-    const ok = !this.extra && !this.practice && !this.cheat && !this.usedKeys
+    const ok = !this.extra && !this.practice && !this.chokotto && !this.cheat && !this.usedKeys
       && this.stageIndex + 1 >= MAIN_STAGE_COUNT
       && DIFF >= EXTRA_UNLOCK.minDiff
       && !(EXTRA_UNLOCK.noContinue && this.continues > 0);
@@ -7481,10 +7585,10 @@ class GameScene {
     return true;
   }
 
-  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティスは保存しない）。更新したら true
+  // ハイスコアを保存する（キーを使ったプレイ・コンティニューしたプレイ・プラクティス・ちょこっとプレイは保存しない）。更新したら true
   saveHiScore() {
     if (this.hiscoreSaved !== null) return this.hiscoreSaved;
-    const ok = !this.practice && !this.cheat && !this.usedKeys && this.continues === 0
+    const ok = !this.practice && !this.chokotto && !this.cheat && !this.usedKeys && this.continues === 0
       && this.score > 0 && this.score >= Store.get(this.hiKey, 0);
     if (ok) Store.set(this.hiKey, Math.floor(this.score));
     this.hiscoreSaved = ok;
@@ -7723,7 +7827,7 @@ class GameScene {
     this.messages.push({ text, color, sub, frame: 0, life });
     if (this.messages.length > 3) this.messages.shift();
   }
-  showBgmTitle(id) { if (SONGS[id]) this.bgmTitle = { text: SONGS[id].title, frame: 0 }; }
+  showBgmTitle(id) { if (SONGS[id]) this.bgmTitle = { text: songTitle(id), frame: 0 }; }
   showBombName(text) { this.bombName = { text, frame: 0 }; }
 
   onPlayerDeath(x, y) {
@@ -7825,6 +7929,8 @@ class GameScene {
 
   *talk(lines) {
     this.bullets.cancelAll(true);
+    // ちょこっとプレイは会話を飛ばす（曲・ボスの名前・背景の演出だけは、会話の中の順に起こす）
+    if (this.chokotto) { applyDialogueEffects(lines, this); return; }
     this.dialogue = new Dialogue(lines, this);
     while (!this.dialogue.done) yield;
     this.dialogue = null;
@@ -7832,6 +7938,8 @@ class GameScene {
 
   *fight(boss, phases) {
     let list = phases.filter(ph => DIFF >= (ph.minDiff || 0));
+    // ちょこっとプレイは、決めた攻撃を省く（CHOKOTTO_CUT）
+    if (this.chokotto) { const cut = chokottoCut(boss.id, phases); list = list.filter(ph => !cut.has(ph)); }
     // ボスの攻撃を試すとき（opts.bossTest）は、指定した攻撃から始める
     const bt = this.opts.bossTest;
     if (bt && bt.id === boss.id) list = list.slice(bt.phase - 1, bt.only ? bt.phase : undefined);
@@ -12497,18 +12605,18 @@ function drawMenuList(ctx, items, sel, x, y, gap, o = {}) {
       ctx.save();
       ctx.shadowColor = disabled ? 'rgba(0,0,0,0)' : 'rgba(255,220,140,0.9)';
       ctx.shadowBlur = 10;
-      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3);
+      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3, o.maxW);
       ctx.restore();
       ctx.fillStyle = '#ffe08a';
       ctx.save();
-      const w = ctx.measureText(label).width;
+      const w = Math.min(ctx.measureText(label).width, o.maxW || Infinity);
       ctx.translate(o.align === 'center' ? px - w / 2 - 16 : px - 16, y + i * gap);
       ctx.rotate(Game.frame * 0.05);
       starPath(ctx, 6, 2.6);
       ctx.fill();
       ctx.restore();
     } else {
-      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3);
+      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3, o.maxW);
     }
     const w = o.hitW || 220;
     rects.push({ x: o.align === 'center' ? x - w / 2 : x - 20, y: y + i * gap - gap / 2, w, h: gap });
@@ -12562,11 +12670,15 @@ const TITLE_ITEMS = [
   { id: 'start', label: 'ゲームスタート' },
   { id: 'extra', label: 'エキストラスタート' }, // 遊べないあいだは暗く表示して、選んでも始まらない（extraPlayable）
   { id: 'practice', label: 'プラクティス' },
+  { id: 'chokotto', label: 'ちょこっとプレイ' }, // 時短で遊ぶ（2.22.0 でユーザーの指定。道中 1/3・会話なし・ボスの攻撃を少し省く。js/game.js の CHOKOTTO_*）
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
-  { id: 'option', label: 'オプション' },
+  // フィードバックとオプションの順は、2.22.0 でユーザーの指定「オプションとフィートバック入れ替え」で入れかえた
   { id: 'feedback', label: 'フィードバック' }, // 開発者へのアドバイス・感想。Google フォームを開く（2.12.0。2.12.3 から入力欄なし）
+  { id: 'option', label: 'オプション' },
 ];
+// ちょこっとプレイの説明（難易度選択の画面に出す）
+const CHOKOTTO_DESC = '道中が短く、会話なし。ボスの攻撃も少し省きます（ハイスコアは残りません）';
 
 class TitleScene {
   // sel は項目の番号か id（'music' など）
@@ -12590,6 +12702,7 @@ class TitleScene {
         case 'start': Game.setScene(new DifficultyScene('game')); break;
         case 'extra': Game.setScene(new CharacterScene('extra', EXTRA_DIFF)); break;
         case 'practice': Game.setScene(new DifficultyScene('practice')); break;
+        case 'chokotto': Game.setScene(new DifficultyScene('chokotto')); break;
         case 'music': Game.setScene(new MusicRoomScene()); break;
         case 'manual': Game.setScene(new ManualScene()); break;
         case 'option': Game.setScene(new OptionScene()); break;
@@ -12625,7 +12738,7 @@ class TitleScene {
     ctx.font = `italic 600 24px ${FONT_EN}`;
     strokeText(ctx, GAME_INFO.subtitle, 420, 184, '#ecd9a0', 'rgba(30,20,50,0.8)', 4);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 232, 30);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 222, 27); // 8 項目（2.22.0 で1つ増えたので、すこし詰めた。前は 232 から 30 おき）
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -12680,14 +12793,20 @@ class DifficultyScene {
       Game.setScene(new CharacterScene(this.mode, this.sel));
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : 'practice'));
+      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : this.mode));
     }
   }
   draw(ctx) {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, this.mode === 'practice' ? '難易度選択（プラクティス）' : '難易度選択', 'Select Difficulty');
+    drawHeading(ctx, this.mode === 'practice' ? '難易度選択（プラクティス）' : this.mode === 'chokotto' ? '難易度選択（ちょこっとプレイ）' : '難易度選択', 'Select Difficulty');
+    if (this.mode === 'chokotto') {
+      ctx.textAlign = 'center';
+      ctx.font = `12px ${FONT_JP}`;
+      ctx.fillStyle = 'rgba(255,236,190,0.9)';
+      ctx.fillText(CHOKOTTO_DESC, SCREEN_W / 2, 96);
+    }
     for (let i = 0; i < 4; i++) {
       const on = i === this.sel;
       const y = 110 + i * 86;
@@ -12744,6 +12863,7 @@ class CharacterScene {
       Store.set('lastChar', id);
       if (this.mode === 'practice') Game.setScene(new StageSelectScene(this.diff, id));
       else if (this.mode === 'extra') Game.setScene(new GameScene({ difficulty: EXTRA_DIFF, character: id, stage: 0, extra: true }));
+      else if (this.mode === 'chokotto') Game.setScene(new GameScene({ difficulty: this.diff, character: id, stage: 0, chokotto: true }));
       else Game.setScene(new GameScene({ difficulty: this.diff, character: id, stage: 0 }));
     } else if (backPressed()) {
       Sound.se('cancel');
@@ -12755,7 +12875,7 @@ class CharacterScene {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, this.mode === 'extra' ? 'キャラクター選択（エキストラ）' : 'キャラクター選択', 'Select Player');
+    drawHeading(ctx, this.mode === 'extra' ? 'キャラクター選択（エキストラ）' : this.mode === 'chokotto' ? 'キャラクター選択（ちょこっとプレイ）' : 'キャラクター選択', 'Select Player');
     this.ids.forEach((id, i) => {
       const on = i === this.sel;
       const { x, y, w, h } = charaPanelRect(i, this.ids.length);
@@ -12886,9 +13006,10 @@ class MusicRoomScene {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     drawHeading(ctx, 'ミュージックルーム', 'Music Room');
-    const items = MUSIC_ROOM.map((id, i) => `${String(i + 1).padStart(2, '0')}. ${SONGS[id].title}` + (Sound.songId === id ? '  ♪' : ''));
+    // 曲名（もとの曲の名前のある曲は、右に（）で添える。2.22.0。長いときは横にちぢめる）
+    const items = MUSIC_ROOM.map((id, i) => `${String(i + 1).padStart(2, '0')}. ${songTitle(id)}` + (Sound.songId === id ? '  ♪' : ''));
     const shown = items.slice(this.top, this.top + MUSIC_ROOM_ROWS);
-    this.rects = drawMenuList(ctx, shown, this.sel - this.top, 70, 112, 30, { size: 16, hitW: 500 });
+    this.rects = drawMenuList(ctx, shown, this.sel - this.top, 70, 112, 30, { size: 16, hitW: 500, maxW: 520 });
     // まだ上や下に曲があるときの印
     ctx.textAlign = 'left';
     ctx.font = `12px ${FONT_JP}`;

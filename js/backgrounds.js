@@ -17,17 +17,20 @@ const BG_VEIL = {
   VillageRoofBG: { desat: 0.45, dark: 0.3 },   // 1面
   BugHouseBG: { desat: 0.5, dark: 0.5 },       // 2面
   BackstreetBG: { desat: 0.45, dark: 0.42 },   // 3面
-  RoomsBG: { desat: 0.5, dark: 0.6 },         // 4面
+  // 4面・6面・エキストラは、2.22.0 でユーザーの指定「４，６，EXの背景に色彩を加えるか、前回のものにする」で、色をうすくするのをやめて
+  // もとの色に戻し（暗くするのは残す）、暗さも少し弱めた（2.21.0 は 4面 0.5/0.6・6面 0.6/0.3・エキストラ 0.62/0.32・方位盤 0.55/0.12）
+  RoomsBG: { desat: 0, dark: 0.5 },            // 4面
   CollapseBG: { desat: 0.45, dark: 0.4 },      // 5面
-  RubbleSkyBG: { desat: 0.6, dark: 0.3 },      // 6面
-  DuskRubbleBG: { desat: 0.62, dark: 0.32 },   // エキストラ（西日の人里と瓦礫）
-  CompassRealm: { desat: 0.55, dark: 0.12 },    // エキストラ（方位盤の異界）
+  RubbleSkyBG: { desat: 0, dark: 0.24 },       // 6面
+  DuskRubbleBG: { desat: 0, dark: 0.3 },       // エキストラ（西日の人里と瓦礫）
+  CompassRealm: { desat: 0, dark: 0.1 },       // エキストラ（方位盤の異界）
 };
 // スペルカードの背景は、もとから暗い（明るさの平均 0.05〜0.17）ので、色の濃さを主におさえる（面の色はうすく残す）
 const SPELL_BG_VEIL = {
   kawara: { desat: 0.5, dark: 0.12 }, yamori: { desat: 0.45, dark: 0.1 }, nurari: { desat: 0.45, dark: 0.1 },
-  hashira: { desat: 0.5, dark: 0.35 }, yanari: { desat: 0.5, dark: 0.1 }, ruri: { desat: 0.55, dark: 0.1 },
-  konjin: { desat: 0.5, dark: 0.25 }, zashiki: { desat: 0.45, dark: 0.12 }, ichimatsu: { desat: 0.5, dark: 0.1 },
+  // 4面（hashira・ichimatsu）・6面（zashiki）・エキストラ（konjin）のスペルカードの背景も、2.22.0 で色を戻した
+  hashira: { desat: 0, dark: 0.3 }, yanari: { desat: 0.5, dark: 0.1 }, ruri: { desat: 0.55, dark: 0.1 },
+  konjin: { desat: 0, dark: 0.22 }, zashiki: { desat: 0, dark: 0.1 }, ichimatsu: { desat: 0, dark: 0.1 },
 };
 const BG_VEIL_DEFAULT = { desat: 0.45, dark: 0.35 };
 // いまの背景の層の強さ（エキストラは方位盤の異界に移るあいだ、だんだん変える）

@@ -19,18 +19,18 @@ function drawMenuList(ctx, items, sel, x, y, gap, o = {}) {
       ctx.save();
       ctx.shadowColor = disabled ? 'rgba(0,0,0,0)' : 'rgba(255,220,140,0.9)';
       ctx.shadowBlur = 10;
-      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3);
+      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3, o.maxW);
       ctx.restore();
       ctx.fillStyle = '#ffe08a';
       ctx.save();
-      const w = ctx.measureText(label).width;
+      const w = Math.min(ctx.measureText(label).width, o.maxW || Infinity);
       ctx.translate(o.align === 'center' ? px - w / 2 - 16 : px - 16, y + i * gap);
       ctx.rotate(Game.frame * 0.05);
       starPath(ctx, 6, 2.6);
       ctx.fill();
       ctx.restore();
     } else {
-      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3);
+      strokeText(ctx, label, px, y + i * gap, col, 'rgba(20,10,40,0.9)', 3, o.maxW);
     }
     const w = o.hitW || 220;
     rects.push({ x: o.align === 'center' ? x - w / 2 : x - 20, y: y + i * gap - gap / 2, w, h: gap });
@@ -84,11 +84,15 @@ const TITLE_ITEMS = [
   { id: 'start', label: 'ゲームスタート' },
   { id: 'extra', label: 'エキストラスタート' }, // 遊べないあいだは暗く表示して、選んでも始まらない（extraPlayable）
   { id: 'practice', label: 'プラクティス' },
+  { id: 'chokotto', label: 'ちょこっとプレイ' }, // 時短で遊ぶ（2.22.0 でユーザーの指定。道中 1/3・会話なし・ボスの攻撃を少し省く。js/game.js の CHOKOTTO_*）
   { id: 'music', label: 'ミュージックルーム' },
   { id: 'manual', label: '操作説明とお話' },
-  { id: 'option', label: 'オプション' },
+  // フィードバックとオプションの順は、2.22.0 でユーザーの指定「オプションとフィートバック入れ替え」で入れかえた
   { id: 'feedback', label: 'フィードバック' }, // 開発者へのアドバイス・感想。Google フォームを開く（2.12.0。2.12.3 から入力欄なし）
+  { id: 'option', label: 'オプション' },
 ];
+// ちょこっとプレイの説明（難易度選択の画面に出す）
+const CHOKOTTO_DESC = '道中が短く、会話なし。ボスの攻撃も少し省きます（ハイスコアは残りません）';
 
 class TitleScene {
   // sel は項目の番号か id（'music' など）
@@ -112,6 +116,7 @@ class TitleScene {
         case 'start': Game.setScene(new DifficultyScene('game')); break;
         case 'extra': Game.setScene(new CharacterScene('extra', EXTRA_DIFF)); break;
         case 'practice': Game.setScene(new DifficultyScene('practice')); break;
+        case 'chokotto': Game.setScene(new DifficultyScene('chokotto')); break;
         case 'music': Game.setScene(new MusicRoomScene()); break;
         case 'manual': Game.setScene(new ManualScene()); break;
         case 'option': Game.setScene(new OptionScene()); break;
@@ -147,7 +152,7 @@ class TitleScene {
     ctx.font = `italic 600 24px ${FONT_EN}`;
     strokeText(ctx, GAME_INFO.subtitle, 420, 184, '#ecd9a0', 'rgba(30,20,50,0.8)', 4);
     ctx.restore();
-    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 232, 30);
+    this.rects = drawMenuList(ctx, this.items, this.sel, 440, 222, 27); // 8 項目（2.22.0 で1つ増えたので、すこし詰めた。前は 232 から 30 おき）
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
@@ -202,14 +207,20 @@ class DifficultyScene {
       Game.setScene(new CharacterScene(this.mode, this.sel));
     } else if (backPressed()) {
       Sound.se('cancel');
-      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : 'practice'));
+      Game.setScene(new TitleScene(this.mode === 'game' ? 'start' : this.mode));
     }
   }
   draw(ctx) {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(0,0,0,0.3)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, this.mode === 'practice' ? '難易度選択（プラクティス）' : '難易度選択', 'Select Difficulty');
+    drawHeading(ctx, this.mode === 'practice' ? '難易度選択（プラクティス）' : this.mode === 'chokotto' ? '難易度選択（ちょこっとプレイ）' : '難易度選択', 'Select Difficulty');
+    if (this.mode === 'chokotto') {
+      ctx.textAlign = 'center';
+      ctx.font = `12px ${FONT_JP}`;
+      ctx.fillStyle = 'rgba(255,236,190,0.9)';
+      ctx.fillText(CHOKOTTO_DESC, SCREEN_W / 2, 96);
+    }
     for (let i = 0; i < 4; i++) {
       const on = i === this.sel;
       const y = 110 + i * 86;
@@ -266,6 +277,7 @@ class CharacterScene {
       Store.set('lastChar', id);
       if (this.mode === 'practice') Game.setScene(new StageSelectScene(this.diff, id));
       else if (this.mode === 'extra') Game.setScene(new GameScene({ difficulty: EXTRA_DIFF, character: id, stage: 0, extra: true }));
+      else if (this.mode === 'chokotto') Game.setScene(new GameScene({ difficulty: this.diff, character: id, stage: 0, chokotto: true }));
       else Game.setScene(new GameScene({ difficulty: this.diff, character: id, stage: 0 }));
     } else if (backPressed()) {
       Sound.se('cancel');
@@ -277,7 +289,7 @@ class CharacterScene {
     menuBG().draw(ctx);
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
-    drawHeading(ctx, this.mode === 'extra' ? 'キャラクター選択（エキストラ）' : 'キャラクター選択', 'Select Player');
+    drawHeading(ctx, this.mode === 'extra' ? 'キャラクター選択（エキストラ）' : this.mode === 'chokotto' ? 'キャラクター選択（ちょこっとプレイ）' : 'キャラクター選択', 'Select Player');
     this.ids.forEach((id, i) => {
       const on = i === this.sel;
       const { x, y, w, h } = charaPanelRect(i, this.ids.length);
@@ -408,9 +420,10 @@ class MusicRoomScene {
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
     ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
     drawHeading(ctx, 'ミュージックルーム', 'Music Room');
-    const items = MUSIC_ROOM.map((id, i) => `${String(i + 1).padStart(2, '0')}. ${SONGS[id].title}` + (Sound.songId === id ? '  ♪' : ''));
+    // 曲名（もとの曲の名前のある曲は、右に（）で添える。2.22.0。長いときは横にちぢめる）
+    const items = MUSIC_ROOM.map((id, i) => `${String(i + 1).padStart(2, '0')}. ${songTitle(id)}` + (Sound.songId === id ? '  ♪' : ''));
     const shown = items.slice(this.top, this.top + MUSIC_ROOM_ROWS);
-    this.rects = drawMenuList(ctx, shown, this.sel - this.top, 70, 112, 30, { size: 16, hitW: 500 });
+    this.rects = drawMenuList(ctx, shown, this.sel - this.top, 70, 112, 30, { size: 16, hitW: 500, maxW: 520 });
     // まだ上や下に曲があるときの印
     ctx.textAlign = 'left';
     ctx.font = `12px ${FONT_JP}`;

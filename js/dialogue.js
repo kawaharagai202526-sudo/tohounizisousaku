@@ -9,6 +9,18 @@
 // 立ち絵の大きさ（drawPortrait の scale。高さはおよそ scale×56px。会話の枠の後ろに足もとが隠れる）
 const DIALOGUE_PORTRAIT_SCALE = 5;
 
+// 会話の中の演出の行（{ bgm } / { title } / { event }）を起こす
+function dialogueEffect(a, g) {
+  // 難易度で曲が変わることがある（SONGS の byDiff）
+  if (a.bgm) { const id = songForDiff(a.bgm); Sound.playBgm(id); g.showBgmTitle(id); }
+  if (a.title) g.bossTitle = { id: a.title, frame: 0 };
+  if (a.event && g.bg && g.bg.event) g.bg.event(a.event);
+}
+// 会話を飛ばすとき（ちょこっとプレイ。2.22.0）：台詞は出さずに、演出の行だけを順に起こす
+function applyDialogueEffects(lines, g) {
+  for (const a of lines) if (!Array.isArray(a) && !a.narration) dialogueEffect(a, g);
+}
+
 class Dialogue {
   constructor(lines, g) {
     this.lines = lines;
@@ -26,11 +38,7 @@ class Dialogue {
   next() {
     this.i++;
     while (this.i < this.lines.length && !Array.isArray(this.lines[this.i]) && !this.lines[this.i].narration) {
-      const a = this.lines[this.i];
-      // 難易度で曲が変わることがある（SONGS の byDiff）
-      if (a.bgm) { const id = songForDiff(a.bgm); Sound.playBgm(id); this.g.showBgmTitle(id); }
-      if (a.title) this.g.bossTitle = { id: a.title, frame: 0 };
-      if (a.event && this.g.bg && this.g.bg.event) this.g.bg.event(a.event);
+      dialogueEffect(this.lines[this.i], this.g);
       this.i++;
     }
     if (this.i >= this.lines.length) { this.done = true; return; }
